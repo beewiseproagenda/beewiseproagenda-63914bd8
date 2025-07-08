@@ -118,22 +118,40 @@ export default function Financeiro() {
   };
 
   const onSubmitReceita = (data: z.infer<typeof receitaSchema>) => {
+    const receitaData = {
+      data: data.data,
+      valor: data.valor,
+      descricao: data.descricao,
+      categoria: data.categoria,
+      formaPagamento: data.formaPagamento,
+      observacoes: data.observacoes || "",
+    };
+
     if (editingReceita) {
-      atualizarReceita(editingReceita, data);
+      atualizarReceita(editingReceita, receitaData);
       setEditingReceita(null);
     } else {
-      adicionarReceita(data);
+      adicionarReceita(receitaData);
     }
     receitaForm.reset();
     setOpenReceitaDialog(false);
   };
 
   const onSubmitDespesa = (data: z.infer<typeof despesaSchema>) => {
+    const despesaData = {
+      data: data.data,
+      valor: data.valor,
+      descricao: data.descricao,
+      categoria: data.categoria,
+      tipo: data.tipo,
+      observacoes: data.observacoes || "",
+    };
+
     if (editingDespesa) {
-      atualizarDespesa(editingDespesa, data);
+      atualizarDespesa(editingDespesa, despesaData);
       setEditingDespesa(null);
     } else {
-      adicionarDespesa(data);
+      adicionarDespesa(despesaData);
     }
     despesaForm.reset();
     setOpenDespesaDialog(false);

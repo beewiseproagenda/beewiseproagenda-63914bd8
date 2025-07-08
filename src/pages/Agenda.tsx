@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Plus, Calendar as CalendarIcon, Clock, User, Pencil, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,11 +63,23 @@ export default function Agenda() {
   };
 
   const onSubmit = (data: z.infer<typeof atendimentoSchema>) => {
+    const atendimentoData = {
+      data: data.data,
+      hora: data.hora,
+      clienteId: data.clienteId,
+      clienteNome: data.clienteNome,
+      servico: data.servico,
+      valor: data.valor,
+      formaPagamento: data.formaPagamento,
+      status: data.status,
+      observacoes: data.observacoes || "",
+    };
+
     if (editingAtendimento) {
-      atualizarAtendimento(editingAtendimento, data);
+      atualizarAtendimento(editingAtendimento, atendimentoData);
       setEditingAtendimento(null);
     } else {
-      adicionarAtendimento(data);
+      adicionarAtendimento(atendimentoData);
     }
     form.reset();
     setOpenDialog(false);
