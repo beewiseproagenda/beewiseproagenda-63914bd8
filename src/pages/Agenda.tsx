@@ -1,359 +1,457 @@
 
-import React, { useState } from 'react';
-import { Calendar, Clock, Plus, User, DollarSign, CreditCard, FileText } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Plus, Calendar as CalendarIcon, Clock, User, Pencil, Trash2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { useMobData } from '@/hooks/useMobData';
-import { Atendimento, FormaPagamento } from '@/types';
-import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMobData } from "@/hooks/useMobData";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import type { FormaPagamento } from "@/types";
 
-const formasPagamento: { value: FormaPagamento; label: string }[] = [
-  { value: 'dinheiro', label: 'Dinheiro' },
-  { value: 'pix', label: 'PIX' },
-  { value: 'cartao_debito', label: 'Cartão de Débito' },
-  { value: 'cartao_credito', label: 'Cartão de Crédito' },
-  { value: 'transferencia', label: 'Transferência' },
-  { value: 'outro', label: 'Outro' },
-];
+const atendimentoSchema = z.object({
+  data: z.date(),
+  hora: z.string().min(1, "Hora é obrigatória"),
+  clienteId: z.string().min(1, "Cliente é obrigatório"),
+  clienteNome: z.string().min(1, "Nome do cliente é obrigatório"),
+  servico: z.string().min(1, "Serviço é obrigatório"),
+  valor: z.number().min(0, "Valor deve ser positivo"),
+  formaPagamento: z.enum(['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'transferencia', 'outro'] as const),
+  status: z.enum(['agendado', 'realizado', 'cancelado'] as const),
+  observacoes: z.string().optional(),
+});
 
 export default function Agenda() {
-  const { atendimentos, clientes, adicionarAtendimento, atualizarAtendimento } = useMobData();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingAtendimento, setEditingAtendimento] = useState<Atendimento | null>(null);
+  const { atendimentos, clientes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useMobData();
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingAtendimento, setEditingAtendimento] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
 
-  const [formData, setFormData] = useState({
-    data: new Date().toISOString().split('T')[0],
-    hora: '',
-    clienteId: '',
-    clienteNome: '',
-    servico: '',
-    valor: '',
-    formaPagamento: '' as FormaPagamento,
-    observacoes: '',
-    status: 'agendado' as const,
+  const form = useForm<z.infer<typeof atendimentoSchema>>({
+    resolver: zodResolver(atendimentoSchema),
+    defaultValues: {
+      data: new Date(),
+      hora: "",
+      clienteId: "",
+      clienteNome: "",
+      servico: "",
+      valor: 0,
+      formaPagamento: "pix" as FormaPagamento,
+      status: "agendado" as const,
+      observacoes: "",
+    },
   });
 
-  const resetForm = () => {
-    setFormData({
-      data: new Date().toISOString().split('T')[0],
-      hora: '',
-      clienteId: '',
-      clienteNome: '',
-      servico: '',
-      valor: '',
-      formaPagamento: '' as FormaPagamento,
-      observacoes: '',
-      status: 'agendado',
-    });
-    setEditingAtendimento(null);
-    setIsFormOpen(false);
+  const clienteSelecionado = form.watch("clienteId");
+
+  // Atualizar nome do cliente quando um cliente é selecionado
+  const handleClienteChange = (clienteId: string) => {
+    const cliente = clientes.find(c => c.id === clienteId);
+    if (cliente) {
+      form.setValue("clienteNome", cliente.nome);
+    }
+    form.setValue("clienteId", clienteId);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.data || !formData.hora || !formData.clienteNome || !formData.servico || !formData.valor) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-
-    const novoAtendimento = {
-      data: new Date(formData.data),
-      hora: formData.hora,
-      clienteId: formData.clienteId || Date.now().toString(),
-      clienteNome: formData.clienteNome,
-      servico: formData.servico,
-      valor: parseFloat(formData.valor),
-      formaPagamento: formData.formaPagamento,
-      observacoes: formData.observacoes,
-      status: formData.status,
-    };
-
+  const onSubmit = (data: z.infer<typeof atendimentoSchema>) => {
     if (editingAtendimento) {
-      atualizarAtendimento(editingAtendimento.id, novoAtendimento);
-      toast.success("Atendimento atualizado com sucesso!");
+      atualizarAtendimento(editingAtendimento, data);
+      setEditingAtendimento(null);
     } else {
-      adicionarAtendimento(novoAtendimento);
-      toast.success("Atendimento agendado com sucesso!");
+      adicionarAtendimento(data);
     }
-
-    resetForm();
+    form.reset();
+    setOpenDialog(false);
   };
 
-  const editarAtendimento = (atendimento: Atendimento) => {
-    setEditingAtendimento(atendimento);
-    setFormData({
-      data: new Date(atendimento.data).toISOString().split('T')[0],
+  const editarAtendimento = (atendimento: any) => {
+    setEditingAtendimento(atendimento.id);
+    form.reset({
+      data: new Date(atendimento.data),
       hora: atendimento.hora,
       clienteId: atendimento.clienteId,
       clienteNome: atendimento.clienteNome,
       servico: atendimento.servico,
-      valor: atendimento.valor.toString(),
+      valor: atendimento.valor,
       formaPagamento: atendimento.formaPagamento,
-      observacoes: atendimento.observacoes || '',
       status: atendimento.status,
+      observacoes: atendimento.observacoes || "",
     });
-    setIsFormOpen(true);
+    setOpenDialog(true);
+  };
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'realizado': return 'bg-green-100 text-green-800 border-green-200';
-      case 'cancelado': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'agendado': return 'text-blue-500';
+      case 'realizado': return 'text-green-500';
+      case 'cancelado': return 'text-red-500';
+      default: return 'text-muted-foreground';
     }
   };
 
-  const atendimentosOrdenados = [...atendimentos].sort((a, b) => {
-    const dataA = new Date(`${a.data} ${a.hora}`).getTime();
-    const dataB = new Date(`${b.data} ${b.hora}`).getTime();
-    return dataB - dataA;
-  });
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'agendado': return 'Agendado';
+      case 'realizado': return 'Realizado';
+      case 'cancelado': return 'Cancelado';
+      default: return status;
+    }
+  };
+
+  const getFormaPagamentoLabel = (forma: FormaPagamento) => {
+    const labels = {
+      dinheiro: 'Dinheiro',
+      pix: 'PIX',
+      cartao_debito: 'Cartão Débito',
+      cartao_credito: 'Cartão Crédito',
+      transferencia: 'Transferência',
+      outro: 'Outro'
+    };
+    return labels[forma] || forma;
+  };
+
+  const atendimentosFiltrados = atendimentos.filter(atendimento =>
+    atendimento.clienteNome.toLowerCase().includes(busca.toLowerCase()) ||
+    atendimento.servico.toLowerCase().includes(busca.toLowerCase())
+  );
+
+  const atendimentosOrdenados = atendimentosFiltrados.sort((a, b) => 
+    new Date(b.data).getTime() - new Date(a.data).getTime()
+  );
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Agenda</h1>
-          <p className="text-muted-foreground">Gerencie seus atendimentos e compromissos</p>
+          <p className="text-muted-foreground">
+            Gerencie seus atendimentos e compromissos
+          </p>
         </div>
-        <Button 
-          onClick={() => setIsFormOpen(true)}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Novo Atendimento
-        </Button>
-      </div>
-
-      <Tabs defaultValue="lista" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="lista">Lista de Atendimentos</TabsTrigger>
-          <TabsTrigger value="calendario">Calendário</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="lista" className="space-y-4">
-          {atendimentosOrdenados.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">Nenhum atendimento agendado</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  Comece criando seu primeiro atendimento
-                </p>
-                <Button onClick={() => setIsFormOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Novo Atendimento
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {atendimentosOrdenados.map((atendimento) => (
-                <Card key={atendimento.id} className="hover:bg-card/80 transition-colors">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">
-                              {new Date(atendimento.data).toLocaleDateString('pt-BR')}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>{atendimento.hora}</span>
-                          </div>
-                          <Badge className={getStatusColor(atendimento.status)}>
-                            {atendimento.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium">{atendimento.clienteNome}</span>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-muted-foreground">{atendimento.servico}</span>
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="h-4 w-4 text-green-600" />
-                            <span className="font-bold text-green-600">
-                              R$ {atendimento.valor.toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => editarAtendimento(atendimento)}
-                      >
-                        Editar
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="calendario">
-          <Card>
-            <CardContent className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground mb-2">Calendário em desenvolvimento</h3>
-                <p className="text-muted-foreground">
-                  A visualização em calendário estará disponível em breve
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
+        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Atendimento
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
                 {editingAtendimento ? 'Editar Atendimento' : 'Novo Atendimento'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="data">Data *</Label>
-                    <Input
-                      id="data"
-                      type="date"
-                      value={formData.data}
-                      onChange={(e) => setFormData({ ...formData, data: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="hora">Hora *</Label>
-                    <Input
-                      id="hora"
-                      type="time"
-                      value={formData.hora}
-                      onChange={(e) => setFormData({ ...formData, hora: e.target.value })}
-                      required
-                    />
-                  </div>
-                </div>
+              </DialogTitle>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="data"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Data</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full pl-3 text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, "PPP", { locale: undefined })
+                              ) : (
+                                <span>Selecione uma data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                            className="pointer-events-auto"
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div>
-                  <Label htmlFor="clienteNome">Nome do Cliente *</Label>
-                  <Input
-                    id="clienteNome"
-                    value={formData.clienteNome}
-                    onChange={(e) => setFormData({ ...formData, clienteNome: e.target.value })}
-                    placeholder="Digite o nome do cliente"
-                    required
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="hora"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hora</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div>
-                  <Label htmlFor="servico">Serviço *</Label>
-                  <Input
-                    id="servico"
-                    value={formData.servico}
-                    onChange={(e) => setFormData({ ...formData, servico: e.target.value })}
-                    placeholder="Ex: Consulta, Terapia, Treinamento..."
-                    required
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="clienteId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cliente</FormLabel>
+                      <Select onValueChange={handleClienteChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um cliente" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {clientes.map((cliente) => (
+                            <SelectItem key={cliente.id} value={cliente.id}>
+                              {cliente.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="valor">Valor *</Label>
-                    <Input
-                      id="valor"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.valor}
-                      onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
-                      placeholder="0,00"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="formaPagamento">Forma de Pagamento</Label>
-                    <Select
-                      value={formData.formaPagamento}
-                      onValueChange={(value: FormaPagamento) => 
-                        setFormData({ ...formData, formaPagamento: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {formasPagamento.map((forma) => (
-                          <SelectItem key={forma.value} value={forma.value}>
-                            {forma.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="servico"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Serviço</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="Ex: Consulta, Terapia..." />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Select
-                    value={formData.status}
-                    onValueChange={(value: 'agendado' | 'realizado' | 'cancelado') => 
-                      setFormData({ ...formData, status: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="agendado">Agendado</SelectItem>
-                      <SelectItem value="realizado">Realizado</SelectItem>
-                      <SelectItem value="cancelado">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <FormField
+                  control={form.control}
+                  name="valor"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor (R$)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div>
-                  <Label htmlFor="observacoes">Observações</Label>
-                  <Textarea
-                    id="observacoes"
-                    value={formData.observacoes}
-                    onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                    placeholder="Observações adicionais..."
-                    rows={3}
-                  />
-                </div>
+                <FormField
+                  control={form.control}
+                  name="formaPagamento"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Forma de Pagamento</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a forma de pagamento" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="dinheiro">Dinheiro</SelectItem>
+                          <SelectItem value="pix">PIX</SelectItem>
+                          <SelectItem value="cartao_debito">Cartão Débito</SelectItem>
+                          <SelectItem value="cartao_credito">Cartão Crédito</SelectItem>
+                          <SelectItem value="transferencia">Transferência</SelectItem>
+                          <SelectItem value="outro">Outro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                <div className="flex gap-2 pt-4">
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="agendado">Agendado</SelectItem>
+                          <SelectItem value="realizado">Realizado</SelectItem>
+                          <SelectItem value="cancelado">Cancelado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="observacoes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Observações</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="flex gap-2">
                   <Button type="submit" className="flex-1">
                     {editingAtendimento ? 'Atualizar' : 'Agendar'}
                   </Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setOpenDialog(false);
+                      setEditingAtendimento(null);
+                      form.reset();
+                    }}
+                  >
                     Cancelar
                   </Button>
                 </div>
               </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Busca */}
+      <Card className="bg-card border-border">
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Buscar por cliente ou serviço..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lista de Atendimentos */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Atendimentos</h2>
+        {atendimentosOrdenados.length === 0 ? (
+          <Card className="bg-card border-border">
+            <CardContent className="flex flex-col items-center justify-center py-8">
+              <CalendarIcon className="h-12 w-12 text-muted-foreground mb-4" />
+              <p className="text-muted-foreground text-center">
+                {busca ? 'Nenhum atendimento encontrado' : 'Nenhum atendimento agendado'}
+              </p>
             </CardContent>
           </Card>
-        </div>
-      )}
+        ) : (
+          <div className="grid gap-4">
+            {atendimentosOrdenados.map((atendimento) => (
+              <Card key={atendimento.id} className="bg-card border-border">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-4 mb-2">
+                        <div className="flex items-center gap-2">
+                          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">
+                            {new Date(atendimento.data).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm">{atendimento.hora}</span>
+                        </div>
+                        <span className={`text-sm font-medium ${getStatusColor(atendimento.status)}`}>
+                          {getStatusLabel(atendimento.status)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-medium">{atendimento.clienteNome}</span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            {atendimento.servico} • {getFormaPagamentoLabel(atendimento.formaPagamento)}
+                          </p>
+                          {atendimento.observacoes && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {atendimento.observacoes}
+                            </p>
+                          )}
+                        </div>
+                        <span className="font-bold text-lg">
+                          {formatCurrency(atendimento.valor)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2 ml-4">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => editarAtendimento(atendimento)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removerAtendimento(atendimento.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

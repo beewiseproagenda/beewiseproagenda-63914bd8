@@ -16,7 +16,7 @@ export interface Atendimento {
   clienteNome: string;
   servico: string;
   valor: number;
-  formaPagamento: string;
+  formaPagamento: FormaPagamento;
   observacoes?: string;
   status: 'agendado' | 'realizado' | 'cancelado';
 }
@@ -26,8 +26,19 @@ export interface Despesa {
   data: Date;
   valor: number;
   descricao: string;
-  categoria: string;
+  categoria: CategoriaDespesa;
   tipo: 'fixa' | 'variavel';
+  observacoes?: string;
+}
+
+export interface Receita {
+  id: string;
+  data: Date;
+  valor: number;
+  descricao: string;
+  categoria: CategoriaReceita;
+  formaPagamento: FormaPagamento;
+  observacoes?: string;
 }
 
 export interface DadosFinanceiros {
@@ -45,4 +56,6 @@ export interface DadosFinanceiros {
 
 export type FormaPagamento = 'dinheiro' | 'pix' | 'cartao_debito' | 'cartao_credito' | 'transferencia' | 'outro';
 
-export type CategoriaDespesa = 'aluguel' | 'internet' | 'marketing' | 'equipamentos' | 'transporte' | 'alimentacao' | 'outros';
+export type CategoriaDespesa = 'aluguel' | 'internet' | 'marketing' | 'equipamentos' | 'transporte' | 'alimentacao' | 'sistema' | 'aplicativos' | 'servico_contratado' | 'outros';
+
+export type CategoriaReceita = 'servico_prestado' | 'atendimento' | 'consultoria' | 'curso' | 'produto' | 'outros';

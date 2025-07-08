@@ -1,12 +1,12 @@
-
 import { useState, useEffect } from 'react';
-import { Cliente, Atendimento, Despesa, DadosFinanceiros } from '@/types';
+import { Cliente, Atendimento, Despesa, Receita, DadosFinanceiros } from '@/types';
 import { useLocalStorage } from './useLocalStorage';
 
 export function useMobData() {
   const [clientes, setClientes] = useLocalStorage<Cliente[]>('mob-clientes', []);
   const [atendimentos, setAtendimentos] = useLocalStorage<Atendimento[]>('mob-atendimentos', []);
   const [despesas, setDespesas] = useLocalStorage<Despesa[]>('mob-despesas', []);
+  const [receitas, setReceitas] = useLocalStorage<Receita[]>('mob-receitas', []);
 
   // Funções para clientes
   const adicionarCliente = (cliente: Omit<Cliente, 'id' | 'criadoEm'>) => {
@@ -80,14 +80,36 @@ export function useMobData() {
     setDespesas(prev => prev.filter(despesa => despesa.id !== id));
   };
 
+  // Funções para receitas
+  const adicionarReceita = (receita: Omit<Receita, 'id'>) => {
+    const novaReceita: Receita = {
+      ...receita,
+      id: Date.now().toString(),
+    };
+    setReceitas(prev => [...prev, novaReceita]);
+    return novaReceita;
+  };
+
+  const atualizarReceita = (id: string, dadosAtualizados: Partial<Receita>) => {
+    setReceitas(prev => 
+      prev.map(receita => 
+        receita.id === id ? { ...receita, ...dadosAtualizados } : receita
+      )
+    );
+  };
+
+  const removerReceita = (id: string) => {
+    setReceitas(prev => prev.filter(receita => receita.id !== id));
+  };
+
   // Calcular dados financeiros
   const calcularDadosFinanceiros = (): DadosFinanceiros => {
     const agora = new Date();
     const mesAtual = agora.getMonth();
     const anoAtual = agora.getFullYear();
 
-    // Receita do mês atual
-    const receitaMesAtual = atendimentos
+    // Receita do mês atual (atendimentos + receitas manuais)
+    const receitaAtendimentos = atendimentos
       .filter(a => {
         const dataAtendimento = new Date(a.data);
         return dataAtendimento.getMonth() === mesAtual && 
@@ -95,6 +117,16 @@ export function useMobData() {
                a.status === 'realizado';
       })
       .reduce((total, a) => total + a.valor, 0);
+
+    const receitaManual = receitas
+      .filter(r => {
+        const dataReceita = new Date(r.data);
+        return dataReceita.getMonth() === mesAtual && 
+               dataReceita.getFullYear() === anoAtual;
+      })
+      .reduce((total, r) => total + r.valor, 0);
+
+    const receitaMesAtual = receitaAtendimentos + receitaManual;
 
     // Despesas do mês atual
     const despesasMesAtual = despesas
@@ -111,7 +143,7 @@ export function useMobData() {
       const data = new Date(anoAtual, mesAtual - i, 1);
       const mes = data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
       
-      const receitaMes = atendimentos
+      const receitaAtendimentosMes = atendimentos
         .filter(a => {
           const dataAtendimento = new Date(a.data);
           return dataAtendimento.getMonth() === data.getMonth() && 
@@ -119,6 +151,16 @@ export function useMobData() {
                  a.status === 'realizado';
         })
         .reduce((total, a) => total + a.valor, 0);
+
+      const receitaManualMes = receitas
+        .filter(r => {
+          const dataReceita = new Date(r.data);
+          return dataReceita.getMonth() === data.getMonth() && 
+                 dataReceita.getFullYear() === data.getFullYear();
+        })
+        .reduce((total, r) => total + r.valor, 0);
+
+      const receitaMes = receitaAtendimentosMes + receitaManualMes;
 
       const despesasMes = despesas
         .filter(d => {
@@ -155,8 +197,10 @@ export function useMobData() {
 
     return {
       receitaMesAtual,
-      receitaMediaMensal,
-      projecaoProximoMes,
+      receitaMediaMensal: historicoMensal.length > 0 
+        ? historicoMensal.reduce((total, h) => total + h.receita, 0) / historicoMensal.length
+        : 0,
+      projecaoProximoMes: (receitaAtendimentos + receitaManual) * (30 / 28),
       lucroLiquido: receitaMesAtual - despesasMesAtual,
       totalDespesas: despesasMesAtual,
       historicoMensal,
@@ -168,6 +212,7 @@ export function useMobData() {
     clientes,
     atendimentos,
     despesas,
+    receitas,
     dadosFinanceiros: calcularDadosFinanceiros(),
     
     // Ações para clientes
@@ -184,5 +229,10 @@ export function useMobData() {
     adicionarDespesa,
     atualizarDespesa,
     removerDespesa,
+    
+    // Ações para receitas
+    adicionarReceita,
+    atualizarReceita,
+    removerReceita,
   };
 }
