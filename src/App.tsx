@@ -8,6 +8,8 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Menu } from "lucide-react";
 import Dashboard from "./pages/Dashboard";
+import Agenda from "./pages/Agenda";
+import Clientes from "./pages/Clientes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,8 +37,8 @@ const App = () => (
               <main className="flex-1 overflow-auto">
                 <Routes>
                   <Route path="/" element={<Dashboard />} />
-                  <Route path="/agenda" element={<Dashboard />} />
-                  <Route path="/clientes" element={<Dashboard />} />
+                  <Route path="/agenda" element={<Agenda />} />
+                  <Route path="/clientes" element={<Clientes />} />
                   <Route path="/financeiro" element={<Dashboard />} />
                   <Route path="/relatorios" element={<Dashboard />} />
                   <Route path="/configuracoes" element={<Dashboard />} />
