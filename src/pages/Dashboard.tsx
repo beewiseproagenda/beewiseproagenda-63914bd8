@@ -80,18 +80,16 @@ export default function Dashboard() {
     if (historicoMensal.length === 0) {
       return {
         mediaFaturamento: 0,
-        mediaReceita: 0,
         mediaDespesas: 0
       };
     }
 
-    const totalReceita = historicoMensal.reduce((acc, item) => acc + item.receita, 0);
+    const totalFaturamento = historicoMensal.reduce((acc, item) => acc + item.receita, 0);
     const totalDespesas = historicoMensal.reduce((acc, item) => acc + item.despesas, 0);
     const meses = historicoMensal.length;
 
     return {
-      mediaFaturamento: totalReceita / meses,
-      mediaReceita: totalReceita / meses,
+      mediaFaturamento: totalFaturamento / meses,
       mediaDespesas: totalDespesas / meses
     };
   };
@@ -254,10 +252,10 @@ export default function Dashboard() {
       {/* Cards de métricas principais */}
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
-          title="Receita do Mês"
+          title="Faturamento do Mês"
           value={formatCurrency(dadosFinanceiros.receitaMesAtual)}
           icon={DollarSign}
-          description="Receita atual do mês"
+          description="Faturamento atual do mês"
           change={{
             value: dadosFinanceiros.receitaMesAtual >= dadosFinanceiros.receitaMediaMensal 
               ? "↗ Acima da média" 
@@ -272,7 +270,7 @@ export default function Dashboard() {
           title="Lucro Líquido"
           value={formatCurrency(dadosFinanceiros.lucroLiquido)}
           icon={TrendingUp}
-          description="Receita - Despesas"
+          description="Faturamento - Despesas"
           change={{
             value: dadosFinanceiros.lucroLiquido > 0 ? "↗ Positivo" : "↘ Negativo",
             type: dadosFinanceiros.lucroLiquido > 0 ? 'positive' : 'negative'
@@ -328,16 +326,16 @@ export default function Dashboard() {
             
             <div className="text-center p-4 bg-teal-pastel rounded-lg border border-teal-200">
               <div className="text-2xl font-bold text-teal-600 mb-1">
-                {formatCurrency(medias.mediaReceita)}
+                {formatCurrency(medias.mediaDespesas)}
               </div>
-              <p className="text-sm text-muted-foreground">Média de Receita</p>
+              <p className="text-sm text-muted-foreground">Média de Despesas</p>
             </div>
             
             <div className="text-center p-4 bg-purple-pastel rounded-lg border border-purple-200">
               <div className="text-2xl font-bold text-purple-600 mb-1">
-                {formatCurrency(medias.mediaDespesas)}
+                {formatCurrency(medias.mediaFaturamento - medias.mediaDespesas)}
               </div>
-              <p className="text-sm text-muted-foreground">Média de Despesas</p>
+              <p className="text-sm text-muted-foreground">Média de Lucro</p>
             </div>
           </div>
         </CardContent>

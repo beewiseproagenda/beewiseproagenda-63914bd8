@@ -16,12 +16,25 @@ interface FinancialChartProps {
 export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
+      const getLabel = (dataKey: string) => {
+        switch (dataKey) {
+          case 'receita':
+            return 'Faturamento';
+          case 'despesas':
+            return 'Despesas';
+          case 'lucro':
+            return 'Lucro';
+          default:
+            return dataKey;
+        }
+      };
+
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
           <p className="text-foreground font-medium">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} className="text-sm" style={{ color: entry.color }}>
-              {entry.name}: R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {getLabel(entry.dataKey)}: R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           ))}
         </div>
