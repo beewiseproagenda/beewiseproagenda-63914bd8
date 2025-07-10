@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Users, Plus, Phone, Mail, Calendar, Edit, Trash2 } from 'lucide-react';
+import { Users, Plus, Phone, Mail, Calendar, Edit, Trash2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,14 +72,52 @@ export default function Clientes() {
     return atendimentos.filter(a => a.clienteId === clienteId);
   };
 
+  const getClienteReceita = (clienteId: string) => {
+    return atendimentos
+      .filter(a => a.clienteId === clienteId && a.status === 'realizado')
+      .reduce((total, a) => total + a.valor, 0);
+  };
+
+  // Top 5 clientes por receita
+  const topClientesPorReceita = clientes
+    .map(cliente => ({
+      ...cliente,
+      receita: getClienteReceita(cliente.id),
+      totalAtendimentos: getClienteAtendimentos(cliente.id).length
+    }))
+    .sort((a, b) => b.receita - a.receita)
+    .slice(0, 5);
+
+  // Clientes sem agendamento há muito tempo (60 dias)
+  const dataLimite = new Date();
+  dataLimite.setDate(dataLimite.getDate() - 60);
+  
+  const clientesSemAgendamento = clientes.filter(cliente => {
+    const ultimosAtendimentos = atendimentos
+      .filter(a => a.clienteId === cliente.id)
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    
+    if (ultimosAtendimentos.length === 0) return true;
+    
+    const ultimoAtendimento = new Date(ultimosAtendimentos[0].data);
+    return ultimoAtendimento < dataLimite;
+  });
+
   const clientesFiltrados = clientes.filter(cliente =>
     cliente.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cliente.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cliente.telefone.includes(searchTerm)
   );
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(value);
+  };
+
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Clientes</h1>
@@ -93,6 +131,72 @@ export default function Clientes() {
           Novo Cliente
         </Button>
       </div>
+
+      {/* Top 5 Clientes por Receita */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            Top 5 Clientes por Receita
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {topClientesPorReceita.length > 0 ? (
+              topClientesPorReceita.map((cliente, index) => (
+                <div key={cliente.id} className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary/20 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-bold text-primary">{index + 1}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">{cliente.nome}</p>
+                      <p className="text-sm text-muted-foreground">{cliente.totalAtendimentos} atendimentos</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-primary">{formatCurrency(cliente.receita)}</p>
+                    <p className="text-xs text-muted-foreground">Total gerado</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground py-4">Nenhum cliente com receita ainda</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Clientes com Potencial Churn */}
+      {clientesSemAgendamento.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Clientes sem Agendamento
+              <Badge variant="destructive" className="ml-2">
+                {clientesSemAgendamento.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {clientesSemAgendamento.slice(0, 6).map((cliente) => (
+                <div key={cliente.id} className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <p className="font-medium text-foreground">{cliente.nome}</p>
+                  <p className="text-sm text-muted-foreground">{cliente.telefone}</p>
+                  <p className="text-xs text-amber-600 mt-1">Sem agendamento há +60 dias</p>
+                </div>
+              ))}
+            </div>
+            {clientesSemAgendamento.length > 6 && (
+              <p className="text-center text-sm text-muted-foreground mt-2">
+                +{clientesSemAgendamento.length - 6} outros clientes
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex items-center gap-4">
         <div className="flex-1">
@@ -110,7 +214,7 @@ export default function Clientes() {
 
       {clientesFiltrados.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
+          <CardContent className="flex flex-col items-center justify-center py-8">
             <Users className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
               {searchTerm ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado'}
@@ -130,21 +234,29 @@ export default function Clientes() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {clientesFiltrados.map((cliente) => {
             const clienteAtendimentos = getClienteAtendimentos(cliente.id);
+            const clienteReceita = getClienteReceita(cliente.id);
             const ultimoAtendimento = clienteAtendimentos
               .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())[0];
             
             return (
               <Card key={cliente.id} className="hover:bg-card/80 transition-colors">
-                <CardHeader className="pb-3">
+                <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <CardTitle className="text-lg">{cliente.nome}</CardTitle>
-                      <Badge variant="outline" className="text-xs">
-                        {clienteAtendimentos.length} atendimento{clienteAtendimentos.length !== 1 ? 's' : ''}
-                      </Badge>
+                      <div className="flex gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {clienteAtendimentos.length} atendimento{clienteAtendimentos.length !== 1 ? 's' : ''}
+                        </Badge>
+                        {clienteReceita > 0 && (
+                          <Badge variant="secondary" className="text-xs">
+                            {formatCurrency(clienteReceita)}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       <Button
@@ -165,7 +277,7 @@ export default function Clientes() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-2">
                   {cliente.telefone && (
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="h-4 w-4 text-muted-foreground" />
@@ -186,7 +298,7 @@ export default function Clientes() {
                       </span>
                     </div>
                   )}
-                  <div className="pt-2 text-xs text-muted-foreground">
+                  <div className="pt-1 text-xs text-muted-foreground">
                     Cadastrado em {new Date(cliente.criadoEm).toLocaleDateString('pt-BR')}
                   </div>
                 </CardContent>
@@ -196,6 +308,7 @@ export default function Clientes() {
         </div>
       )}
 
+      {/* Modal de formulário */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-md">

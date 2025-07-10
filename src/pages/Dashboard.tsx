@@ -1,9 +1,10 @@
 
-import { DollarSign, TrendingUp, Calendar, Users, Target, PiggyBank, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { DollarSign, TrendingUp, Calendar, Users, Target, PiggyBank, ChevronLeft, ChevronRight, Clock, BarChart3 } from "lucide-react";
 import { DashboardCard } from "@/components/DashboardCard";
 import { FinancialChart } from "@/components/FinancialChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useMobData } from "@/hooks/useMobData";
 import { useState } from "react";
 
@@ -31,20 +32,6 @@ export default function Dashboard() {
     return dataAtendimento.getMonth() === agora.getMonth() && 
            dataAtendimento.getFullYear() === agora.getFullYear();
   }).length;
-
-  // Próximos atendimentos (próximos 7 dias)
-  const proximosSete = new Date();
-  proximosSete.setDate(proximosSete.getDate() + 7);
-  
-  const proximosAtendimentos = atendimentos
-    .filter(a => {
-      const dataAtendimento = new Date(a.data);
-      return dataAtendimento >= agora && 
-             dataAtendimento <= proximosSete && 
-             a.status === 'agendado';
-    })
-    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
-    .slice(0, 5);
 
   // Agendamentos do dia atual
   const hoje = new Date();
@@ -78,13 +65,42 @@ export default function Dashboard() {
   const getAgendamentosDoDia = (data: Date) => {
     return atendimentos.filter(a => {
       const dataAtendimento = new Date(a.data);
-      return dataAtendimento.toDateString() === data.toDateString() && 
-             a.status === 'agendado';
+      return dataAtendimento.toDateString() === data.toDateString();
     }).sort((a, b) => a.hora.localeCompare(b.hora));
   };
 
+  // Verificar se um dia é passado
+  const isDiaPassed = (data: Date) => {
+    return data < hoje;
+  };
+
+  // Calcular médias mensais
+  const calcularMedias = () => {
+    const { historicoMensal } = dadosFinanceiros;
+    
+    if (historicoMensal.length === 0) {
+      return {
+        mediaFaturamento: 0,
+        mediaReceita: 0,
+        mediaDespesas: 0
+      };
+    }
+
+    const totalReceita = historicoMensal.reduce((acc, item) => acc + item.receita, 0);
+    const totalDespesas = historicoMensal.reduce((acc, item) => acc + item.despesas, 0);
+    const meses = historicoMensal.length;
+
+    return {
+      mediaFaturamento: totalReceita / meses,
+      mediaReceita: totalReceita / meses,
+      mediaDespesas: totalDespesas / meses
+    };
+  };
+
+  const medias = calcularMedias();
+
   return (
-    <div className="space-y-8 p-6">
+    <div className="space-y-6 p-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -108,7 +124,7 @@ export default function Dashboard() {
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
+            <Calendar className="h-5 w-5 text-primary" />
             Agendamentos de Hoje
           </CardTitle>
         </CardHeader>
@@ -116,7 +132,7 @@ export default function Dashboard() {
           <div className="space-y-3">
             {agendamentosHoje.length > 0 ? (
               agendamentosHoje.map((agendamento) => (
-                <div key={agendamento.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+                <div key={agendamento.id} className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/10">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 text-primary">
                       <Clock className="h-4 w-4" />
@@ -134,8 +150,8 @@ export default function Dashboard() {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <div className="text-center py-6">
+                <Calendar className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                 <p className="text-muted-foreground">Nenhum agendamento para hoje</p>
               </div>
             )}
@@ -148,7 +164,7 @@ export default function Dashboard() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
+              <Calendar className="h-5 w-5 text-primary" />
               Calendário Semanal
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -177,19 +193,24 @@ export default function Dashboard() {
             {weekDays.map((day, index) => {
               const agendamentosDoDia = getAgendamentosDoDia(day);
               const isToday = day.toDateString() === hoje.toDateString();
+              const isPast = isDiaPassed(day) && !isToday;
               
               return (
                 <div
                   key={day.toISOString()}
-                  className={`p-3 rounded-lg border min-h-[120px] ${
+                  className={`p-3 rounded-lg border min-h-[120px] cursor-pointer transition-all hover:shadow-sm ${
                     isToday 
                       ? 'bg-primary/10 border-primary/20' 
-                      : 'bg-muted/20 border-border'
+                      : isPast
+                      ? 'bg-muted/10 border-muted/20'
+                      : 'bg-card border-border hover:bg-muted/5'
                   }`}
                 >
                   <div className="text-center mb-2">
                     <p className="text-xs text-muted-foreground">{diasSemana[index]}</p>
-                    <p className={`text-sm font-medium ${isToday ? 'text-primary' : 'text-foreground'}`}>
+                    <p className={`text-sm font-medium ${
+                      isToday ? 'text-primary' : isPast ? 'text-muted-foreground' : 'text-foreground'
+                    }`}>
                       {day.getDate()}
                     </p>
                   </div>
@@ -197,11 +218,24 @@ export default function Dashboard() {
                     {agendamentosDoDia.slice(0, 3).map((agendamento) => (
                       <div
                         key={agendamento.id}
-                        className="text-xs p-1 bg-primary/20 rounded text-primary-foreground truncate"
-                        title={`${agendamento.hora} - ${agendamento.clienteNome} - ${agendamento.servico}`}
+                        className={`text-xs p-1 rounded truncate ${
+                          isPast 
+                            ? 'bg-muted/30 text-muted-foreground' 
+                            : agendamento.status === 'realizado'
+                            ? 'bg-green-100 text-green-700'
+                            : agendamento.status === 'cancelado'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-primary/20 text-primary'
+                        }`}
+                        title={`${agendamento.hora} - ${agendamento.clienteNome} - ${agendamento.servico} - ${agendamento.status}`}
                       >
                         <div className="font-medium">{agendamento.hora}</div>
                         <div className="truncate">{agendamento.clienteNome}</div>
+                        {isPast && (
+                          <Badge variant="outline" className="text-xs h-4">
+                            {agendamento.status}
+                          </Badge>
+                        )}
                       </div>
                     ))}
                     {agendamentosDoDia.length > 3 && (
@@ -260,12 +294,12 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Gráfico e próximos atendimentos */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 bg-card border-border">
+      {/* Gráfico financeiro - removido o card de próximos atendimentos */}
+      <div className="w-full">
+        <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
+              <TrendingUp className="h-5 w-5 text-primary" />
               Evolução Financeira
             </CardTitle>
           </CardHeader>
@@ -273,58 +307,41 @@ export default function Dashboard() {
             <FinancialChart data={chartData} type="line" />
           </CardContent>
         </Card>
+      </div>
 
-        <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Próximos Atendimentos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {proximosAtendimentos.length > 0 ? (
-                proximosAtendimentos.map((atendimento) => (
-                  <div key={atendimento.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-sm">{atendimento.clienteNome}</p>
-                      <p className="text-xs text-muted-foreground">{atendimento.servico}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs font-medium">
-                        {new Date(atendimento.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{atendimento.hora}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Nenhum atendimento agendado</p>
-                </div>
-              )}
+      {/* Média Mensal - Nova seção */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            Média Mensal
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center p-4 bg-primary/5 rounded-lg border border-primary/10">
+              <div className="text-2xl font-bold text-primary mb-1">
+                {formatCurrency(medias.mediaFaturamento)}
+              </div>
+              <p className="text-sm text-muted-foreground">Média de Faturamento</p>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Cards de métricas secundárias */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <DashboardCard
-          title="Média Mensal"
-          value={formatCurrency(dadosFinanceiros.receitaMediaMensal)}
-          icon={Target}
-          description="Receita média dos últimos meses"
-        />
-        
-        <DashboardCard
-          title="Projeção Próximo Mês"
-          value={formatCurrency(dadosFinanceiros.projecaoProximoMes)}
-          icon={PiggyBank}
-          description="Baseada nas últimas 4 semanas"
-        />
-      </div>
+            
+            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="text-2xl font-bold text-green-600 mb-1">
+                {formatCurrency(medias.mediaReceita)}
+              </div>
+              <p className="text-sm text-muted-foreground">Média de Receita</p>
+            </div>
+            
+            <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div className="text-2xl font-bold text-purple-600 mb-1">
+                {formatCurrency(medias.mediaDespesas)}
+              </div>
+              <p className="text-sm text-muted-foreground">Média de Despesas</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
