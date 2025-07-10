@@ -49,6 +49,11 @@ All colors MUST be HSL.
 
     /* Calendar day box color - darker than background */
     --calendar-day-bg: 210 20% 88%;
+
+    /* Financial chart colors */
+    --chart-faturamento: 174 62% 47%; /* Verde água */
+    --chart-lucro: 142 76% 36%; /* Verde escuro forte */
+    --chart-despesas: 14 83% 73%; /* Salmão */
   }
 }
 
@@ -91,12 +96,24 @@ All colors MUST be HSL.
     background-color: hsl(291, 64%, 95%);
   }
   
+  .bg-salmon-pastel {
+    background-color: hsl(14, 83%, 95%);
+  }
+  
   .text-teal-600 {
     color: hsl(174, 62%, 35%);
   }
   
   .text-purple-600 {
     color: hsl(291, 64%, 45%);
+  }
+  
+  .text-salmon-600 {
+    color: hsl(14, 83%, 45%);
+  }
+  
+  .text-green-700 {
+    color: hsl(142, 76%, 30%);
   }
   
   .border-teal-200 {
@@ -106,9 +123,22 @@ All colors MUST be HSL.
   .border-purple-200 {
     border-color: hsl(291, 64%, 85%);
   }
+  
+  .border-salmon-200 {
+    border-color: hsl(14, 83%, 85%);
+  }
 
   /* Calendar day box styling */
   .calendar-day-box {
     background-color: hsl(var(--calendar-day-bg));
+  }
+
+  /* Financial colors */
+  .text-chart-faturamento {
+    color: hsl(var(--chart-faturamento));
+  }
+  
+  .text-chart-lucro {
+    color: hsl(var(--chart-lucro));
   }
 }

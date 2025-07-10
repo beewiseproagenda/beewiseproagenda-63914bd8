@@ -264,6 +264,7 @@ export default function Dashboard() {
               ? 'positive' 
               : 'negative'
           }}
+          titleColor="text-chart-faturamento"
         />
         
         <DashboardCard
@@ -275,6 +276,7 @@ export default function Dashboard() {
             value: dadosFinanceiros.lucroLiquido > 0 ? "↗ Positivo" : "↘ Negativo",
             type: dadosFinanceiros.lucroLiquido > 0 ? 'positive' : 'negative'
           }}
+          titleColor="text-chart-lucro"
         />
         
         <DashboardCard
@@ -317,22 +319,22 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent className="pt-0">
           <div className="grid gap-3 md:grid-cols-3">
-            <div className="text-center p-4 bg-primary/5 rounded-lg border border-primary/10">
-              <div className="text-2xl font-bold text-primary mb-1">
+            <div className="text-center p-4 bg-teal-pastel rounded-lg border border-teal-200">
+              <div className="text-2xl font-bold text-teal-600 mb-1">
                 {formatCurrency(medias.mediaFaturamento)}
               </div>
               <p className="text-sm text-muted-foreground">Média de Faturamento</p>
             </div>
             
-            <div className="text-center p-4 bg-teal-pastel rounded-lg border border-teal-200">
-              <div className="text-2xl font-bold text-teal-600 mb-1">
+            <div className="text-center p-4 bg-salmon-pastel rounded-lg border border-salmon-200">
+              <div className="text-2xl font-bold text-salmon-600 mb-1">
                 {formatCurrency(medias.mediaDespesas)}
               </div>
               <p className="text-sm text-muted-foreground">Média de Despesas</p>
             </div>
             
             <div className="text-center p-4 bg-purple-pastel rounded-lg border border-purple-200">
-              <div className="text-2xl font-bold text-purple-600 mb-1">
+              <div className="text-2xl font-bold text-green-700 mb-1">
                 {formatCurrency(medias.mediaFaturamento - medias.mediaDespesas)}
               </div>
               <p className="text-sm text-muted-foreground">Média de Lucro</p>

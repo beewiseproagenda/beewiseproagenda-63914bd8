@@ -61,8 +61,8 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
             tickFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="receita" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="despesas" fill="#ef4444" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="receita" fill="hsl(var(--chart-faturamento))" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="despesas" fill="hsl(var(--chart-despesas))" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     );
@@ -88,26 +88,26 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
         <Line 
           type="monotone" 
           dataKey="receita" 
-          stroke="hsl(var(--primary))" 
+          stroke="hsl(var(--chart-faturamento))" 
           strokeWidth={3}
-          dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
-          activeDot={{ r: 6, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
+          dot={{ fill: 'hsl(var(--chart-faturamento))', strokeWidth: 2, r: 4 }}
+          activeDot={{ r: 6, stroke: 'hsl(var(--chart-faturamento))', strokeWidth: 2 }}
         />
         <Line 
           type="monotone" 
           dataKey="despesas" 
-          stroke="#ef4444" 
+          stroke="hsl(var(--chart-despesas))" 
           strokeWidth={3}
-          dot={{ fill: '#ef4444', strokeWidth: 2, r: 4 }}
-          activeDot={{ r: 6, stroke: '#ef4444', strokeWidth: 2 }}
+          dot={{ fill: 'hsl(var(--chart-despesas))', strokeWidth: 2, r: 4 }}
+          activeDot={{ r: 6, stroke: 'hsl(var(--chart-despesas))', strokeWidth: 2 }}
         />
         <Line 
           type="monotone" 
           dataKey="lucro" 
-          stroke="#10b981" 
+          stroke="hsl(var(--chart-lucro))" 
           strokeWidth={3}
-          dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
-          activeDot={{ r: 6, stroke: '#10b981', strokeWidth: 2 }}
+          dot={{ fill: 'hsl(var(--chart-lucro))', strokeWidth: 2, r: 4 }}
+          activeDot={{ r: 6, stroke: 'hsl(var(--chart-lucro))', strokeWidth: 2 }}
         />
       </LineChart>
     </ResponsiveContainer>
