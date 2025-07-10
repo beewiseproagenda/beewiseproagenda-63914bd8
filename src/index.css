@@ -9,7 +9,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 210 20% 98%;
     --foreground: 222.2 84% 4.9%;
 
     --card: 0 0% 100%;
@@ -47,6 +47,9 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 222.2 84% 4.9%;
     --sidebar-border: 214.3 31.8% 91.4%;
     --sidebar-ring: 174 62% 47%;
+
+    /* New calendar day box color - slightly darker than background */
+    --calendar-day-bg: 210 20% 95%;
   }
 }
 
@@ -103,5 +106,10 @@ All colors MUST be HSL.
   
   .border-purple-200 {
     border-color: hsl(291, 64%, 85%);
+  }
+
+  /* Calendar day box styling */
+  .calendar-day-box {
+    background-color: hsl(var(--calendar-day-bg));
   }
 }

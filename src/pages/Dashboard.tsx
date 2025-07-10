@@ -1,4 +1,3 @@
-
 import { DollarSign, TrendingUp, Calendar, Users, Target, PiggyBank, ChevronLeft, ChevronRight, Clock, BarChart3 } from "lucide-react";
 import { DashboardCard } from "@/components/DashboardCard";
 import { FinancialChart } from "@/components/FinancialChart";
@@ -100,7 +99,8 @@ export default function Dashboard() {
   const medias = calcularMedias();
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-4 p-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
@@ -122,14 +122,14 @@ export default function Dashboard() {
 
       {/* Agendamentos do Dia Atual */}
       <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Calendar className="h-5 w-5 text-primary" />
             Agendamentos de Hoje
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
+        <CardContent className="pt-0">
+          <div className="space-y-2">
             {agendamentosHoje.length > 0 ? (
               agendamentosHoje.map((agendamento) => (
                 <div key={agendamento.id} className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/10">
@@ -161,9 +161,9 @@ export default function Dashboard() {
 
       {/* Calendário Semanal */}
       <Card className="bg-card border-border">
-        <CardHeader>
+        <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <Calendar className="h-5 w-5 text-primary" />
               Calendário Semanal
             </CardTitle>
@@ -188,7 +188,7 @@ export default function Dashboard() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="grid grid-cols-7 gap-2">
             {weekDays.map((day, index) => {
               const agendamentosDoDia = getAgendamentosDoDia(day);
@@ -202,8 +202,8 @@ export default function Dashboard() {
                     isToday 
                       ? 'bg-primary/10 border-primary/20' 
                       : isPast
-                      ? 'bg-muted/10 border-muted/20'
-                      : 'bg-card border-border hover:bg-muted/5'
+                      ? 'calendar-day-box border-muted/30'
+                      : 'calendar-day-box border-border hover:bg-muted/20'
                   }`}
                 >
                   <div className="text-center mb-2">
@@ -252,7 +252,7 @@ export default function Dashboard() {
       </Card>
 
       {/* Cards de métricas principais */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <DashboardCard
           title="Receita do Mês"
           value={formatCurrency(dadosFinanceiros.receitaMesAtual)}
@@ -294,31 +294,31 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Gráfico financeiro - removido o card de próximos atendimentos */}
+      {/* Gráfico financeiro */}
       <div className="w-full">
         <Card className="bg-card border-border">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <TrendingUp className="h-5 w-5 text-primary" />
               Evolução Financeira
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <FinancialChart data={chartData} type="line" />
           </CardContent>
         </Card>
       </div>
 
-      {/* Média Mensal - Nova seção */}
+      {/* Média Mensal */}
       <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <BarChart3 className="h-5 w-5 text-primary" />
             Média Mensal
           </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+        <CardContent className="pt-0">
+          <div className="grid gap-3 md:grid-cols-3">
             <div className="text-center p-4 bg-primary/5 rounded-lg border border-primary/10">
               <div className="text-2xl font-bold text-primary mb-1">
                 {formatCurrency(medias.mediaFaturamento)}
@@ -326,14 +326,14 @@ export default function Dashboard() {
               <p className="text-sm text-muted-foreground">Média de Faturamento</p>
             </div>
             
-            <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="text-2xl font-bold text-green-600 mb-1">
+            <div className="text-center p-4 bg-teal-pastel rounded-lg border border-teal-200">
+              <div className="text-2xl font-bold text-teal-600 mb-1">
                 {formatCurrency(medias.mediaReceita)}
               </div>
               <p className="text-sm text-muted-foreground">Média de Receita</p>
             </div>
             
-            <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+            <div className="text-center p-4 bg-purple-pastel rounded-lg border border-purple-200">
               <div className="text-2xl font-bold text-purple-600 mb-1">
                 {formatCurrency(medias.mediaDespesas)}
               </div>
