@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Cliente, Atendimento, Despesa, Receita, DadosFinanceiros } from '@/types';
+import { Cliente, Atendimento, Despesa, Receita, DadosFinanceiros, ServicoPacote } from '@/types';
 import { useLocalStorage } from './useLocalStorage';
 
 export function useMobData() {
@@ -7,6 +7,7 @@ export function useMobData() {
   const [atendimentos, setAtendimentos] = useLocalStorage<Atendimento[]>('mob-atendimentos', []);
   const [despesas, setDespesas] = useLocalStorage<Despesa[]>('mob-despesas', []);
   const [receitas, setReceitas] = useLocalStorage<Receita[]>('mob-receitas', []);
+  const [servicosPacotes, setServicosPacotes] = useLocalStorage<ServicoPacote[]>('mob-servicos-pacotes', []);
 
   // Funções para clientes
   const adicionarCliente = (cliente: Omit<Cliente, 'id' | 'criadoEm'>) => {
@@ -100,6 +101,29 @@ export function useMobData() {
 
   const removerReceita = (id: string) => {
     setReceitas(prev => prev.filter(receita => receita.id !== id));
+  };
+
+  // Funções para serviços e pacotes
+  const adicionarServicoPacote = (servicoPacote: Omit<ServicoPacote, 'id' | 'criadoEm'>) => {
+    const novoServicoPacote: ServicoPacote = {
+      ...servicoPacote,
+      id: Date.now().toString(),
+      criadoEm: new Date(),
+    };
+    setServicosPacotes(prev => [...prev, novoServicoPacote]);
+    return novoServicoPacote;
+  };
+
+  const atualizarServicoPacote = (id: string, dadosAtualizados: Partial<ServicoPacote>) => {
+    setServicosPacotes(prev => 
+      prev.map(item => 
+        item.id === id ? { ...item, ...dadosAtualizados } : item
+      )
+    );
+  };
+
+  const removerServicoPacote = (id: string) => {
+    setServicosPacotes(prev => prev.filter(item => item.id !== id));
   };
 
   // Calcular dados financeiros
@@ -213,6 +237,7 @@ export function useMobData() {
     atendimentos,
     despesas,
     receitas,
+    servicosPacotes,
     dadosFinanceiros: calcularDadosFinanceiros(),
     
     // Ações para clientes
@@ -234,5 +259,10 @@ export function useMobData() {
     adicionarReceita,
     atualizarReceita,
     removerReceita,
+    
+    // Ações para serviços e pacotes
+    adicionarServicoPacote,
+    atualizarServicoPacote,
+    removerServicoPacote,
   };
 }

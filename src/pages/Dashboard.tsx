@@ -24,12 +24,36 @@ export default function Dashboard() {
     lucro: item.receita - item.despesas
   }));
 
-  // Atendimentos do mês atual
+  // Cálculos para as métricas do Dashboard
   const agora = new Date();
-  const atendimentosMesAtual = atendimentos.filter(a => {
+  const mesAtual = agora.getMonth();
+  const anoAtual = agora.getFullYear();
+
+  // Clientes ativos (que possuem agendamentos no mês)
+  const clientesAtivosNoMes = new Set(
+    atendimentos
+      .filter(a => {
+        const dataAtendimento = new Date(a.data);
+        return dataAtendimento.getMonth() === mesAtual && 
+               dataAtendimento.getFullYear() === anoAtual;
+      })
+      .map(a => a.clienteId)
+  ).size;
+
+  // Atendimentos realizados no mês
+  const atendimentosRealizados = atendimentos.filter(a => {
     const dataAtendimento = new Date(a.data);
-    return dataAtendimento.getMonth() === agora.getMonth() && 
-           dataAtendimento.getFullYear() === agora.getFullYear();
+    return dataAtendimento.getMonth() === mesAtual && 
+           dataAtendimento.getFullYear() === anoAtual &&
+           a.status === 'realizado';
+  }).length;
+
+  // Próximos agendamentos do mês
+  const proximosAgendamentos = atendimentos.filter(a => {
+    const dataAtendimento = new Date(a.data);
+    return dataAtendimento.getMonth() === mesAtual && 
+           dataAtendimento.getFullYear() === anoAtual &&
+           a.status === 'agendado';
   }).length;
 
   // Agendamentos do dia atual
@@ -72,29 +96,6 @@ export default function Dashboard() {
   const isDiaPassed = (data: Date) => {
     return data < hoje;
   };
-
-  // Calcular médias mensais
-  const calcularMedias = () => {
-    const { historicoMensal } = dadosFinanceiros;
-    
-    if (historicoMensal.length === 0) {
-      return {
-        mediaFaturamento: 0,
-        mediaDespesas: 0
-      };
-    }
-
-    const totalFaturamento = historicoMensal.reduce((acc, item) => acc + item.receita, 0);
-    const totalDespesas = historicoMensal.reduce((acc, item) => acc + item.despesas, 0);
-    const meses = historicoMensal.length;
-
-    return {
-      mediaFaturamento: totalFaturamento / meses,
-      mediaDespesas: totalDespesas / meses
-    };
-  };
-
-  const medias = calcularMedias();
 
   return (
     <div className="space-y-4 p-4">
@@ -249,49 +250,52 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* Cards de métricas principais */}
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+      {/* Cards de métricas - Primeira linha */}
+      <div className="grid gap-3 md:grid-cols-3">
         <DashboardCard
-          title="Faturamento do Mês"
-          value={formatCurrency(dadosFinanceiros.receitaMesAtual)}
-          icon={DollarSign}
-          description="Faturamento atual do mês"
-          change={{
-            value: dadosFinanceiros.receitaMesAtual >= dadosFinanceiros.receitaMediaMensal 
-              ? "↗ Acima da média" 
-              : "↘ Abaixo da média",
-            type: dadosFinanceiros.receitaMesAtual >= dadosFinanceiros.receitaMediaMensal 
-              ? 'positive' 
-              : 'negative'
-          }}
-          titleColor="text-chart-faturamento"
-        />
-        
-        <DashboardCard
-          title="Lucro Líquido"
-          value={formatCurrency(dadosFinanceiros.lucroLiquido)}
-          icon={TrendingUp}
-          description="Faturamento - Despesas"
-          change={{
-            value: dadosFinanceiros.lucroLiquido > 0 ? "↗ Positivo" : "↘ Negativo",
-            type: dadosFinanceiros.lucroLiquido > 0 ? 'positive' : 'negative'
-          }}
-          titleColor="text-chart-lucro"
+          title="Clientes Ativos"
+          value={clientesAtivosNoMes.toString()}
+          icon={Users}
+          description="Clientes com agendamentos no mês"
         />
         
         <DashboardCard
           title="Atendimentos"
-          value={atendimentosMesAtual.toString()}
+          value={atendimentosRealizados.toString()}
           icon={Calendar}
-          description="Atendimentos este mês"
+          description="Atendimentos realizados no mês"
         />
         
         <DashboardCard
-          title="Clientes Ativos"
-          value={clientes.length.toString()}
-          icon={Users}
-          description="Total de clientes cadastrados"
+          title="Agendamentos"
+          value={proximosAgendamentos.toString()}
+          icon={Target}
+          description="Próximos agendamentos do mês"
         />
+      </div>
+
+      {/* Cards de métricas - Segunda linha */}
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="text-center p-4 bg-teal-pastel rounded-lg border border-teal-200">
+          <div className="text-2xl font-bold text-teal-600 mb-1">
+            {formatCurrency(dadosFinanceiros.receitaMesAtual)}
+          </div>
+          <p className="text-sm text-muted-foreground">Faturamento do Mês</p>
+        </div>
+        
+        <div className="text-center p-4 bg-salmon-pastel rounded-lg border border-salmon-200">
+          <div className="text-2xl font-bold text-salmon-600 mb-1">
+            {formatCurrency(dadosFinanceiros.totalDespesas)}
+          </div>
+          <p className="text-sm text-muted-foreground">Despesas do Mês</p>
+        </div>
+        
+        <div className="text-center p-4 bg-green-pastel rounded-lg border border-green-200">
+          <div className="text-2xl font-bold text-green-700 mb-1">
+            {formatCurrency(dadosFinanceiros.lucroLiquido)}
+          </div>
+          <p className="text-sm text-muted-foreground">Lucro Líquido</p>
+        </div>
       </div>
 
       {/* Gráfico financeiro */}
@@ -308,40 +312,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Média Mensal */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            Média Mensal
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="text-center p-4 bg-teal-pastel rounded-lg border border-teal-200">
-              <div className="text-2xl font-bold text-teal-600 mb-1">
-                {formatCurrency(medias.mediaFaturamento)}
-              </div>
-              <p className="text-sm text-muted-foreground">Média de Faturamento</p>
-            </div>
-            
-            <div className="text-center p-4 bg-salmon-pastel rounded-lg border border-salmon-200">
-              <div className="text-2xl font-bold text-salmon-600 mb-1">
-                {formatCurrency(medias.mediaDespesas)}
-              </div>
-              <p className="text-sm text-muted-foreground">Média de Despesas</p>
-            </div>
-            
-            <div className="text-center p-4 bg-purple-pastel rounded-lg border border-purple-200">
-              <div className="text-2xl font-bold text-green-700 mb-1">
-                {formatCurrency(medias.mediaFaturamento - medias.mediaDespesas)}
-              </div>
-              <p className="text-sm text-muted-foreground">Média de Lucro</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

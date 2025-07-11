@@ -1,4 +1,3 @@
-
 export interface Cliente {
   id: string;
   nome: string;
@@ -6,6 +5,10 @@ export interface Cliente {
   email: string;
   criadoEm: Date;
   ultimoAtendimento?: Date;
+  recorrente?: boolean;
+  recorrencia?: 'diaria' | 'semanal' | 'mensal';
+  pacoteId?: string;
+  tipoCobranca?: 'pacote' | 'variavel';
 }
 
 export interface Atendimento {
@@ -39,6 +42,15 @@ export interface Receita {
   categoria: CategoriaReceita;
   formaPagamento: FormaPagamento;
   observacoes?: string;
+}
+
+export interface ServicoPacote {
+  id: string;
+  nome: string;
+  tipo: 'servico' | 'pacote';
+  valor: number;
+  descricao?: string;
+  criadoEm: Date;
 }
 
 export interface DadosFinanceiros {

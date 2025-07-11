@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MonthlyCalendar } from "@/components/MonthlyCalendar";
 import { useMobData } from "@/hooks/useMobData";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -367,6 +368,9 @@ export default function Agenda() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Calendário Mensal */}
+      <MonthlyCalendar atendimentos={atendimentos} />
 
       {/* Busca */}
       <Card className="bg-card border-border">

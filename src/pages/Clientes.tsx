@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Users, Plus, Phone, Mail, Calendar, Edit, Trash2, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useMobData } from '@/hooks/useMobData';
 import { Cliente } from '@/types';
 import { toast } from "sonner";
 
 export default function Clientes() {
-  const { clientes, atendimentos, adicionarCliente, atualizarCliente, removerCliente } = useMobData();
+  const { clientes, atendimentos, servicosPacotes, adicionarCliente, atualizarCliente, removerCliente } = useMobData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,6 +21,10 @@ export default function Clientes() {
     nome: '',
     telefone: '',
     email: '',
+    recorrente: false,
+    recorrencia: 'semanal' as 'diaria' | 'semanal' | 'mensal',
+    pacoteId: '',
+    tipoCobranca: 'variavel' as 'pacote' | 'variavel',
   });
 
   const resetForm = () => {
@@ -27,6 +32,10 @@ export default function Clientes() {
       nome: '',
       telefone: '',
       email: '',
+      recorrente: false,
+      recorrencia: 'semanal',
+      pacoteId: '',
+      tipoCobranca: 'variavel',
     });
     setEditingCliente(null);
     setIsFormOpen(false);
@@ -40,11 +49,25 @@ export default function Clientes() {
       return;
     }
 
+    const clienteData = {
+      nome: formData.nome,
+      telefone: formData.telefone,
+      email: formData.email,
+      ...(formData.recorrente && {
+        recorrente: formData.recorrente,
+        recorrencia: formData.recorrencia,
+        ...(formData.tipoCobranca === 'pacote' && formData.pacoteId && {
+          pacoteId: formData.pacoteId
+        }),
+        tipoCobranca: formData.tipoCobranca,
+      })
+    };
+
     if (editingCliente) {
-      atualizarCliente(editingCliente.id, formData);
+      atualizarCliente(editingCliente.id, clienteData);
       toast.success("Cliente atualizado com sucesso!");
     } else {
-      adicionarCliente(formData);
+      adicionarCliente(clienteData);
       toast.success("Cliente cadastrado com sucesso!");
     }
 
@@ -57,6 +80,10 @@ export default function Clientes() {
       nome: cliente.nome,
       telefone: cliente.telefone,
       email: cliente.email,
+      recorrente: cliente.recorrente || false,
+      recorrencia: cliente.recorrencia || 'semanal',
+      pacoteId: cliente.pacoteId || '',
+      tipoCobranca: cliente.tipoCobranca || 'variavel',
     });
     setIsFormOpen(true);
   };
@@ -76,6 +103,11 @@ export default function Clientes() {
     return atendimentos
       .filter(a => a.clienteId === clienteId && a.status === 'realizado')
       .reduce((total, a) => total + a.valor, 0);
+  };
+
+  const getPacoteNome = (pacoteId: string) => {
+    const pacote = servicosPacotes.find(p => p.id === pacoteId);
+    return pacote ? pacote.nome : '';
   };
 
   // Top 5 clientes por receita
@@ -247,13 +279,23 @@ export default function Clientes() {
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <CardTitle className="text-lg">{cliente.nome}</CardTitle>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <Badge variant="outline" className="text-xs">
                           {clienteAtendimentos.length} atendimento{clienteAtendimentos.length !== 1 ? 's' : ''}
                         </Badge>
                         {clienteReceita > 0 && (
                           <Badge variant="secondary" className="text-xs">
                             {formatCurrency(clienteReceita)}
+                          </Badge>
+                        )}
+                        {cliente.recorrente && (
+                          <Badge variant="default" className="text-xs">
+                            Recorrente
+                          </Badge>
+                        )}
+                        {cliente.pacoteId && (
+                          <Badge variant="outline" className="text-xs">
+                            {getPacoteNome(cliente.pacoteId)}
                           </Badge>
                         )}
                       </div>
@@ -290,6 +332,11 @@ export default function Clientes() {
                       <span className="truncate">{cliente.email}</span>
                     </div>
                   )}
+                  {cliente.recorrente && (
+                    <div className="text-sm text-muted-foreground">
+                      Recorrência: {cliente.recorrencia}
+                    </div>
+                  )}
                   {ultimoAtendimento && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
@@ -311,7 +358,7 @@ export default function Clientes() {
       {/* Modal de formulário */}
       {isFormOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md">
+          <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -351,6 +398,90 @@ export default function Clientes() {
                     placeholder="cliente@email.com"
                   />
                 </div>
+
+                <div>
+                  <Label>Cliente recorrente?</Label>
+                  <RadioGroup
+                    value={formData.recorrente ? 'sim' : 'nao'}
+                    onValueChange={(value) => setFormData({ ...formData, recorrente: value === 'sim' })}
+                    className="flex gap-4 mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="sim" id="sim" />
+                      <Label htmlFor="sim">Sim</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="nao" id="nao" />
+                      <Label htmlFor="nao">Não</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {formData.recorrente && (
+                  <>
+                    <div>
+                      <Label>Recorrência</Label>
+                      <Select
+                        value={formData.recorrencia}
+                        onValueChange={(value: 'diaria' | 'semanal' | 'mensal') => 
+                          setFormData({ ...formData, recorrencia: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a recorrência" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="diaria">Diária</SelectItem>
+                          <SelectItem value="semanal">Semanal</SelectItem>
+                          <SelectItem value="mensal">Mensal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>Tipo de Cobrança</Label>
+                      <RadioGroup
+                        value={formData.tipoCobranca}
+                        onValueChange={(value: 'pacote' | 'variavel') => 
+                          setFormData({ ...formData, tipoCobranca: value })
+                        }
+                        className="mt-2"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="pacote" id="pacote" />
+                          <Label htmlFor="pacote">Pacote fixo</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="variavel" id="variavel" />
+                          <Label htmlFor="variavel">Cobrança variável</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {formData.tipoCobranca === 'pacote' && (
+                      <div>
+                        <Label>Pacote do Cliente</Label>
+                        <Select
+                          value={formData.pacoteId}
+                          onValueChange={(value) => setFormData({ ...formData, pacoteId: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um pacote" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {servicosPacotes
+                              .filter(item => item.tipo === 'pacote')
+                              .map((pacote) => (
+                                <SelectItem key={pacote.id} value={pacote.id}>
+                                  {pacote.nome} - {formatCurrency(pacote.valor)}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </>
+                )}
 
                 <div className="flex gap-2 pt-4">
                   <Button type="submit" className="flex-1">

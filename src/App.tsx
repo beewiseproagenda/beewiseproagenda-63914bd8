@@ -10,6 +10,7 @@ import { Menu } from "lucide-react";
 import Dashboard from "./pages/Dashboard";
 import Agenda from "./pages/Agenda";
 import Clientes from "./pages/Clientes";
+import ServicosPacotes from "./pages/ServicosPacotes";
 import Financeiro from "./pages/Financeiro";
 import NotFound from "./pages/NotFound";
 
@@ -40,6 +41,7 @@ const App = () => (
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/agenda" element={<Agenda />} />
                   <Route path="/clientes" element={<Clientes />} />
+                  <Route path="/servicos-pacotes" element={<ServicosPacotes />} />
                   <Route path="/financeiro" element={<Financeiro />} />
                   <Route path="/relatorios" element={<Dashboard />} />
                   <Route path="/configuracoes" element={<Dashboard />} />
