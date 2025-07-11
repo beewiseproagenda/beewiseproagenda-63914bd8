@@ -1,5 +1,4 @@
-
-import { Calendar, Users, DollarSign, FileText, Home, Settings } from "lucide-react";
+import { Calendar, Users, DollarSign, FileText, Home, Settings, Package } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import {
@@ -18,6 +17,7 @@ const menuItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Clientes", url: "/clientes", icon: Users },
+  { title: "Pacotes e Serviços", url: "/pacotes-servicos", icon: Package },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
