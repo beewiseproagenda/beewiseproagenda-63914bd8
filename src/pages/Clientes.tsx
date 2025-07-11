@@ -1,5 +1,6 @@
+
 import { useState } from "react";
-import { Users, Plus, Search, Phone, Mail, Calendar, Edit, Trash2 } from "lucide-react";
+import { Users, Plus, Search, Phone, Mail, Calendar, Edit, Trash2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
