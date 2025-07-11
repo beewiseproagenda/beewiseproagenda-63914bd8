@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 interface ChartData {
   mes: string;
-  receita: number;
+  faturamento: number;
   despesas: number;
   lucro: number;
 }
@@ -11,14 +11,15 @@ interface ChartData {
 interface FinancialChartProps {
   data: ChartData[];
   type?: 'line' | 'bar';
+  projected?: boolean;
 }
 
-export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
+export function FinancialChart({ data, type = 'line', projected = false }: FinancialChartProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const getLabel = (dataKey: string) => {
         switch (dataKey) {
-          case 'receita':
+          case 'faturamento':
             return 'Faturamento';
           case 'despesas':
             return 'Despesas';
@@ -61,7 +62,7 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
             tickFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="receita" fill="hsl(var(--chart-faturamento))" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="faturamento" fill="hsl(var(--chart-faturamento))" radius={[4, 4, 0, 0]} />
           <Bar dataKey="despesas" fill="hsl(var(--chart-despesas))" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -87,9 +88,11 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
         <Tooltip content={<CustomTooltip />} />
         <Line 
           type="monotone" 
-          dataKey="receita" 
+          dataKey="faturamento" 
           stroke="hsl(var(--chart-faturamento))" 
           strokeWidth={3}
+          strokeDasharray={projected ? "5 5" : "0"}
+          strokeOpacity={projected ? 0.7 : 1}
           dot={{ fill: 'hsl(var(--chart-faturamento))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, stroke: 'hsl(var(--chart-faturamento))', strokeWidth: 2 }}
         />
@@ -98,6 +101,8 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
           dataKey="despesas" 
           stroke="hsl(var(--chart-despesas))" 
           strokeWidth={3}
+          strokeDasharray={projected ? "5 5" : "0"}
+          strokeOpacity={projected ? 0.7 : 1}
           dot={{ fill: 'hsl(var(--chart-despesas))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, stroke: 'hsl(var(--chart-despesas))', strokeWidth: 2 }}
         />
@@ -106,6 +111,8 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
           dataKey="lucro" 
           stroke="hsl(var(--chart-lucro))" 
           strokeWidth={3}
+          strokeDasharray={projected ? "5 5" : "0"}
+          strokeOpacity={projected ? 0.7 : 1}
           dot={{ fill: 'hsl(var(--chart-lucro))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, stroke: 'hsl(var(--chart-lucro))', strokeWidth: 2 }}
         />

@@ -1,3 +1,4 @@
+
 import { DollarSign, TrendingUp, Calendar, Users, Target, PiggyBank, ChevronLeft, ChevronRight, Clock, BarChart3 } from "lucide-react";
 import { DashboardCard } from "@/components/DashboardCard";
 import { FinancialChart } from "@/components/FinancialChart";
@@ -18,10 +19,15 @@ export default function Dashboard() {
     }).format(value);
   };
 
+  const formatPercentage = (value: number) => {
+    const signal = value > 0 ? '+' : '';
+    return `${signal}${value.toFixed(1)}%`;
+  };
+
   // Preparar dados para o gráfico
   const chartData = dadosFinanceiros.historicoMensal.map(item => ({
     ...item,
-    lucro: item.receita - item.despesas
+    lucro: item.faturamento - item.despesas
   }));
 
   // Cálculos para as métricas do Dashboard
@@ -274,28 +280,52 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Cards de métricas - Segunda linha */}
+      {/* Cards de métricas - Segunda linha - Layout do Financeiro */}
       <div className="grid gap-3 md:grid-cols-3">
-        <div className="text-center p-4 bg-teal-pastel rounded-lg border border-teal-200">
-          <div className="text-2xl font-bold text-teal-600 mb-1">
-            {formatCurrency(dadosFinanceiros.receitaMesAtual)}
-          </div>
-          <p className="text-sm text-muted-foreground">Faturamento do Mês</p>
-        </div>
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Faturamento do Mês</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(dadosFinanceiros.faturamentoMesAtual)}
+            </div>
+            <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoFaturamento >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {formatPercentage(dadosFinanceiros.variacaoFaturamento)} vs mês anterior
+            </p>
+          </CardContent>
+        </Card>
         
-        <div className="text-center p-4 bg-salmon-pastel rounded-lg border border-salmon-200">
-          <div className="text-2xl font-bold text-salmon-600 mb-1">
-            {formatCurrency(dadosFinanceiros.totalDespesas)}
-          </div>
-          <p className="text-sm text-muted-foreground">Despesas do Mês</p>
-        </div>
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Despesas do Mês</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(dadosFinanceiros.totalDespesas)}
+            </div>
+            <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoDespesas >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {formatPercentage(dadosFinanceiros.variacaoDespesas)} vs mês anterior
+            </p>
+          </CardContent>
+        </Card>
         
-        <div className="text-center p-4 bg-green-pastel rounded-lg border border-green-200">
-          <div className="text-2xl font-bold text-green-700 mb-1">
-            {formatCurrency(dadosFinanceiros.lucroLiquido)}
-          </div>
-          <p className="text-sm text-muted-foreground">Lucro Líquido</p>
-        </div>
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lucro Líquido</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${dadosFinanceiros.lucroLiquido >= 0 ? 'text-foreground' : 'text-red-500'}`}>
+              {formatCurrency(dadosFinanceiros.lucroLiquido)}
+            </div>
+            <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoLucro >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {formatPercentage(dadosFinanceiros.variacaoLucro)} vs mês anterior
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Gráfico financeiro */}

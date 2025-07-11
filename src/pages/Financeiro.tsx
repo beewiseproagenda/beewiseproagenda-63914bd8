@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Plus, Pencil, Trash2, TrendingUp, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FinancialChart } from "@/components/FinancialChart";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useMobData } from "@/hooks/useMobData";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,6 +28,11 @@ const receitaSchema = z.object({
   categoria: z.enum(['servico_prestado', 'atendimento', 'consultoria', 'curso', 'produto', 'outros']),
   formaPagamento: z.enum(['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'transferencia', 'outro']),
   observacoes: z.string().optional(),
+  recorrente: z.boolean().optional(),
+  recorrencia: z.object({
+    tipo: z.enum(['diaria', 'semanal', 'mensal']),
+    dia: z.number().min(1).max(31),
+  }).optional(),
 });
 
 const despesaSchema = z.object({
@@ -37,6 +42,11 @@ const despesaSchema = z.object({
   categoria: z.enum(['aluguel', 'internet', 'marketing', 'equipamentos', 'transporte', 'alimentacao', 'sistema', 'aplicativos', 'servico_contratado', 'outros']),
   tipo: z.enum(['fixa', 'variavel']),
   observacoes: z.string().optional(),
+  recorrente: z.boolean().optional(),
+  recorrencia: z.object({
+    tipo: z.enum(['diaria', 'semanal', 'mensal']),
+    dia: z.number().min(1).max(31),
+  }).optional(),
 });
 
 export default function Financeiro() {
@@ -55,6 +65,7 @@ export default function Financeiro() {
       categoria: "servico_prestado",
       formaPagamento: "pix",
       observacoes: "",
+      recorrente: false,
     },
   });
 
@@ -67,6 +78,7 @@ export default function Financeiro() {
       categoria: "outros",
       tipo: "variavel",
       observacoes: "",
+      recorrente: false,
     },
   });
 
@@ -75,6 +87,11 @@ export default function Financeiro() {
       style: 'currency',
       currency: 'BRL'
     }).format(value);
+  };
+
+  const formatPercentage = (value: number) => {
+    const signal = value > 0 ? '+' : '';
+    return `${signal}${value.toFixed(1)}%`;
   };
 
   const getCategoriaReceitaLabel = (categoria: string) => {
@@ -185,8 +202,29 @@ export default function Financeiro() {
 
   const chartData = dadosFinanceiros.historicoMensal.map(item => ({
     ...item,
-    lucro: item.receita - item.despesas
+    lucro: item.faturamento - item.despesas
   }));
+
+  // Dados de projeção para os próximos 6 meses
+  const projecaoData = [];
+  const hoje = new Date();
+  for (let i = 1; i <= 6; i++) {
+    const dataProjecao = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+    const mes = dataProjecao.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+    
+    // Projeção simples baseada na média dos últimos meses
+    const faturamentoProjetado = dadosFinanceiros.faturamentoMediaMensal;
+    const despesasProjetadas = dadosFinanceiros.historicoMensal.length > 0 
+      ? dadosFinanceiros.historicoMensal.reduce((acc, h) => acc + h.despesas, 0) / dadosFinanceiros.historicoMensal.length
+      : 0;
+    
+    projecaoData.push({
+      mes,
+      faturamento: faturamentoProjetado,
+      despesas: despesasProjetadas,
+      lucro: faturamentoProjetado - despesasProjetadas,
+    });
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -199,59 +237,7 @@ export default function Financeiro() {
         </div>
       </div>
 
-      {/* Resumo Financeiro */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bg-card border-border">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita do Mês</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-500">
-              {formatCurrency(dadosFinanceiros.receitaMesAtual)}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card border-border">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas do Mês</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">
-              {formatCurrency(dadosFinanceiros.totalDespesas)}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-card border-border">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lucro Líquido</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${dadosFinanceiros.lucroLiquido >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-              {formatCurrency(dadosFinanceiros.lucroLiquido)}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Gráfico */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Evolução Financeira
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FinancialChart data={chartData} type="line" />
-        </CardContent>
-      </Card>
-
-      {/* Tabelas */}
+      {/* Tabelas - Primeiro na página */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Receitas */}
         <Card className="bg-card border-border">
@@ -411,6 +397,73 @@ export default function Financeiro() {
                           </FormItem>
                         )}
                       />
+
+                      <FormField
+                        control={receitaForm.control}
+                        name="recorrente"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>
+                                Lançamento recorrente
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      {receitaForm.watch("recorrente") && (
+                        <>
+                          <FormField
+                            control={receitaForm.control}
+                            name="recorrencia.tipo"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Tipo de Recorrência</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecione o tipo" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="diaria">Diária</SelectItem>
+                                    <SelectItem value="semanal">Semanal</SelectItem>
+                                    <SelectItem value="mensal">Mensal</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={receitaForm.control}
+                            name="recorrencia.dia"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Dia da Recorrência</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max="31"
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
 
                       <div className="flex gap-2">
                         <Button type="submit" className="flex-1">
@@ -645,6 +698,73 @@ export default function Financeiro() {
                         )}
                       />
 
+                      <FormField
+                        control={despesaForm.control}
+                        name="recorrente"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>
+                                Lançamento recorrente
+                              </FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      {despesaForm.watch("recorrente") && (
+                        <>
+                          <FormField
+                            control={despesaForm.control}
+                            name="recorrencia.tipo"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Tipo de Recorrência</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Selecione o tipo" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="diaria">Diária</SelectItem>
+                                    <SelectItem value="semanal">Semanal</SelectItem>
+                                    <SelectItem value="mensal">Mensal</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={despesaForm.control}
+                            name="recorrencia.dia"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Dia da Recorrência</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max="31"
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </>
+                      )}
+
                       <div className="flex gap-2">
                         <Button type="submit" className="flex-1">
                           {editingDespesa ? 'Atualizar' : 'Adicionar'}
@@ -719,6 +839,80 @@ export default function Financeiro() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Resumo Financeiro com variações */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Faturamento do Mês</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(dadosFinanceiros.faturamentoMesAtual)}
+            </div>
+            <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoFaturamento >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {formatPercentage(dadosFinanceiros.variacaoFaturamento)} vs mês anterior
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Despesas do Mês</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {formatCurrency(dadosFinanceiros.totalDespesas)}
+            </div>
+            <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoDespesas >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+              {formatPercentage(dadosFinanceiros.variacaoDespesas)} vs mês anterior
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-card border-border">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Lucro Líquido</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${dadosFinanceiros.lucroLiquido >= 0 ? 'text-foreground' : 'text-red-500'}`}>
+              {formatCurrency(dadosFinanceiros.lucroLiquido)}
+            </div>
+            <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoLucro >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              {formatPercentage(dadosFinanceiros.variacaoLucro)} vs mês anterior
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Gráfico de Evolução */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Evolução Financeira
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <FinancialChart data={chartData} type="line" />
+        </CardContent>
+      </Card>
+
+      {/* Gráfico de Projeções */}
+      <Card className="bg-card border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            Projeções
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <FinancialChart data={projecaoData} type="line" projected={true} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

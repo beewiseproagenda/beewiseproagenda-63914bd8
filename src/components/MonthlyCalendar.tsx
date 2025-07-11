@@ -1,17 +1,17 @@
 
-import { useState } from "react";
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Atendimento } from "@/types";
+import React, { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Atendimento } from '@/types';
 
 interface MonthlyCalendarProps {
   atendimentos: Atendimento[];
 }
 
 export function MonthlyCalendar({ atendimentos }: MonthlyCalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -23,62 +23,48 @@ export function MonthlyCalendar({ atendimentos }: MonthlyCalendarProps) {
 
     const days = [];
     
-    // Adicionar dias vazios do mês anterior
+    // Adicionar dias vazios do início
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(null);
     }
     
-    // Adicionar os dias do mês atual
+    // Adicionar todos os dias do mês
     for (let day = 1; day <= daysInMonth; day++) {
       days.push(new Date(year, month, day));
     }
-
+    
     return days;
   };
 
-  const getAtendimentosDoDia = (data: Date) => {
+  const getAtendimentosForDay = (date: Date) => {
     return atendimentos.filter(a => {
-      const dataAtendimento = new Date(a.data);
-      return dataAtendimento.toDateString() === data.toDateString();
+      const atendimentoDate = new Date(a.data);
+      return atendimentoDate.toDateString() === date.toDateString();
     }).sort((a, b) => a.hora.localeCompare(b.hora));
   };
 
-  const isToday = (data: Date) => {
-    const hoje = new Date();
-    return data.toDateString() === hoje.toDateString();
+  const previousMonth = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   };
-
-  const isPast = (data: Date) => {
-    const hoje = new Date();
-    return data < hoje;
-  };
-
-  const days = getDaysInMonth(currentMonth);
-  const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
-  const prevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-  };
+  const days = getDaysInMonth(currentDate);
+  const today = new Date();
+  const monthYear = currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Calendar className="h-5 w-5 text-primary" />
-            Calendário Mensal
-          </CardTitle>
+          <CardTitle className="text-lg capitalize">{monthYear}</CardTitle>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={prevMonth}>
+            <Button variant="outline" size="sm" onClick={previousMonth}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-medium min-w-[120px] text-center">
-              {currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-            </span>
             <Button variant="outline" size="sm" onClick={nextMonth}>
               <ChevronRight className="h-4 w-4" />
             </Button>
@@ -86,63 +72,62 @@ export function MonthlyCalendar({ atendimentos }: MonthlyCalendarProps) {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="grid grid-cols-7 gap-1 mb-2">
+        <div className="grid grid-cols-7 gap-2 mb-2">
           {diasSemana.map((dia) => (
             <div key={dia} className="text-center text-sm font-medium text-muted-foreground p-2">
               {dia}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-2">
           {days.map((day, index) => {
             if (!day) {
-              return <div key={index} className="h-24"></div>;
+              return <div key={index} className="h-20"></div>;
             }
 
-            const agendamentosDoDia = getAtendimentosDoDia(day);
-            const isHoje = isToday(day);
-            const isPassed = isPast(day) && !isHoje;
+            const dayAtendimentos = getAtendimentosForDay(day);
+            const isToday = day.toDateString() === today.toDateString();
+            const isPast = day < today && !isToday;
 
             return (
               <div
                 key={day.toISOString()}
-                className={`h-24 p-2 rounded-lg border cursor-pointer transition-all hover:shadow-sm ${
-                  isHoje 
+                className={`h-20 p-2 rounded-lg border cursor-pointer transition-all hover:shadow-sm ${
+                  isToday 
                     ? 'bg-primary/10 border-primary/20' 
-                    : isPassed
+                    : isPast
                     ? 'calendar-day-box border-muted/30'
                     : 'calendar-day-box border-border hover:bg-muted/20'
                 }`}
               >
                 <div className="text-center mb-1">
-                  <p className={`text-sm font-medium ${
-                    isHoje ? 'text-primary' : isPassed ? 'text-muted-foreground' : 'text-foreground'
+                  <span className={`text-sm font-medium ${
+                    isToday ? 'text-primary' : isPast ? 'text-muted-foreground' : 'text-foreground'
                   }`}>
                     {day.getDate()}
-                  </p>
+                  </span>
                 </div>
                 <div className="space-y-1">
-                  {agendamentosDoDia.slice(0, 2).map((agendamento) => (
+                  {dayAtendimentos.slice(0, 2).map((atendimento) => (
                     <div
-                      key={agendamento.id}
+                      key={atendimento.id}
                       className={`text-xs p-1 rounded truncate ${
-                        isPassed 
+                        isPast 
                           ? 'bg-muted/30 text-muted-foreground' 
-                          : agendamento.status === 'realizado'
+                          : atendimento.status === 'realizado'
                           ? 'bg-green-100 text-green-700'
-                          : agendamento.status === 'cancelado'
+                          : atendimento.status === 'cancelado'
                           ? 'bg-red-100 text-red-700'
                           : 'bg-primary/20 text-primary'
                       }`}
-                      title={`${agendamento.hora} - ${agendamento.clienteNome} - ${agendamento.servico}`}
+                      title={`${atendimento.hora} - ${atendimento.clienteNome} - ${atendimento.servico}`}
                     >
-                      <div className="font-medium">{agendamento.hora}</div>
-                      <div className="truncate">{agendamento.clienteNome}</div>
+                      <div className="font-medium">{atendimento.hora}</div>
                     </div>
                   ))}
-                  {agendamentosDoDia.length > 2 && (
+                  {dayAtendimentos.length > 2 && (
                     <div className="text-xs text-muted-foreground text-center">
-                      +{agendamentosDoDia.length - 2}
+                      +{dayAtendimentos.length - 2} mais
                     </div>
                   )}
                 </div>

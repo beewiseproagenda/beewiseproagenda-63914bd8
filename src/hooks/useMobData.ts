@@ -126,14 +126,18 @@ export function useMobData() {
     setServicosPacotes(prev => prev.filter(item => item.id !== id));
   };
 
-  // Calcular dados financeiros
+  // Calcular dados financeiros com variações
   const calcularDadosFinanceiros = (): DadosFinanceiros => {
     const agora = new Date();
     const mesAtual = agora.getMonth();
     const anoAtual = agora.getFullYear();
 
-    // Receita do mês atual (atendimentos + receitas manuais)
-    const receitaAtendimentos = atendimentos
+    // Mês anterior
+    const mesAnterior = mesAtual === 0 ? 11 : mesAtual - 1;
+    const anoMesAnterior = mesAtual === 0 ? anoAtual - 1 : anoAtual;
+
+    // Faturamento do mês atual (atendimentos + receitas manuais)
+    const faturamentoAtendimentos = atendimentos
       .filter(a => {
         const dataAtendimento = new Date(a.data);
         return dataAtendimento.getMonth() === mesAtual && 
@@ -142,7 +146,7 @@ export function useMobData() {
       })
       .reduce((total, a) => total + a.valor, 0);
 
-    const receitaManual = receitas
+    const faturamentoManual = receitas
       .filter(r => {
         const dataReceita = new Date(r.data);
         return dataReceita.getMonth() === mesAtual && 
@@ -150,7 +154,27 @@ export function useMobData() {
       })
       .reduce((total, r) => total + r.valor, 0);
 
-    const receitaMesAtual = receitaAtendimentos + receitaManual;
+    const faturamentoMesAtual = faturamentoAtendimentos + faturamentoManual;
+
+    // Faturamento do mês anterior
+    const faturamentoAtendimentosAnterior = atendimentos
+      .filter(a => {
+        const dataAtendimento = new Date(a.data);
+        return dataAtendimento.getMonth() === mesAnterior && 
+               dataAtendimento.getFullYear() === anoMesAnterior &&
+               a.status === 'realizado';
+      })
+      .reduce((total, a) => total + a.valor, 0);
+
+    const faturamentoManualAnterior = receitas
+      .filter(r => {
+        const dataReceita = new Date(r.data);
+        return dataReceita.getMonth() === mesAnterior && 
+               dataReceita.getFullYear() === anoMesAnterior;
+      })
+      .reduce((total, r) => total + r.valor, 0);
+
+    const faturamentoMesAnterior = faturamentoAtendimentosAnterior + faturamentoManualAnterior;
 
     // Despesas do mês atual
     const despesasMesAtual = despesas
@@ -161,13 +185,34 @@ export function useMobData() {
       })
       .reduce((total, d) => total + d.valor, 0);
 
+    // Despesas do mês anterior
+    const despesasMesAnterior = despesas
+      .filter(d => {
+        const dataDespesa = new Date(d.data);
+        return dataDespesa.getMonth() === mesAnterior && 
+               dataDespesa.getFullYear() === anoMesAnterior;
+      })
+      .reduce((total, d) => total + d.valor, 0);
+
+    // Calcular variações percentuais
+    const variacaoFaturamento = faturamentoMesAnterior === 0 ? 0 : 
+      ((faturamentoMesAtual - faturamentoMesAnterior) / faturamentoMesAnterior) * 100;
+    
+    const variacaoDespesas = despesasMesAnterior === 0 ? 0 : 
+      ((despesasMesAtual - despesasMesAnterior) / despesasMesAnterior) * 100;
+
+    const lucroAtual = faturamentoMesAtual - despesasMesAtual;
+    const lucroAnterior = faturamentoMesAnterior - despesasMesAnterior;
+    const variacaoLucro = lucroAnterior === 0 ? 0 : 
+      ((lucroAtual - lucroAnterior) / lucroAnterior) * 100;
+
     // Histórico dos últimos 6 meses
     const historicoMensal = [];
     for (let i = 5; i >= 0; i--) {
       const data = new Date(anoAtual, mesAtual - i, 1);
       const mes = data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
       
-      const receitaAtendimentosMes = atendimentos
+      const faturamentoAtendimentosMes = atendimentos
         .filter(a => {
           const dataAtendimento = new Date(a.data);
           return dataAtendimento.getMonth() === data.getMonth() && 
@@ -176,7 +221,7 @@ export function useMobData() {
         })
         .reduce((total, a) => total + a.valor, 0);
 
-      const receitaManualMes = receitas
+      const faturamentoManualMes = receitas
         .filter(r => {
           const dataReceita = new Date(r.data);
           return dataReceita.getMonth() === data.getMonth() && 
@@ -184,7 +229,7 @@ export function useMobData() {
         })
         .reduce((total, r) => total + r.valor, 0);
 
-      const receitaMes = receitaAtendimentosMes + receitaManualMes;
+      const faturamentoMes = faturamentoAtendimentosMes + faturamentoManualMes;
 
       const despesasMes = despesas
         .filter(d => {
@@ -196,38 +241,39 @@ export function useMobData() {
 
       historicoMensal.push({
         mes,
-        receita: receitaMes,
+        faturamento: faturamentoMes,
         despesas: despesasMes,
       });
     }
 
-    // Receita média mensal
-    const receitaMediaMensal = historicoMensal.length > 0 
-      ? historicoMensal.reduce((total, h) => total + h.receita, 0) / historicoMensal.length
+    // Faturamento média mensal
+    const faturamentoMediaMensal = historicoMensal.length > 0 
+      ? historicoMensal.reduce((total, h) => total + h.faturamento, 0) / historicoMensal.length
       : 0;
 
     // Projeção próximo mês (baseada na média das últimas 4 semanas)
     const ultimasQuatroSemanas = new Date();
     ultimasQuatroSemanas.setDate(ultimasQuatroSemanas.getDate() - 28);
     
-    const receitaUltimas4Semanas = atendimentos
+    const faturamentoUltimas4Semanas = atendimentos
       .filter(a => {
         const dataAtendimento = new Date(a.data);
         return dataAtendimento >= ultimasQuatroSemanas && a.status === 'realizado';
       })
       .reduce((total, a) => total + a.valor, 0);
 
-    const projecaoProximoMes = receitaUltimas4Semanas * (30 / 28);
+    const projecaoProximoMes = faturamentoUltimas4Semanas * (30 / 28);
 
     return {
-      receitaMesAtual,
-      receitaMediaMensal: historicoMensal.length > 0 
-        ? historicoMensal.reduce((total, h) => total + h.receita, 0) / historicoMensal.length
-        : 0,
-      projecaoProximoMes: (receitaAtendimentos + receitaManual) * (30 / 28),
-      lucroLiquido: receitaMesAtual - despesasMesAtual,
+      faturamentoMesAtual,
+      faturamentoMediaMensal,
+      projecaoProximoMes,
+      lucroLiquido: lucroAtual,
       totalDespesas: despesasMesAtual,
       historicoMensal,
+      variacaoFaturamento,
+      variacaoDespesas,
+      variacaoLucro,
     };
   };
 

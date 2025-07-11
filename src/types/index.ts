@@ -1,3 +1,4 @@
+
 export interface Cliente {
   id: string;
   nome: string;
@@ -7,6 +8,10 @@ export interface Cliente {
   ultimoAtendimento?: Date;
   recorrente?: boolean;
   recorrencia?: 'diaria' | 'semanal' | 'mensal';
+  agendamentoFixo?: {
+    dia: string;
+    hora: string;
+  };
   pacoteId?: string;
   tipoCobranca?: 'pacote' | 'variavel';
 }
@@ -32,6 +37,11 @@ export interface Despesa {
   categoria: CategoriaDespesa;
   tipo: 'fixa' | 'variavel';
   observacoes?: string;
+  recorrente?: boolean;
+  recorrencia?: {
+    tipo: 'diaria' | 'semanal' | 'mensal';
+    dia: number;
+  };
 }
 
 export interface Receita {
@@ -42,6 +52,11 @@ export interface Receita {
   categoria: CategoriaReceita;
   formaPagamento: FormaPagamento;
   observacoes?: string;
+  recorrente?: boolean;
+  recorrencia?: {
+    tipo: 'diaria' | 'semanal' | 'mensal';
+    dia: number;
+  };
 }
 
 export interface ServicoPacote {
@@ -54,16 +69,19 @@ export interface ServicoPacote {
 }
 
 export interface DadosFinanceiros {
-  receitaMesAtual: number;
-  receitaMediaMensal: number;
+  faturamentoMesAtual: number;
+  faturamentoMediaMensal: number;
   projecaoProximoMes: number;
   lucroLiquido: number;
   totalDespesas: number;
   historicoMensal: Array<{
     mes: string;
-    receita: number;
+    faturamento: number;
     despesas: number;
   }>;
+  variacaoFaturamento: number;
+  variacaoDespesas: number;
+  variacaoLucro: number;
 }
 
 export type FormaPagamento = 'dinheiro' | 'pix' | 'cartao_debito' | 'cartao_credito' | 'transferencia' | 'outro';
