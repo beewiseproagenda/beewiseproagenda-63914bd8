@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Users, Plus, Search, Phone, Mail, Calendar, Edit, Trash2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -250,22 +249,20 @@ export default function Clientes() {
 
               {formData.tipoCobranca === "pacote" && (
                 <div>
-                  <Label htmlFor="pacoteId">Pacote</Label>
+                  <Label htmlFor="pacoteId">Pacote ou Serviço</Label>
                   <Select
                     value={formData.pacoteId}
                     onValueChange={(value) => setFormData({ ...formData, pacoteId: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione um pacote" />
+                      <SelectValue placeholder="Selecione um pacote ou serviço" />
                     </SelectTrigger>
                     <SelectContent>
-                      {servicosPacotes
-                        .filter(sp => sp.tipo === 'pacote')
-                        .map((pacote) => (
-                          <SelectItem key={pacote.id} value={pacote.id}>
-                            {pacote.nome} - R$ {pacote.valor.toFixed(2)}
-                          </SelectItem>
-                        ))}
+                      {servicosPacotes.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.nome} - R$ {item.valor.toFixed(2)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
