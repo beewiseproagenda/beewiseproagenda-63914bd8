@@ -123,6 +123,7 @@ export function MonthlyCalendar({ atendimentos }: MonthlyCalendarProps) {
                       title={`${atendimento.hora} - ${atendimento.clienteNome} - ${atendimento.servico}`}
                     >
                       <div className="font-medium">{atendimento.hora}</div>
+                      <div className="truncate">{atendimento.clienteNome}</div>
                     </div>
                   ))}
                   {dayAtendimentos.length > 2 && (
