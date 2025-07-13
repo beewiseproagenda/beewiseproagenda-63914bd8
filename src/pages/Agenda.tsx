@@ -341,15 +341,29 @@ export default function Agenda() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            {atendimentos.map((atendimento) => (
-              <div key={atendimento.id} className="border rounded-md p-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold">{atendimento.clienteNome}</h3>
-                    <p className="text-sm text-muted-foreground">{atendimento.servico}</p>
-                  </div>
-                  <Badge variant="secondary">{atendimento.status}</Badge>
-                </div>
+            {atendimentos
+              .filter(atendimento => new Date(atendimento.data) >= new Date())
+              .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+              .slice(0, 10)
+              .map((atendimento) => {
+                const cliente = clientes.find(c => c.id === atendimento.clienteId);
+                return (
+                  <div key={atendimento.id} className="border rounded-md p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-lg font-semibold">
+                          {cliente ? cliente.nome : atendimento.clienteNome}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">{atendimento.servico}</p>
+                        {cliente && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">{cliente.telefone}</span>
+                          </div>
+                        )}
+                      </div>
+                      <Badge variant="secondary">{atendimento.status}</Badge>
+                    </div>
                 <div className="mt-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
@@ -374,8 +388,9 @@ export default function Agenda() {
                     Excluir
                   </Button>
                 </div>
-              </div>
-            ))}
+                  </div>
+                );
+              })}
           </div>
         </CardContent>
       </Card>

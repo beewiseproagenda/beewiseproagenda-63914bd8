@@ -13,7 +13,7 @@ import { Cliente } from "@/types";
 import { toast } from "sonner";
 
 export default function Clientes() {
-  const { clientes, servicosPacotes, adicionarCliente, atualizarCliente, removerCliente } = useMobData();
+  const { clientes, servicosPacotes, atendimentos, adicionarCliente, atualizarCliente, removerCliente } = useMobData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -384,6 +384,72 @@ export default function Clientes() {
           ))}
         </div>
       )}
+
+      {/* Estatísticas dos Clientes */}
+      <div className="grid gap-4 md:grid-cols-2 mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Clientes sem Agendamento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {clientes
+                .filter(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id))
+                .slice(0, 5)
+                .map(cliente => (
+                  <div key={cliente.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                    <span className="text-sm">{cliente.nome}</span>
+                    <Badge variant="outline" className="text-xs">
+                      {cliente.telefone}
+                    </Badge>
+                  </div>
+                ))}
+              {clientes.filter(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id)).length === 0 && (
+                <p className="text-sm text-muted-foreground">Todos os clientes têm agendamentos</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Top Clientes Ativos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {clientes
+                .map(cliente => {
+                  const agendamentos = atendimentos?.filter(atendimento => atendimento.clienteId === cliente.id) || [];
+                  const totalFaturamento = agendamentos.reduce((acc, atendimento) => acc + atendimento.valor, 0);
+                  return {
+                    ...cliente,
+                    totalAgendamentos: agendamentos.length,
+                    totalFaturamento
+                  };
+                })
+                .filter(cliente => cliente.totalAgendamentos > 0)
+                .sort((a, b) => b.totalFaturamento - a.totalFaturamento)
+                .slice(0, 5)
+                .map(cliente => (
+                  <div key={cliente.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{cliente.nome}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {cliente.totalAgendamentos} agendamentos
+                      </span>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      R$ {cliente.totalFaturamento.toFixed(2)}
+                    </Badge>
+                  </div>
+                ))}
+              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id)) && (
+                <p className="text-sm text-muted-foreground">Nenhum cliente com agendamentos ainda</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
