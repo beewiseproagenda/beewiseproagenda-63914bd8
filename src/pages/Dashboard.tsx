@@ -141,11 +141,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 text-primary">
                       <Clock className="h-4 w-4" />
-                      <span className="font-medium">{agendamento.hora}</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">{agendamento.clienteNome}</p>
-                      <p className="text-sm text-muted-foreground">{agendamento.servico}</p>
+                      <span className="font-medium">{agendamento.hora} - {agendamento.clienteNome} ({agendamento.servico})</span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -234,8 +230,7 @@ export default function Dashboard() {
                         }`}
                         title={`${agendamento.hora} - ${agendamento.clienteNome} - ${agendamento.servico} - ${agendamento.status}`}
                       >
-                        <div className="font-medium">{agendamento.hora}</div>
-                        <div className="truncate">{agendamento.clienteNome}</div>
+                        <div className="font-medium">{agendamento.hora} - {agendamento.clienteNome}</div>
                         {isPast && (
                           <Badge variant="outline" className="text-xs h-4">
                             {agendamento.status}
