@@ -70,6 +70,13 @@ export default function Dashboard() {
       return dataAtendimento.toDateString() === hoje.toDateString() && 
              a.status === 'agendado';
     })
+    .map(a => {
+      const cliente = clientes.find(c => c.id === a.clienteId);
+      return {
+        ...a,
+        clienteNome: cliente?.nome || 'Cliente não encontrado'
+      };
+    })
     .sort((a, b) => a.hora.localeCompare(b.hora));
 
   // Função para obter semana atual com offset
@@ -95,6 +102,12 @@ export default function Dashboard() {
     return atendimentos.filter(a => {
       const dataAtendimento = new Date(a.data);
       return dataAtendimento.toDateString() === data.toDateString();
+    }).map(a => {
+      const cliente = clientes.find(c => c.id === a.clienteId);
+      return {
+        ...a,
+        clienteNome: cliente?.nome || 'Cliente não encontrado'
+      };
     }).sort((a, b) => a.hora.localeCompare(b.hora));
   };
 

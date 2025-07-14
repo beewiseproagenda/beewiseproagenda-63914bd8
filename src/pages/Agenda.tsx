@@ -24,8 +24,7 @@ import { cn } from "@/lib/utils";
 const atendimentoSchema = z.object({
   data: z.date(),
   hora: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)"),
-  clienteId: z.string(),
-  clienteNome: z.string(),
+  clienteId: z.string().min(1, "Selecione um cliente"),
   servico: z.string(),
   valor: z.number().min(0.01, "Valor deve ser maior que zero"),
   formaPagamento: z.enum(['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'transferencia', 'outro']),
@@ -44,7 +43,6 @@ export default function Agenda() {
       data: new Date(),
       hora: "08:00",
       clienteId: "",
-      clienteNome: "",
       servico: "",
       valor: 0,
       formaPagamento: "pix",
@@ -65,7 +63,6 @@ export default function Agenda() {
       data: data.data,
       hora: data.hora,
       clienteId: data.clienteId,
-      clienteNome: data.clienteNome,
       servico: data.servico,
       valor: data.valor,
       formaPagamento: data.formaPagamento,
@@ -89,7 +86,6 @@ export default function Agenda() {
       data: new Date(atendimento.data),
       hora: atendimento.hora,
       clienteId: atendimento.clienteId,
-      clienteNome: atendimento.clienteNome,
       servico: atendimento.servico,
       valor: atendimento.valor,
       formaPagamento: atendimento.formaPagamento,
@@ -200,19 +196,6 @@ export default function Agenda() {
                   )}
                 />
 
-                <FormField
-                  control={atendimentoForm.control}
-                  name="clienteNome"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome do Cliente</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
                 <FormField
                   control={atendimentoForm.control}
@@ -333,7 +316,7 @@ export default function Agenda() {
       </div>
 
       {/* Calendário Mensal */}
-      <MonthlyCalendar atendimentos={atendimentos} />
+      <MonthlyCalendar atendimentos={atendimentos} clientes={clientes} />
 
       <Card className="bg-card border-border">
         <CardHeader className="flex items-center justify-between">

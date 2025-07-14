@@ -4,13 +4,14 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Atendimento } from '@/types';
+import { Atendimento, Cliente } from '@/types';
 
 interface MonthlyCalendarProps {
   atendimentos: Atendimento[];
+  clientes: Cliente[];
 }
 
-export function MonthlyCalendar({ atendimentos }: MonthlyCalendarProps) {
+export function MonthlyCalendar({ atendimentos, clientes }: MonthlyCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const getDaysInMonth = (date: Date) => {
@@ -40,6 +41,12 @@ export function MonthlyCalendar({ atendimentos }: MonthlyCalendarProps) {
     return atendimentos.filter(a => {
       const atendimentoDate = new Date(a.data);
       return atendimentoDate.toDateString() === date.toDateString();
+    }).map(a => {
+      const cliente = clientes.find(c => c.id === a.clienteId);
+      return {
+        ...a,
+        clienteNome: cliente?.nome || 'Cliente não encontrado'
+      };
     }).sort((a, b) => a.hora.localeCompare(b.hora));
   };
 
