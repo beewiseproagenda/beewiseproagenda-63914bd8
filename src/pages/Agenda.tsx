@@ -25,7 +25,7 @@ const atendimentoSchema = z.object({
   data: z.date(),
   hora: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)"),
   clienteId: z.string().min(1, "Selecione um cliente"),
-  servico: z.string(),
+  servicoId: z.string().min(1, "Selecione um serviço"),
   valor: z.number().min(0.01, "Valor deve ser maior que zero"),
   formaPagamento: z.enum(['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'transferencia', 'outro']),
   observacoes: z.string().optional(),
@@ -33,7 +33,7 @@ const atendimentoSchema = z.object({
 });
 
 export default function Agenda() {
-  const { atendimentos, clientes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useMobData();
+  const { atendimentos, clientes, servicosPacotes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useMobData();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingAtendimento, setEditingAtendimento] = useState<string | null>(null);
 
@@ -43,7 +43,7 @@ export default function Agenda() {
       data: new Date(),
       hora: "08:00",
       clienteId: "",
-      servico: "",
+      servicoId: "",
       valor: 0,
       formaPagamento: "pix",
       observacoes: "",
@@ -59,11 +59,12 @@ export default function Agenda() {
   };
 
   const onSubmit = (data: z.infer<typeof atendimentoSchema>) => {
+    const servicoSelecionado = servicosPacotes.find(s => s.id === data.servicoId);
     const atendimentoData = {
       data: data.data,
       hora: data.hora,
       clienteId: data.clienteId,
-      servico: data.servico,
+      servico: servicoSelecionado?.nome || "",
       valor: data.valor,
       formaPagamento: data.formaPagamento,
       observacoes: data.observacoes || "",
@@ -82,11 +83,12 @@ export default function Agenda() {
 
   const editAtendimento = (atendimento: any) => {
     setEditingAtendimento(atendimento.id);
+    const servicoOriginal = servicosPacotes.find(s => s.nome === atendimento.servico);
     atendimentoForm.reset({
       data: new Date(atendimento.data),
       hora: atendimento.hora,
       clienteId: atendimento.clienteId,
-      servico: atendimento.servico,
+      servicoId: servicoOriginal?.id || "",
       valor: atendimento.valor,
       formaPagamento: atendimento.formaPagamento,
       observacoes: atendimento.observacoes || "",
@@ -199,13 +201,33 @@ export default function Agenda() {
 
                 <FormField
                   control={atendimentoForm.control}
-                  name="servico"
+                  name="servicoId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Serviço</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
+                      <Select 
+                        onValueChange={(value) => {
+                          field.onChange(value);
+                          const servicoSelecionado = servicosPacotes.find(s => s.id === value);
+                          if (servicoSelecionado) {
+                            atendimentoForm.setValue('valor', servicoSelecionado.valor);
+                          }
+                        }} 
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um serviço ou pacote" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {servicosPacotes.map((servico) => (
+                            <SelectItem key={servico.id} value={servico.id}>
+                              {servico.nome} - R$ {servico.valor.toFixed(2)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

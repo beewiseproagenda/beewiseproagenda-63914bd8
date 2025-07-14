@@ -450,6 +450,88 @@ export default function Clientes() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Top 5 Clientes por Quantidade e Faturamento */}
+      <div className="grid gap-4 md:grid-cols-2 mt-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Top 5 - Quantidade de Consultas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {clientes
+                .map(cliente => {
+                  const consultasRealizadas = atendimentos?.filter(atendimento => 
+                    atendimento.clienteId === cliente.id && atendimento.status === 'realizado'
+                  ) || [];
+                  return {
+                    ...cliente,
+                    totalConsultas: consultasRealizadas.length
+                  };
+                })
+                .filter(cliente => cliente.totalConsultas > 0)
+                .sort((a, b) => b.totalConsultas - a.totalConsultas)
+                .slice(0, 5)
+                .map((cliente, index) => (
+                  <div key={cliente.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs w-6 h-6 rounded-full flex items-center justify-center p-0">
+                        {index + 1}
+                      </Badge>
+                      <span className="text-sm font-medium">{cliente.nome}</span>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {cliente.totalConsultas} consultas
+                    </Badge>
+                  </div>
+                ))}
+              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id && atendimento.status === 'realizado')) && (
+                <p className="text-sm text-muted-foreground">Nenhuma consulta realizada ainda</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Top 5 - Faturamento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {clientes
+                .map(cliente => {
+                  const consultasRealizadas = atendimentos?.filter(atendimento => 
+                    atendimento.clienteId === cliente.id && atendimento.status === 'realizado'
+                  ) || [];
+                  const totalFaturamento = consultasRealizadas.reduce((acc, atendimento) => acc + atendimento.valor, 0);
+                  return {
+                    ...cliente,
+                    totalFaturamento
+                  };
+                })
+                .filter(cliente => cliente.totalFaturamento > 0)
+                .sort((a, b) => b.totalFaturamento - a.totalFaturamento)
+                .slice(0, 5)
+                .map((cliente, index) => (
+                  <div key={cliente.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs w-6 h-6 rounded-full flex items-center justify-center p-0">
+                        {index + 1}
+                      </Badge>
+                      <span className="text-sm font-medium">{cliente.nome}</span>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      R$ {cliente.totalFaturamento.toFixed(2)}
+                    </Badge>
+                  </div>
+                ))}
+              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id && atendimento.status === 'realizado')) && (
+                <p className="text-sm text-muted-foreground">Nenhum faturamento registrado ainda</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
