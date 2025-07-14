@@ -3,8 +3,70 @@ import { Cliente, Atendimento, Despesa, Receita, DadosFinanceiros, ServicoPacote
 import { useLocalStorage } from './useLocalStorage';
 
 export function useMobData() {
-  const [clientes, setClientes] = useLocalStorage<Cliente[]>('mob-clientes', []);
-  const [atendimentos, setAtendimentos] = useLocalStorage<Atendimento[]>('mob-atendimentos', []);
+  // Dados de exemplo para demonstrar a funcionalidade
+  const dadosIniciais = {
+    clientes: [
+      {
+        id: '1',
+        nome: 'Maria Souza',
+        telefone: '(11) 99999-1111',
+        email: 'maria@email.com',
+        criadoEm: new Date('2024-01-15'),
+      },
+      {
+        id: '2',
+        nome: 'João Lima',
+        telefone: '(11) 99999-2222',
+        email: 'joao@email.com',
+        criadoEm: new Date('2024-02-10'),
+      },
+      {
+        id: '3',
+        nome: 'Ana Costa',
+        telefone: '(11) 99999-3333',
+        email: 'ana@email.com',
+        criadoEm: new Date('2024-03-05'),
+      }
+    ] as Cliente[],
+    atendimentos: [
+      {
+        id: '1',
+        data: new Date(),
+        hora: '22:00',
+        clienteId: '1',
+        clienteNome: 'Maria Souza',
+        servico: 'Unha',
+        valor: 50.00,
+        formaPagamento: 'pix' as const,
+        status: 'agendado' as const,
+      },
+      {
+        id: '2',
+        data: new Date(),
+        hora: '10:00',
+        clienteId: '2',
+        clienteNome: 'João Lima',
+        servico: 'Corte de cabelo',
+        valor: 35.00,
+        formaPagamento: 'dinheiro' as const,
+        status: 'agendado' as const,
+      },
+      {
+        id: '3',
+        data: new Date(Date.now() + 86400000), // amanhã
+        hora: '14:00',
+        clienteId: '3',
+        clienteNome: 'Ana Costa',
+        servico: 'Manicure',
+        valor: 40.00,
+        formaPagamento: 'cartao_credito' as const,
+        status: 'agendado' as const,
+      }
+    ] as Atendimento[]
+  };
+
+  const [clientes, setClientes] = useLocalStorage<Cliente[]>('mob-clientes', dadosIniciais.clientes);
+  const [atendimentos, setAtendimentos] = useLocalStorage<Atendimento[]>('mob-atendimentos', dadosIniciais.atendimentos);
   const [despesas, setDespesas] = useLocalStorage<Despesa[]>('mob-despesas', []);
   const [receitas, setReceitas] = useLocalStorage<Receita[]>('mob-receitas', []);
   const [servicosPacotes, setServicosPacotes] = useLocalStorage<ServicoPacote[]>('mob-servicos-pacotes', []);
