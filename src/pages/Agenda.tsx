@@ -36,6 +36,8 @@ export default function Agenda() {
   const { atendimentos, clientes, servicosPacotes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useBwData();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingAtendimento, setEditingAtendimento] = useState<string | null>(null);
+  const [dayDetailDialog, setDayDetailDialog] = useState(false);
+  const [selectedDayData, setSelectedDayData] = useState<{date: Date, atendimentos: any[]} | null>(null);
 
   const atendimentoForm = useForm<z.infer<typeof atendimentoSchema>>({
     resolver: zodResolver(atendimentoSchema),
@@ -95,6 +97,11 @@ export default function Agenda() {
       status: atendimento.status,
     });
     setOpenDialog(true);
+  };
+
+  const handleDayClick = (date: Date, atendimentos: any[]) => {
+    setSelectedDayData({ date, atendimentos });
+    setDayDetailDialog(true);
   };
 
   return (
@@ -338,19 +345,27 @@ export default function Agenda() {
       </div>
 
       {/* Calendário Mensal */}
-      <MonthlyCalendar atendimentos={atendimentos} clientes={clientes} />
+      <MonthlyCalendar 
+        atendimentos={atendimentos} 
+        clientes={clientes} 
+        onDayClick={handleDayClick}
+      />
 
-      <Card className="bg-card border-border">
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>Próximos Atendimentos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            {atendimentos
-              .filter(atendimento => new Date(atendimento.data) >= new Date())
-              .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
-              .slice(0, 10)
-              .map((atendimento) => {
+      {/* Dialog para visualizar/editar agendamentos do dia */}
+      <Dialog open={dayDetailDialog} onOpenChange={setDayDetailDialog}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Agendamentos do dia {selectedDayData?.date.toLocaleDateString('pt-BR')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedDayData?.atendimentos.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                Nenhum agendamento para este dia
+              </p>
+            ) : (
+              selectedDayData?.atendimentos.map((atendimento) => {
                 const cliente = clientes.find(c => c.id === atendimento.clienteId);
                 return (
                   <div key={atendimento.id} className="border rounded-md p-4">
@@ -369,36 +384,171 @@ export default function Agenda() {
                       </div>
                       <Badge variant="secondary">{atendimento.status}</Badge>
                     </div>
-                <div className="mt-2 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    {new Date(atendimento.data).toLocaleDateString('pt-BR')}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    {atendimento.hora}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    {formatCurrency(atendimento.valor)}
-                  </div>
-                </div>
-                <div className="flex justify-end mt-4 gap-2">
-                  <Button size="sm" variant="outline" onClick={() => editAtendimento(atendimento)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Editar
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => removerAtendimento(atendimento.id)}>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Excluir
-                  </Button>
-                </div>
+                    <div className="mt-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        {atendimento.hora}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        {formatCurrency(atendimento.valor)}
+                      </div>
+                    </div>
+                    <div className="flex justify-end mt-4 gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => {
+                          editAtendimento(atendimento);
+                          setDayDetailDialog(false);
+                        }}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Editar
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="destructive" 
+                        onClick={() => {
+                          removerAtendimento(atendimento.id);
+                          setDayDetailDialog(false);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Excluir
+                      </Button>
+                    </div>
                   </div>
                 );
-              })}
+              })
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Agendamentos Passados */}
+        <Card className="bg-card border-border">
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Agendamentos Passados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              {atendimentos
+                .filter(atendimento => new Date(atendimento.data) < new Date())
+                .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+                .slice(0, 10)
+                .map((atendimento) => {
+                  const cliente = clientes.find(c => c.id === atendimento.clienteId);
+                  return (
+                    <div key={atendimento.id} className="border rounded-md p-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="text-lg font-semibold">
+                            {cliente ? cliente.nome : atendimento.clienteNome}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{atendimento.servico}</p>
+                          {cliente && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Phone className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">{cliente.telefone}</span>
+                            </div>
+                          )}
+                        </div>
+                        <Badge variant="secondary">{atendimento.status}</Badge>
+                      </div>
+                      <div className="mt-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          {new Date(atendimento.data).toLocaleDateString('pt-BR')}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          {atendimento.hora}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4" />
+                          {formatCurrency(atendimento.valor)}
+                        </div>
+                      </div>
+                      <div className="flex justify-end mt-4 gap-2">
+                        <Button size="sm" variant="outline" onClick={() => editAtendimento(atendimento)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Editar
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => removerAtendimento(atendimento.id)}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Próximos Atendimentos */}
+        <Card className="bg-card border-border">
+          <CardHeader className="flex items-center justify-between">
+            <CardTitle>Próximos Atendimentos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4">
+              {atendimentos
+                .filter(atendimento => new Date(atendimento.data) >= new Date())
+                .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+                .slice(0, 10)
+                .map((atendimento) => {
+                  const cliente = clientes.find(c => c.id === atendimento.clienteId);
+                  return (
+                    <div key={atendimento.id} className="border rounded-md p-4">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="text-lg font-semibold">
+                            {cliente ? cliente.nome : atendimento.clienteNome}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{atendimento.servico}</p>
+                          {cliente && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Phone className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">{cliente.telefone}</span>
+                            </div>
+                          )}
+                        </div>
+                        <Badge variant="secondary">{atendimento.status}</Badge>
+                      </div>
+                      <div className="mt-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          {new Date(atendimento.data).toLocaleDateString('pt-BR')}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          {atendimento.hora}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <DollarSign className="h-4 w-4" />
+                          {formatCurrency(atendimento.valor)}
+                        </div>
+                      </div>
+                      <div className="flex justify-end mt-4 gap-2">
+                        <Button size="sm" variant="outline" onClick={() => editAtendimento(atendimento)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Editar
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => removerAtendimento(atendimento.id)}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Excluir
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

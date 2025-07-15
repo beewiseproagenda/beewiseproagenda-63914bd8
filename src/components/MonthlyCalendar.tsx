@@ -9,9 +9,10 @@ import { Atendimento, Cliente } from '@/types';
 interface MonthlyCalendarProps {
   atendimentos: Atendimento[];
   clientes: Cliente[];
+  onDayClick?: (date: Date, atendimentos: any[]) => void;
 }
 
-export function MonthlyCalendar({ atendimentos, clientes }: MonthlyCalendarProps) {
+export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const getDaysInMonth = (date: Date) => {
@@ -106,6 +107,7 @@ export function MonthlyCalendar({ atendimentos, clientes }: MonthlyCalendarProps
                     ? 'calendar-day-box border-muted/30'
                     : 'calendar-day-box border-border hover:bg-muted/20'
                 }`}
+                onClick={() => onDayClick?.(day, dayAtendimentos)}
               >
                 <div className="text-center mb-1">
                   <span className={`text-sm font-medium ${
@@ -115,7 +117,7 @@ export function MonthlyCalendar({ atendimentos, clientes }: MonthlyCalendarProps
                   </span>
                 </div>
                 <div className="space-y-1">
-                  {dayAtendimentos.slice(0, 2).map((atendimento) => (
+                  {dayAtendimentos.map((atendimento) => (
                     <div
                       key={atendimento.id}
                       className={`text-xs p-1 rounded truncate ${
@@ -133,11 +135,6 @@ export function MonthlyCalendar({ atendimentos, clientes }: MonthlyCalendarProps
                       <div className="truncate">{atendimento.clienteNome}</div>
                     </div>
                   ))}
-                  {dayAtendimentos.length > 2 && (
-                    <div className="text-xs text-muted-foreground text-center">
-                      +{dayAtendimentos.length - 2} mais
-                    </div>
-                  )}
                 </div>
               </div>
             );
