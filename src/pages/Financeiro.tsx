@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FinancialChart } from "@/components/FinancialChart";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useMobData } from "@/hooks/useMobData";
+import { useBwData } from "@/hooks/useBwData";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -50,7 +50,7 @@ const despesaSchema = z.object({
 });
 
 export default function Financeiro() {
-  const { receitas, despesas, dadosFinanceiros, adicionarReceita, atualizarReceita, removerReceita, adicionarDespesa, atualizarDespesa, removerDespesa } = useMobData();
+  const { receitas, despesas, dadosFinanceiros, adicionarReceita, atualizarReceita, removerReceita, adicionarDespesa, atualizarDespesa, removerDespesa } = useBwData();
   const [openReceitaDialog, setOpenReceitaDialog] = useState(false);
   const [openDespesaDialog, setOpenDespesaDialog] = useState(false);
   const [editingReceita, setEditingReceita] = useState<string | null>(null);

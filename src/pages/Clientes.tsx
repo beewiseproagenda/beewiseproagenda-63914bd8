@@ -8,12 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useMobData } from "@/hooks/useMobData";
+import { useBwData } from "@/hooks/useBwData";
 import { Cliente } from "@/types";
 import { toast } from "sonner";
 
 export default function Clientes() {
-  const { clientes, servicosPacotes, atendimentos, adicionarCliente, atualizarCliente, removerCliente } = useMobData();
+  const { clientes, servicosPacotes, atendimentos, adicionarCliente, atualizarCliente, removerCliente } = useBwData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState("");

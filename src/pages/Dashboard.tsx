@@ -5,11 +5,11 @@ import { FinancialChart } from "@/components/FinancialChart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useMobData } from "@/hooks/useMobData";
+import { useBwData } from "@/hooks/useBwData";
 import { useState } from "react";
 
 export default function Dashboard() {
-  const { dadosFinanceiros, atendimentos, clientes } = useMobData();
+  const { dadosFinanceiros, atendimentos, clientes } = useBwData();
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
 
   const formatCurrency = (value: number) => {

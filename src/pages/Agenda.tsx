@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { MonthlyCalendar } from "@/components/MonthlyCalendar";
-import { useMobData } from "@/hooks/useMobData";
+import { useBwData } from "@/hooks/useBwData";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,7 +33,7 @@ const atendimentoSchema = z.object({
 });
 
 export default function Agenda() {
-  const { atendimentos, clientes, servicosPacotes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useMobData();
+  const { atendimentos, clientes, servicosPacotes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useBwData();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingAtendimento, setEditingAtendimento] = useState<string | null>(null);
 

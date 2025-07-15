@@ -63,17 +63,17 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				'mob-dark': {
+				'bw-dark': {
 					'900': '#0a0a0a',
 					'800': '#1a1a1a',
 					'700': '#2a2a2a',
 					'600': '#3a3a3a',
 					'500': '#4a4a4a',
 				},
-				'mob-accent': {
-					'500': '#6366f1',
-					'600': '#4f46e5',
-					'700': '#4338ca',
+				'bw-accent': {
+					'500': '#FFD700',
+					'600': '#FFC107',
+					'700': '#FF8F00',
 				}
 			},
 			borderRadius: {

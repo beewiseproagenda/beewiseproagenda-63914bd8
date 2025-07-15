@@ -8,12 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useMobData } from '@/hooks/useMobData';
+import { useBwData } from '@/hooks/useBwData';
 import { ServicoPacote } from '@/types';
 import { toast } from "sonner";
 
 export default function ServicosPacotes() {
-  const { servicosPacotes, adicionarServicoPacote, atualizarServicoPacote, removerServicoPacote } = useMobData();
+  const { servicosPacotes, adicionarServicoPacote, atualizarServicoPacote, removerServicoPacote } = useBwData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ServicoPacote | null>(null);
   const [searchTerm, setSearchTerm] = useState('');

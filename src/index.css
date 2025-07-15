@@ -9,52 +9,52 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 20% 88%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 48 100% 96%;
+    --foreground: 0 0% 9%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 9%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 9%;
 
-    --primary: 174 62% 47%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 48 100% 50%;
+    --primary-foreground: 0 0% 9%;
 
-    --secondary: 266 85% 80%;
-    --secondary-foreground: 222.2 84% 4.9%;
+    --secondary: 48 100% 88%;
+    --secondary-foreground: 0 0% 9%;
 
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 48 100% 94%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 291 64% 88%;
-    --accent-foreground: 222.2 84% 4.9%;
+    --accent: 48 100% 85%;
+    --accent-foreground: 0 0% 9%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 174 62% 47%;
+    --border: 48 100% 90%;
+    --input: 48 100% 90%;
+    --ring: 48 100% 50%;
 
     --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 222.2 84% 4.9%;
-    --sidebar-primary: 174 62% 47%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 210 40% 96%;
-    --sidebar-accent-foreground: 222.2 84% 4.9%;
-    --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-ring: 174 62% 47%;
+    --sidebar-foreground: 0 0% 9%;
+    --sidebar-primary: 48 100% 50%;
+    --sidebar-primary-foreground: 0 0% 9%;
+    --sidebar-accent: 48 100% 94%;
+    --sidebar-accent-foreground: 0 0% 9%;
+    --sidebar-border: 48 100% 90%;
+    --sidebar-ring: 48 100% 50%;
 
     /* Calendar day box color - darker than background */
-    --calendar-day-bg: 210 20% 78%;
+    --calendar-day-bg: 48 100% 86%;
 
     /* Financial chart colors */
-    --chart-faturamento: 174 62% 47%; /* Verde água */
-    --chart-lucro: 142 76% 36%; /* Verde escuro forte */
-    --chart-despesas: 14 83% 73%; /* Salmão */
+    --chart-faturamento: 48 100% 50%; /* Amarelo principal */
+    --chart-lucro: 48 100% 40%; /* Amarelo escuro */
+    --chart-despesas: 48 100% 70%; /* Amarelo claro */
   }
 }
 
@@ -88,53 +88,53 @@ All colors MUST be HSL.
     border-radius: 3px;
   }
 
-  /* Cores pastéis personalizadas */
+  /* Cores pastéis personalizadas - Paleta Amarela */
   .bg-teal-pastel {
-    background-color: hsl(174, 62%, 95%);
+    background-color: hsl(48, 100%, 95%);
   }
   
   .bg-purple-pastel {
-    background-color: hsl(291, 64%, 95%);
+    background-color: hsl(48, 100%, 92%);
   }
   
   .bg-salmon-pastel {
-    background-color: hsl(14, 83%, 95%);
+    background-color: hsl(48, 100%, 88%);
   }
   
   .bg-green-pastel {
-    background-color: hsl(142, 76%, 95%);
+    background-color: hsl(48, 100%, 90%);
   }
   
   .text-teal-600 {
-    color: hsl(174, 62%, 35%);
+    color: hsl(48, 100%, 35%);
   }
   
   .text-purple-600 {
-    color: hsl(291, 64%, 45%);
+    color: hsl(48, 100%, 40%);
   }
   
   .text-salmon-600 {
-    color: hsl(14, 83%, 45%);
+    color: hsl(48, 100%, 45%);
   }
   
   .text-green-700 {
-    color: hsl(142, 76%, 30%);
+    color: hsl(48, 100%, 30%);
   }
   
   .border-teal-200 {
-    border-color: hsl(174, 62%, 85%);
+    border-color: hsl(48, 100%, 85%);
   }
   
   .border-purple-200 {
-    border-color: hsl(291, 64%, 85%);
+    border-color: hsl(48, 100%, 82%);
   }
   
   .border-salmon-200 {
-    border-color: hsl(14, 83%, 85%);
+    border-color: hsl(48, 100%, 80%);
   }
   
   .border-green-200 {
-    border-color: hsl(142, 76%, 85%);
+    border-color: hsl(48, 100%, 78%);
   }
 
   /* Calendar day box styling */
@@ -149,5 +149,9 @@ All colors MUST be HSL.
   
   .text-chart-lucro {
     color: hsl(var(--chart-lucro));
+  }
+  
+  .text-chart-despesas {
+    color: hsl(var(--chart-despesas));
   }
 }

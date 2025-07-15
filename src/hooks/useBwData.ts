@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { Cliente, Atendimento, Despesa, Receita, DadosFinanceiros, ServicoPacote } from '@/types';
 import { useLocalStorage } from './useLocalStorage';
 
-export function useMobData() {
-  const [clientes, setClientes] = useLocalStorage<Cliente[]>('mob-clientes', []);
-  const [atendimentos, setAtendimentos] = useLocalStorage<Atendimento[]>('mob-atendimentos', []);
-  const [despesas, setDespesas] = useLocalStorage<Despesa[]>('mob-despesas', []);
-  const [receitas, setReceitas] = useLocalStorage<Receita[]>('mob-receitas', []);
-  const [servicosPacotes, setServicosPacotes] = useLocalStorage<ServicoPacote[]>('mob-servicos-pacotes', []);
+export function useBwData() {
+  const [clientes, setClientes] = useLocalStorage<Cliente[]>('bw-clientes', []);
+  const [atendimentos, setAtendimentos] = useLocalStorage<Atendimento[]>('bw-atendimentos', []);
+  const [despesas, setDespesas] = useLocalStorage<Despesa[]>('bw-despesas', []);
+  const [receitas, setReceitas] = useLocalStorage<Receita[]>('bw-receitas', []);
+  const [servicosPacotes, setServicosPacotes] = useLocalStorage<ServicoPacote[]>('bw-servicos-pacotes', []);
 
   // Funções para clientes
   const adicionarCliente = (cliente: Omit<Cliente, 'id' | 'criadoEm'>) => {
