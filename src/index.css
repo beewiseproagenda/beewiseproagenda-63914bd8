@@ -52,9 +52,9 @@ All colors MUST be HSL.
     --calendar-day-bg: 0 0% 86%;
 
     /* Financial chart colors */
-    --chart-faturamento: 48 100% 50%; /* Amarelo principal */
-    --chart-lucro: 48 100% 40%; /* Amarelo escuro */
-    --chart-despesas: 48 100% 70%; /* Amarelo claro */
+    --chart-faturamento: 197 71% 73%; /* Azul claro - skyblue */
+    --chart-despesas: 0 79% 72%; /* Vermelho claro - lightcoral */
+    --chart-lucro: 120 73% 75%; /* Verde claro - lightgreen */
   }
 }
 

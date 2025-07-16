@@ -2,6 +2,7 @@
 import { DollarSign, TrendingUp, Calendar, Users, Target, PiggyBank, ChevronLeft, ChevronRight, Clock, BarChart3 } from "lucide-react";
 import { DashboardCard } from "@/components/DashboardCard";
 import { FinancialChart } from "@/components/FinancialChart";
+import { DayAppointmentsModal } from "@/components/DayAppointmentsModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,8 @@ import { useState } from "react";
 export default function Dashboard() {
   const { dadosFinanceiros, atendimentos, clientes } = useBwData();
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedAppointments, setSelectedAppointments] = useState<any[]>([]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -67,8 +70,7 @@ export default function Dashboard() {
   const agendamentosHoje = atendimentos
     .filter(a => {
       const dataAtendimento = new Date(a.data);
-      return dataAtendimento.toDateString() === hoje.toDateString() && 
-             a.status === 'agendado';
+      return dataAtendimento.toDateString() === hoje.toDateString();
     })
     .map(a => {
       const cliente = clientes.find(c => c.id === a.clienteId);
@@ -116,6 +118,12 @@ export default function Dashboard() {
     return data < hoje;
   };
 
+  // Função para abrir modal de agendamentos do dia
+  const handleDayClick = (date: Date, appointments: any[]) => {
+    setSelectedDate(date);
+    setSelectedAppointments(appointments);
+  };
+
   return (
     <div className="space-y-4 p-4">
       {/* Header */}
@@ -150,14 +158,41 @@ export default function Dashboard() {
           <div className="space-y-2">
             {agendamentosHoje.length > 0 ? (
               agendamentosHoje.map((agendamento) => (
-                <div key={agendamento.id} className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/10">
+                <div 
+                  key={agendamento.id} 
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    agendamento.status === 'realizado'
+                      ? 'bg-green-50 border-green-200'
+                      : agendamento.status === 'cancelado'
+                      ? 'bg-red-50 border-red-200'
+                      : 'bg-primary/5 border-primary/10'
+                  }`}
+                >
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 text-primary">
                       <Clock className="h-4 w-4" />
-                      <span className="font-medium">{agendamento.hora} - {agendamento.clienteNome} ({agendamento.servico})</span>
+                      <div>
+                         <span className="font-medium">{agendamento.hora} - {agendamento.clienteNome}</span>
+                         <p className="text-sm text-muted-foreground">{agendamento.servico}</p>
+                         {agendamento.observacoes && (
+                           <p className="text-xs text-muted-foreground">{agendamento.observacoes}</p>
+                         )}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">
+                    <Badge 
+                      variant={
+                        agendamento.status === 'realizado' ? 'default' : 
+                        agendamento.status === 'cancelado' ? 'destructive' : 
+                        'secondary'
+                      }
+                      className="mb-1"
+                    >
+                      {agendamento.status === 'realizado' ? 'Realizado' : 
+                       agendamento.status === 'cancelado' ? 'Cancelado' : 
+                       'Agendado'}
+                    </Badge>
                     <p className="font-medium text-foreground">{formatCurrency(agendamento.valor)}</p>
                     <p className="text-xs text-muted-foreground">{agendamento.formaPagamento}</p>
                   </div>
@@ -219,6 +254,7 @@ export default function Dashboard() {
                       ? 'calendar-day-box border-muted/30'
                       : 'calendar-day-box border-border hover:bg-muted/20'
                   }`}
+                  onClick={() => handleDayClick(day, agendamentosDoDia)}
                 >
                   <div className="text-center mb-2">
                     <p className="text-xs text-muted-foreground">{diasSemana[index]}</p>
@@ -243,12 +279,8 @@ export default function Dashboard() {
                         }`}
                         title={`${agendamento.hora} - ${agendamento.clienteNome} - ${agendamento.servico} - ${agendamento.status}`}
                       >
-                        <div className="font-medium">{agendamento.hora} - {agendamento.clienteNome}</div>
-                        {isPast && (
-                          <Badge variant="outline" className="text-xs h-4">
-                            {agendamento.status}
-                          </Badge>
-                        )}
+                        <div className="font-medium">{agendamento.hora}</div>
+                        <div className="truncate">{agendamento.clienteNome}</div>
                       </div>
                     ))}
                     {agendamentosDoDia.length > 3 && (
@@ -350,6 +382,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de agendamentos do dia */}
+      <DayAppointmentsModal
+        open={selectedDate !== null}
+        onOpenChange={(open) => !open && setSelectedDate(null)}
+        date={selectedDate || new Date()}
+        appointments={selectedAppointments}
+      />
     </div>
   );
 }

@@ -118,22 +118,22 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
                 </div>
                 <div className="space-y-1">
                   {dayAtendimentos.map((atendimento) => (
-                    <div
-                      key={atendimento.id}
-                      className={`text-xs p-1 rounded truncate ${
-                        isPast 
-                          ? 'bg-muted/30 text-muted-foreground' 
-                          : atendimento.status === 'realizado'
-                          ? 'bg-green-100 text-green-700'
-                          : atendimento.status === 'cancelado'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-primary/20 text-primary'
-                      }`}
-                      title={`${atendimento.hora} - ${atendimento.clienteNome} - ${atendimento.servico}`}
-                    >
-                      <div className="font-medium">{atendimento.hora}</div>
-                      <div className="truncate">{atendimento.clienteNome}</div>
-                    </div>
+                      <div
+                        key={atendimento.id}
+                        className={`text-xs p-1 rounded truncate ${
+                          isPast 
+                            ? 'bg-muted/30 text-muted-foreground' 
+                            : atendimento.status === 'realizado'
+                            ? 'bg-green-100 text-green-700'
+                            : atendimento.status === 'cancelado'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-primary/20 text-primary'
+                        }`}
+                        title={`${atendimento.hora} - ${atendimento.clienteNome} - ${atendimento.servico}`}
+                      >
+                        <div className="font-medium">{atendimento.hora}</div>
+                        <div className="truncate">{atendimento.clienteNome}</div>
+                      </div>
                   ))}
                 </div>
               </div>
