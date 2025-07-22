@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useBwData } from "@/hooks/useBwData";
 import { Cliente } from "@/types";
 import { toast } from "sonner";
@@ -18,10 +19,42 @@ export default function Clientes() {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const buscarEnderecoPorCep = async (cep: string) => {
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          endereco: {
+            ...prev.endereco,
+            rua: data.logradouro || prev.endereco.rua,
+            bairro: data.bairro || prev.endereco.bairro,
+            cidade: data.localidade || prev.endereco.cidade,
+            estado: data.uf || prev.endereco.estado,
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+    }
+  };
+
   const [formData, setFormData] = useState({
     nome: "",
     telefone: "",
     email: "",
+    tipoPessoa: "cpf" as "cpf" | "cnpj",
+    endereco: {
+      cep: "",
+      rua: "",
+      numero: "",
+      complemento: "",
+      bairro: "",
+      cidade: "",
+      estado: "",
+    },
     recorrente: false,
     recorrencia: "semanal" as "diaria" | "semanal" | "mensal",
     agendamentoFixo: {
@@ -37,6 +70,16 @@ export default function Clientes() {
       nome: "",
       telefone: "",
       email: "",
+      tipoPessoa: "cpf",
+      endereco: {
+        cep: "",
+        rua: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+      },
       recorrente: false,
       recorrencia: "semanal",
       agendamentoFixo: {
@@ -63,10 +106,42 @@ export default function Clientes() {
       return;
     }
 
+    if (!formData.endereco.cep.trim()) {
+      toast.error("CEP é obrigatório");
+      return;
+    }
+
+    if (!formData.endereco.rua.trim()) {
+      toast.error("Rua é obrigatória");
+      return;
+    }
+
+    if (!formData.endereco.numero.trim()) {
+      toast.error("Número é obrigatório");
+      return;
+    }
+
+    if (!formData.endereco.bairro.trim()) {
+      toast.error("Bairro é obrigatório");
+      return;
+    }
+
+    if (!formData.endereco.cidade.trim()) {
+      toast.error("Cidade é obrigatória");
+      return;
+    }
+
+    if (!formData.endereco.estado.trim()) {
+      toast.error("Estado é obrigatório");
+      return;
+    }
+
     const clienteData = {
       nome: formData.nome,
       telefone: formData.telefone,
       email: formData.email,
+      tipoPessoa: formData.tipoPessoa,
+      endereco: formData.endereco,
       recorrente: formData.recorrente,
       recorrencia: formData.recorrente ? formData.recorrencia : undefined,
       agendamentoFixo: formData.recorrente && formData.agendamentoFixo.dia && formData.agendamentoFixo.hora 
@@ -93,6 +168,16 @@ export default function Clientes() {
       nome: cliente.nome,
       telefone: cliente.telefone,
       email: cliente.email || "",
+      tipoPessoa: cliente.tipoPessoa || "cpf",
+      endereco: cliente.endereco || {
+        cep: "",
+        rua: "",
+        numero: "",
+        complemento: "",
+        bairro: "",
+        cidade: "",
+        estado: "",
+      },
       recorrente: cliente.recorrente || false,
       recorrencia: cliente.recorrencia || "semanal",
       agendamentoFixo: cliente.agendamentoFixo || { dia: "", hora: "" },
@@ -129,7 +214,7 @@ export default function Clientes() {
               Novo Cliente
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -168,6 +253,138 @@ export default function Clientes() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="cliente@email.com"
                 />
+              </div>
+
+              <div>
+                <Label>Tipo de Pessoa *</Label>
+                <RadioGroup
+                  value={formData.tipoPessoa}
+                  onValueChange={(value: "cpf" | "cnpj") => setFormData({ ...formData, tipoPessoa: value })}
+                  className="flex gap-6 mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="cpf" id="cpf" />
+                    <Label htmlFor="cpf">CPF</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="cnpj" id="cnpj" />
+                    <Label htmlFor="cnpj">CNPJ</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="text-lg font-medium mb-4">Endereço</h3>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label htmlFor="cep">CEP *</Label>
+                    <Input
+                      id="cep"
+                      value={formData.endereco.cep}
+                      onChange={(e) => {
+                        const cep = e.target.value.replace(/\D/g, '').slice(0, 8);
+                        setFormData({ 
+                          ...formData, 
+                          endereco: { ...formData.endereco, cep: cep }
+                        });
+                        
+                        if (cep.length === 8) {
+                          buscarEnderecoPorCep(cep);
+                        }
+                      }}
+                      placeholder="00000-000"
+                      maxLength={8}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="numero">Número *</Label>
+                    <Input
+                      id="numero"
+                      value={formData.endereco.numero}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        endereco: { ...formData.endereco, numero: e.target.value }
+                      })}
+                      placeholder="123"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <Label htmlFor="rua">Rua *</Label>
+                  <Input
+                    id="rua"
+                    value={formData.endereco.rua}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      endereco: { ...formData.endereco, rua: e.target.value }
+                    })}
+                    placeholder="Rua das Flores"
+                    required
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <Label htmlFor="complemento">Complemento</Label>
+                  <Input
+                    id="complemento"
+                    value={formData.endereco.complemento}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      endereco: { ...formData.endereco, complemento: e.target.value }
+                    })}
+                    placeholder="Apto 101, Bloco A"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label htmlFor="bairro">Bairro *</Label>
+                    <Input
+                      id="bairro"
+                      value={formData.endereco.bairro}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        endereco: { ...formData.endereco, bairro: e.target.value }
+                      })}
+                      placeholder="Centro"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="estado">Estado *</Label>
+                    <Input
+                      id="estado"
+                      value={formData.endereco.estado}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        endereco: { ...formData.endereco, estado: e.target.value }
+                      })}
+                      placeholder="SP"
+                      maxLength={2}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <Label htmlFor="cidade">Cidade *</Label>
+                  <Input
+                    id="cidade"
+                    value={formData.endereco.cidade}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      endereco: { ...formData.endereco, cidade: e.target.value }
+                    })}
+                    placeholder="São Paulo"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="flex items-center space-x-2">

@@ -4,6 +4,16 @@ export interface Cliente {
   nome: string;
   telefone: string;
   email: string;
+  tipoPessoa: 'cpf' | 'cnpj';
+  endereco: {
+    cep: string;
+    rua: string;
+    numero: string;
+    complemento: string;
+    bairro: string;
+    cidade: string;
+    estado: string;
+  };
   criadoEm: Date;
   ultimoAtendimento?: Date;
   recorrente?: boolean;
