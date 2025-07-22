@@ -46,6 +46,7 @@ export default function Clientes() {
     telefone: "",
     email: "",
     tipoPessoa: "cpf" as "cpf" | "cnpj",
+    cpfCnpj: "",
     endereco: {
       cep: "",
       rua: "",
@@ -71,6 +72,7 @@ export default function Clientes() {
       telefone: "",
       email: "",
       tipoPessoa: "cpf",
+      cpfCnpj: "",
       endereco: {
         cep: "",
         rua: "",
@@ -103,6 +105,11 @@ export default function Clientes() {
 
     if (!formData.telefone.trim()) {
       toast.error("Telefone é obrigatório");
+      return;
+    }
+
+    if (!formData.cpfCnpj.trim()) {
+      toast.error(`${formData.tipoPessoa.toUpperCase()} é obrigatório`);
       return;
     }
 
@@ -141,6 +148,7 @@ export default function Clientes() {
       telefone: formData.telefone,
       email: formData.email,
       tipoPessoa: formData.tipoPessoa,
+      cpfCnpj: formData.cpfCnpj,
       endereco: formData.endereco,
       recorrente: formData.recorrente,
       recorrencia: formData.recorrente ? formData.recorrencia : undefined,
@@ -169,6 +177,7 @@ export default function Clientes() {
       telefone: cliente.telefone,
       email: cliente.email || "",
       tipoPessoa: cliente.tipoPessoa || "cpf",
+      cpfCnpj: cliente.cpfCnpj || "",
       endereco: cliente.endereco || {
         cep: "",
         rua: "",
@@ -255,22 +264,42 @@ export default function Clientes() {
                 />
               </div>
 
-              <div>
-                <Label>Tipo de Pessoa *</Label>
-                <RadioGroup
-                  value={formData.tipoPessoa}
-                  onValueChange={(value: "cpf" | "cnpj") => setFormData({ ...formData, tipoPessoa: value })}
-                  className="flex gap-6 mt-2"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="cpf" id="cpf" />
-                    <Label htmlFor="cpf">CPF</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="cnpj" id="cnpj" />
-                    <Label htmlFor="cnpj">CNPJ</Label>
-                  </div>
-                </RadioGroup>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Tipo de Pessoa *</Label>
+                  <RadioGroup
+                    value={formData.tipoPessoa}
+                    onValueChange={(value: "cpf" | "cnpj") => {
+                      setFormData({ ...formData, tipoPessoa: value, cpfCnpj: "" });
+                    }}
+                    className="flex gap-6 mt-2"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="cpf" id="cpf" />
+                      <Label htmlFor="cpf">CPF</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="cnpj" id="cnpj" />
+                      <Label htmlFor="cnpj">CNPJ</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div>
+                  <Label htmlFor="cpfCnpj">{formData.tipoPessoa.toUpperCase()} *</Label>
+                  <Input
+                    id="cpfCnpj"
+                    value={formData.cpfCnpj}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      const maxLength = formData.tipoPessoa === 'cpf' ? 11 : 14;
+                      setFormData({ ...formData, cpfCnpj: value.slice(0, maxLength) });
+                    }}
+                    placeholder={formData.tipoPessoa === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'}
+                    maxLength={formData.tipoPessoa === 'cpf' ? 11 : 14}
+                    required
+                  />
+                </div>
               </div>
 
               <div className="border-t pt-4">
