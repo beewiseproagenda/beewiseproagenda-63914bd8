@@ -136,32 +136,27 @@ export function useBwData() {
     const agora = new Date();
     const mesAtual = agora.getMonth();
     const anoAtual = agora.getFullYear();
+    const ultimoDiaMesAtual = new Date(anoAtual, mesAtual + 1, 0);
 
     // Mês anterior
     const mesAnterior = mesAtual === 0 ? 11 : mesAtual - 1;
     const anoMesAnterior = mesAtual === 0 ? anoAtual - 1 : anoAtual;
 
-    // Faturamento do mês atual (atendimentos + receitas manuais)
+    // Faturamento do mês atual (apenas agendamentos realizados até o último dia do mês atual)
     const faturamentoAtendimentos = atendimentos
       .filter(a => {
         const dataAtendimento = new Date(a.data);
         return dataAtendimento.getMonth() === mesAtual && 
                dataAtendimento.getFullYear() === anoAtual &&
-               a.status === 'realizado';
+               a.status === 'realizado' &&
+               dataAtendimento <= ultimoDiaMesAtual;
       })
       .reduce((total, a) => total + a.valor, 0);
 
-    const faturamentoManual = receitas
-      .filter(r => {
-        const dataReceita = new Date(r.data);
-        return dataReceita.getMonth() === mesAtual && 
-               dataReceita.getFullYear() === anoAtual;
-      })
-      .reduce((total, r) => total + r.valor, 0);
+    // Não consideramos mais receitas manuais, apenas agendamentos
+    const faturamentoMesAtual = faturamentoAtendimentos;
 
-    const faturamentoMesAtual = faturamentoAtendimentos + faturamentoManual;
-
-    // Faturamento do mês anterior
+    // Faturamento do mês anterior (apenas agendamentos realizados)
     const faturamentoAtendimentosAnterior = atendimentos
       .filter(a => {
         const dataAtendimento = new Date(a.data);
@@ -171,15 +166,7 @@ export function useBwData() {
       })
       .reduce((total, a) => total + a.valor, 0);
 
-    const faturamentoManualAnterior = receitas
-      .filter(r => {
-        const dataReceita = new Date(r.data);
-        return dataReceita.getMonth() === mesAnterior && 
-               dataReceita.getFullYear() === anoMesAnterior;
-      })
-      .reduce((total, r) => total + r.valor, 0);
-
-    const faturamentoMesAnterior = faturamentoAtendimentosAnterior + faturamentoManualAnterior;
+    const faturamentoMesAnterior = faturamentoAtendimentosAnterior;
 
     // Despesas do mês atual
     const despesasMesAtual = despesas
@@ -211,30 +198,34 @@ export function useBwData() {
     const variacaoLucro = lucroAnterior === 0 ? 0 : 
       ((lucroAtual - lucroAnterior) / lucroAnterior) * 100;
 
-    // Histórico dos últimos 6 meses
+    // Histórico dos últimos 6 meses + próximos 6 meses (para mostrar realizado vs agendado)
     const historicoMensal = [];
+    
+    // Últimos 6 meses (dados realizados)
     for (let i = 5; i >= 0; i--) {
       const data = new Date(anoAtual, mesAtual - i, 1);
+      const ultimoDiaMes = new Date(data.getFullYear(), data.getMonth() + 1, 0);
       const mes = data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
       
-      const faturamentoAtendimentosMes = atendimentos
+      const faturamentoRealizado = atendimentos
         .filter(a => {
           const dataAtendimento = new Date(a.data);
           return dataAtendimento.getMonth() === data.getMonth() && 
                  dataAtendimento.getFullYear() === data.getFullYear() &&
-                 a.status === 'realizado';
+                 a.status === 'realizado' &&
+                 dataAtendimento <= ultimoDiaMes;
         })
         .reduce((total, a) => total + a.valor, 0);
 
-      const faturamentoManualMes = receitas
-        .filter(r => {
-          const dataReceita = new Date(r.data);
-          return dataReceita.getMonth() === data.getMonth() && 
-                 dataReceita.getFullYear() === data.getFullYear();
+      const faturamentoAgendado = atendimentos
+        .filter(a => {
+          const dataAtendimento = new Date(a.data);
+          return dataAtendimento.getMonth() === data.getMonth() && 
+                 dataAtendimento.getFullYear() === data.getFullYear() &&
+                 a.status === 'agendado' &&
+                 dataAtendimento > ultimoDiaMesAtual;
         })
-        .reduce((total, r) => total + r.valor, 0);
-
-      const faturamentoMes = faturamentoAtendimentosMes + faturamentoManualMes;
+        .reduce((total, a) => total + a.valor, 0);
 
       const despesasMes = despesas
         .filter(d => {
@@ -246,8 +237,34 @@ export function useBwData() {
 
       historicoMensal.push({
         mes,
-        faturamento: faturamentoMes,
+        faturamento: faturamentoRealizado, // Para compatibilidade com o código existente
+        realizado: faturamentoRealizado,
+        agendado: faturamentoAgendado,
         despesas: despesasMes,
+      });
+    }
+
+    // Próximos 6 meses (dados agendados)
+    for (let i = 1; i <= 6; i++) {
+      const data = new Date(anoAtual, mesAtual + i, 1);
+      const mes = data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+      
+      const faturamentoAgendado = atendimentos
+        .filter(a => {
+          const dataAtendimento = new Date(a.data);
+          return dataAtendimento.getMonth() === data.getMonth() && 
+                 dataAtendimento.getFullYear() === data.getFullYear() &&
+                 a.status === 'agendado' &&
+                 dataAtendimento > ultimoDiaMesAtual;
+        })
+        .reduce((total, a) => total + a.valor, 0);
+
+      historicoMensal.push({
+        mes,
+        faturamento: 0, // Para compatibilidade com o código existente
+        realizado: 0,
+        agendado: faturamentoAgendado,
+        despesas: 0, // Não temos despesas futuras
       });
     }
 
@@ -256,18 +273,17 @@ export function useBwData() {
       ? historicoMensal.reduce((total, h) => total + h.faturamento, 0) / historicoMensal.length
       : 0;
 
-    // Projeção próximo mês (baseada na média das últimas 4 semanas)
-    const ultimasQuatroSemanas = new Date();
-    ultimasQuatroSemanas.setDate(ultimasQuatroSemanas.getDate() - 28);
-    
-    const faturamentoUltimas4Semanas = atendimentos
+    // Projeção próximo mês (baseada nos agendamentos futuros)
+    const proximoMes = new Date(anoAtual, mesAtual + 1, 1);
+    const projecaoProximoMes = atendimentos
       .filter(a => {
         const dataAtendimento = new Date(a.data);
-        return dataAtendimento >= ultimasQuatroSemanas && a.status === 'realizado';
+        return dataAtendimento.getMonth() === proximoMes.getMonth() && 
+               dataAtendimento.getFullYear() === proximoMes.getFullYear() &&
+               a.status === 'agendado' &&
+               dataAtendimento > ultimoDiaMesAtual;
       })
       .reduce((total, a) => total + a.valor, 0);
-
-    const projecaoProximoMes = faturamentoUltimas4Semanas * (30 / 28);
 
     return {
       faturamentoMesAtual,

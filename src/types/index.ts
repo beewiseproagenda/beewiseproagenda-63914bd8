@@ -88,6 +88,8 @@ export interface DadosFinanceiros {
   historicoMensal: Array<{
     mes: string;
     faturamento: number;
+    realizado: number;
+    agendado: number;
     despesas: number;
   }>;
   variacaoFaturamento: number;

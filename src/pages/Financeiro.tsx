@@ -202,29 +202,17 @@ export default function Financeiro() {
 
   const chartData = dadosFinanceiros.historicoMensal.map(item => ({
     ...item,
-    lucro: item.faturamento - item.despesas
+    lucro: (item.realizado || item.faturamento) - item.despesas
   }));
 
-  // Dados de projeção para os próximos 6 meses
-  const projecaoData = [];
-  const hoje = new Date();
-  for (let i = 1; i <= 6; i++) {
-    const dataProjecao = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
-    const mes = dataProjecao.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-    
-    // Projeção simples baseada na média dos últimos meses
-    const faturamentoProjetado = dadosFinanceiros.faturamentoMediaMensal;
-    const despesasProjetadas = dadosFinanceiros.historicoMensal.length > 0 
-      ? dadosFinanceiros.historicoMensal.reduce((acc, h) => acc + h.despesas, 0) / dadosFinanceiros.historicoMensal.length
-      : 0;
-    
-    projecaoData.push({
-      mes,
-      faturamento: faturamentoProjetado,
-      despesas: despesasProjetadas,
-      lucro: faturamentoProjetado - despesasProjetadas,
-    });
-  }
+  // Dados de projeção já estão incluídos no historicoMensal
+  const projecaoData = dadosFinanceiros.historicoMensal
+    .filter(item => item.agendado > 0) // Apenas meses com agendamentos futuros
+    .map(item => ({
+      ...item,
+      faturamento: item.agendado,
+      lucro: item.agendado - item.despesas,
+    }));
 
   return (
     <div className="space-y-6 p-6">

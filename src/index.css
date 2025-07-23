@@ -53,6 +53,7 @@ All colors MUST be HSL.
 
     /* Financial chart colors */
     --chart-faturamento: 197 71% 73%; /* Azul claro - skyblue */
+    --chart-agendado: 197 71% 85%; /* Azul mais claro para agendados */
     --chart-despesas: 0 79% 72%; /* Vermelho claro - lightcoral */
     --chart-lucro: 120 73% 75%; /* Verde claro - lightgreen */
   }
@@ -145,6 +146,10 @@ All colors MUST be HSL.
   /* Financial colors */
   .text-chart-faturamento {
     color: hsl(var(--chart-faturamento));
+  }
+  
+  .text-chart-agendado {
+    color: hsl(var(--chart-agendado));
   }
   
   .text-chart-lucro {
