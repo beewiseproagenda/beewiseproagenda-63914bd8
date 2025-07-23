@@ -28,7 +28,7 @@ const App = () => <QueryClientProvider client={queryClient}>
                   <Menu className="h-5 w-5" />
                 </SidebarTrigger>
                 <div className="flex-1">
-                  <h1 className="text-xl font-semibold text-foreground">BW - BeeWise</h1>
+                  <h1 className="text-xl font-semibold text-foreground">BeeWise - ProAgenda</h1>
                 </div>
               </header>
               
