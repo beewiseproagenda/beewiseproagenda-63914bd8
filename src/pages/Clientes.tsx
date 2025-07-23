@@ -108,40 +108,6 @@ export default function Clientes() {
       return;
     }
 
-    if (!formData.cpfCnpj.trim()) {
-      toast.error(`${formData.tipoPessoa.toUpperCase()} é obrigatório`);
-      return;
-    }
-
-    if (!formData.endereco.cep.trim()) {
-      toast.error("CEP é obrigatório");
-      return;
-    }
-
-    if (!formData.endereco.rua.trim()) {
-      toast.error("Rua é obrigatória");
-      return;
-    }
-
-    if (!formData.endereco.numero.trim()) {
-      toast.error("Número é obrigatório");
-      return;
-    }
-
-    if (!formData.endereco.bairro.trim()) {
-      toast.error("Bairro é obrigatório");
-      return;
-    }
-
-    if (!formData.endereco.cidade.trim()) {
-      toast.error("Cidade é obrigatória");
-      return;
-    }
-
-    if (!formData.endereco.estado.trim()) {
-      toast.error("Estado é obrigatório");
-      return;
-    }
 
     const clienteData = {
       nome: formData.nome,
@@ -266,7 +232,7 @@ export default function Clientes() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Tipo de Pessoa *</Label>
+                  <Label>Tipo de Pessoa</Label>
                   <RadioGroup
                     value={formData.tipoPessoa}
                     onValueChange={(value: "cpf" | "cnpj") => {
@@ -286,7 +252,7 @@ export default function Clientes() {
                 </div>
 
                 <div>
-                  <Label htmlFor="cpfCnpj">{formData.tipoPessoa.toUpperCase()} *</Label>
+                  <Label htmlFor="cpfCnpj">{formData.tipoPessoa.toUpperCase()}</Label>
                   <Input
                     id="cpfCnpj"
                     value={formData.cpfCnpj}
@@ -297,7 +263,6 @@ export default function Clientes() {
                     }}
                     placeholder={formData.tipoPessoa === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'}
                     maxLength={formData.tipoPessoa === 'cpf' ? 11 : 14}
-                    required
                   />
                 </div>
               </div>
@@ -307,7 +272,7 @@ export default function Clientes() {
                 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <Label htmlFor="cep">CEP *</Label>
+                    <Label htmlFor="cep">CEP</Label>
                     <Input
                       id="cep"
                       value={formData.endereco.cep}
@@ -324,12 +289,11 @@ export default function Clientes() {
                       }}
                       placeholder="00000-000"
                       maxLength={8}
-                      required
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="numero">Número *</Label>
+                    <Label htmlFor="numero">Número</Label>
                     <Input
                       id="numero"
                       value={formData.endereco.numero}
@@ -338,13 +302,12 @@ export default function Clientes() {
                         endereco: { ...formData.endereco, numero: e.target.value }
                       })}
                       placeholder="123"
-                      required
                     />
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <Label htmlFor="rua">Rua *</Label>
+                  <Label htmlFor="rua">Rua</Label>
                   <Input
                     id="rua"
                     value={formData.endereco.rua}
@@ -353,7 +316,6 @@ export default function Clientes() {
                       endereco: { ...formData.endereco, rua: e.target.value }
                     })}
                     placeholder="Rua das Flores"
-                    required
                   />
                 </div>
 
@@ -372,7 +334,7 @@ export default function Clientes() {
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <Label htmlFor="bairro">Bairro *</Label>
+                    <Label htmlFor="bairro">Bairro</Label>
                     <Input
                       id="bairro"
                       value={formData.endereco.bairro}
@@ -381,12 +343,11 @@ export default function Clientes() {
                         endereco: { ...formData.endereco, bairro: e.target.value }
                       })}
                       placeholder="Centro"
-                      required
                     />
                   </div>
                   
                   <div>
-                    <Label htmlFor="estado">Estado *</Label>
+                    <Label htmlFor="estado">Estado</Label>
                     <Input
                       id="estado"
                       value={formData.endereco.estado}
@@ -396,13 +357,12 @@ export default function Clientes() {
                       })}
                       placeholder="SP"
                       maxLength={2}
-                      required
                     />
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <Label htmlFor="cidade">Cidade *</Label>
+                  <Label htmlFor="cidade">Cidade</Label>
                   <Input
                     id="cidade"
                     value={formData.endereco.cidade}
@@ -411,7 +371,6 @@ export default function Clientes() {
                       endereco: { ...formData.endereco, cidade: e.target.value }
                     })}
                     placeholder="São Paulo"
-                    required
                   />
                 </div>
               </div>
