@@ -201,10 +201,9 @@ export function useBwData() {
     // Histórico dos últimos 6 meses + próximos 6 meses (para mostrar realizado vs agendado)
     const historicoMensal = [];
     
-    // Últimos 6 meses (dados realizados)
+    // Últimos 6 meses + mês atual
     for (let i = 5; i >= 0; i--) {
       const data = new Date(anoAtual, mesAtual - i, 1);
-      const ultimoDiaMes = new Date(data.getFullYear(), data.getMonth() + 1, 0);
       const mes = data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
       
       const faturamentoRealizado = atendimentos
@@ -212,18 +211,17 @@ export function useBwData() {
           const dataAtendimento = new Date(a.data);
           return dataAtendimento.getMonth() === data.getMonth() && 
                  dataAtendimento.getFullYear() === data.getFullYear() &&
-                 a.status === 'realizado' &&
-                 dataAtendimento <= ultimoDiaMes;
+                 a.status === 'realizado';
         })
         .reduce((total, a) => total + a.valor, 0);
 
+      // Para o mês atual e futuro, incluir agendamentos na projeção
       const faturamentoAgendado = atendimentos
         .filter(a => {
           const dataAtendimento = new Date(a.data);
           return dataAtendimento.getMonth() === data.getMonth() && 
                  dataAtendimento.getFullYear() === data.getFullYear() &&
-                 a.status === 'agendado' &&
-                 dataAtendimento > ultimoDiaMesAtual;
+                 a.status === 'agendado';
         })
         .reduce((total, a) => total + a.valor, 0);
 
@@ -244,7 +242,16 @@ export function useBwData() {
       });
     }
 
-    // Próximos 6 meses (dados agendados)
+    // Calcular média dos últimos 3 meses para projeções futuras
+    const ultimos3Meses = historicoMensal.slice(-3);
+    const mediaReceita = ultimos3Meses.length > 0 
+      ? ultimos3Meses.reduce((total, h) => total + h.realizado + h.agendado, 0) / ultimos3Meses.length
+      : 0;
+    const mediaDespesas = ultimos3Meses.length > 0 
+      ? ultimos3Meses.reduce((total, h) => total + h.despesas, 0) / ultimos3Meses.length
+      : 0;
+
+    // Próximos 6 meses (dados agendados + projeção baseada na média)
     for (let i = 1; i <= 6; i++) {
       const data = new Date(anoAtual, mesAtual + i, 1);
       const mes = data.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
@@ -254,17 +261,19 @@ export function useBwData() {
           const dataAtendimento = new Date(a.data);
           return dataAtendimento.getMonth() === data.getMonth() && 
                  dataAtendimento.getFullYear() === data.getFullYear() &&
-                 a.status === 'agendado' &&
-                 dataAtendimento > ultimoDiaMesAtual;
+                 a.status === 'agendado';
         })
         .reduce((total, a) => total + a.valor, 0);
+
+      // Se não há agendamentos específicos, usar a média dos últimos 3 meses
+      const projecaoReceita = faturamentoAgendado > 0 ? faturamentoAgendado : mediaReceita;
 
       historicoMensal.push({
         mes,
         faturamento: 0, // Para compatibilidade com o código existente
         realizado: 0,
-        agendado: faturamentoAgendado,
-        despesas: 0, // Não temos despesas futuras
+        agendado: projecaoReceita,
+        despesas: mediaDespesas, // Projetar despesas baseada na média
       });
     }
 
