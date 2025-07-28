@@ -1,6 +1,6 @@
 import { Calendar, Users, DollarSign, FileText, Home, Settings, Package } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
-import beeWiseLogo from "@/assets/beewise-logo.png";
+import bwLogo from "@/assets/bw-logo.png";
 
 import {
   Sidebar,
@@ -51,7 +51,7 @@ export function AppSidebar() {
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 flex items-center justify-center">
-              <img src={beeWiseLogo} alt="BeeWise Logo" className="w-8 h-8 object-contain" />
+              <img src={bwLogo} alt="BW Logo" className="w-8 h-8 object-contain" />
             </div>
             {!collapsed && (
               <div>
