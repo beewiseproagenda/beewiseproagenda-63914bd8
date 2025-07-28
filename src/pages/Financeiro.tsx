@@ -898,7 +898,7 @@ export default function Financeiro() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <FinancialChart data={projecaoData} type="line" projected={true} />
+          <FinancialChart data={projecaoData} type="line" />
         </CardContent>
       </Card>
     </div>

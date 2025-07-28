@@ -13,10 +13,9 @@ interface ChartData {
 interface FinancialChartProps {
   data: ChartData[];
   type?: 'line' | 'bar';
-  projected?: boolean;
 }
 
-export function FinancialChart({ data, type = 'line', projected = false }: FinancialChartProps) {
+export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const getLabel = (dataKey: string) => {
@@ -98,8 +97,8 @@ export function FinancialChart({ data, type = 'line', projected = false }: Finan
           dataKey="realizado" 
           stroke="hsl(var(--chart-faturamento))" 
           strokeWidth={3}
-          strokeDasharray={projected ? "5 5" : "0"}
-          strokeOpacity={projected ? 0.7 : 1}
+          strokeDasharray="0"
+          strokeOpacity={1}
           dot={{ fill: 'hsl(var(--chart-faturamento))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, stroke: 'hsl(var(--chart-faturamento))', strokeWidth: 2 }}
         />
@@ -118,8 +117,8 @@ export function FinancialChart({ data, type = 'line', projected = false }: Finan
           dataKey="despesas" 
           stroke="hsl(var(--chart-despesas))" 
           strokeWidth={3}
-          strokeDasharray={projected ? "5 5" : "0"}
-          strokeOpacity={projected ? 0.7 : 1}
+          strokeDasharray="0"
+          strokeOpacity={1}
           dot={{ fill: 'hsl(var(--chart-despesas))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, stroke: 'hsl(var(--chart-despesas))', strokeWidth: 2 }}
         />
@@ -128,8 +127,8 @@ export function FinancialChart({ data, type = 'line', projected = false }: Finan
           dataKey="lucro" 
           stroke="hsl(var(--chart-lucro))" 
           strokeWidth={3}
-          strokeDasharray={projected ? "5 5" : "0"}
-          strokeOpacity={projected ? 0.7 : 1}
+          strokeDasharray="0"
+          strokeOpacity={1}
           dot={{ fill: 'hsl(var(--chart-lucro))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, stroke: 'hsl(var(--chart-lucro))', strokeWidth: 2 }}
         />
