@@ -124,15 +124,15 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
                           isPast 
                             ? 'bg-muted/30 text-muted-foreground' 
                             : atendimento.status === 'realizado'
-                            ? 'bg-green-100 text-green-700'
+                            ? 'bg-green-100 text-foreground'
                             : atendimento.status === 'cancelado'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-primary/20 text-primary'
+                            ? 'bg-red-100 text-foreground'
+                            : 'bg-secondary text-foreground'
                         }`}
                         title={`${atendimento.hora} - ${atendimento.clienteNome} - ${atendimento.servico}`}
                       >
-                        <div className="font-medium">{atendimento.hora}</div>
-                        <div className="truncate">{atendimento.clienteNome}</div>
+                        <div className="font-medium text-foreground">{atendimento.hora}</div>
+                        <div className="truncate text-foreground">{atendimento.clienteNome}</div>
                       </div>
                   ))}
                 </div>
