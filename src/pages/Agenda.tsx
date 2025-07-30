@@ -11,11 +11,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { MonthlyCalendar } from "@/components/MonthlyCalendar";
-import { useBwData } from "@/hooks/useBwData";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
@@ -33,7 +34,7 @@ const atendimentoSchema = z.object({
 });
 
 export default function Agenda() {
-  const { atendimentos, clientes, servicosPacotes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useBwData();
+  const { atendimentos, clientes, servicosPacotes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useSupabaseData();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingAtendimento, setEditingAtendimento] = useState<string | null>(null);
   const [dayDetailDialog, setDayDetailDialog] = useState(false);
@@ -63,12 +64,12 @@ export default function Agenda() {
   const onSubmit = (data: z.infer<typeof atendimentoSchema>) => {
     const servicoSelecionado = servicosPacotes.find(s => s.id === data.servicoId);
     const atendimentoData = {
-      data: data.data,
+      data: data.data.toISOString().split('T')[0], // Convert to YYYY-MM-DD
       hora: data.hora,
-      clienteId: data.clienteId,
+      cliente_id: data.clienteId,
       servico: servicoSelecionado?.nome || "",
       valor: data.valor,
-      formaPagamento: data.formaPagamento,
+      forma_pagamento: data.formaPagamento,
       observacoes: data.observacoes || "",
       status: data.status,
     };
@@ -89,10 +90,10 @@ export default function Agenda() {
     atendimentoForm.reset({
       data: new Date(atendimento.data),
       hora: atendimento.hora,
-      clienteId: atendimento.clienteId,
+      clienteId: atendimento.cliente_id,
       servicoId: servicoOriginal?.id || "",
-      valor: atendimento.valor,
-      formaPagamento: atendimento.formaPagamento,
+      valor: Number(atendimento.valor),
+      formaPagamento: atendimento.forma_pagamento,
       observacoes: atendimento.observacoes || "",
       status: atendimento.status,
     });
@@ -143,7 +144,7 @@ export default function Agenda() {
                               )}
                             >
                               {field.value ? (
-                                format(field.value, "PPP", { locale: undefined })
+                                format(field.value, "dd/MM/yyyy", { locale: ptBR })
                               ) : (
                                 <span>Selecione uma data</span>
                               )}
@@ -346,8 +347,8 @@ export default function Agenda() {
 
       {/* Calendário Mensal */}
       <MonthlyCalendar 
-        atendimentos={atendimentos} 
-        clientes={clientes} 
+        atendimentos={atendimentos}
+        clientes={clientes}
         onDayClick={handleDayClick}
       />
 
@@ -366,13 +367,13 @@ export default function Agenda() {
               </p>
             ) : (
               selectedDayData?.atendimentos.map((atendimento) => {
-                const cliente = clientes.find(c => c.id === atendimento.clienteId);
+                const cliente = clientes.find(c => c.id === atendimento.cliente_id);
                 return (
                   <div key={atendimento.id} className="border rounded-md p-4">
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="text-lg font-semibold">
-                          {cliente ? cliente.nome : atendimento.clienteNome}
+                          {cliente ? cliente.nome : 'Cliente não encontrado'}
                         </h3>
                         <p className="text-sm text-muted-foreground">{atendimento.servico}</p>
                         {cliente && (
@@ -439,13 +440,13 @@ export default function Agenda() {
                 .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
                 .slice(0, 10)
                 .map((atendimento) => {
-                  const cliente = clientes.find(c => c.id === atendimento.clienteId);
+                  const cliente = clientes.find(c => c.id === atendimento.cliente_id);
                   return (
                     <div key={atendimento.id} className="border rounded-md p-4">
                       <div className="flex justify-between items-center">
                         <div>
                           <h3 className="text-lg font-semibold">
-                            {cliente ? cliente.nome : atendimento.clienteNome}
+                            {cliente ? cliente.nome : 'Cliente não encontrado'}
                           </h3>
                           <p className="text-sm text-muted-foreground">{atendimento.servico}</p>
                           {cliente && (
@@ -500,13 +501,13 @@ export default function Agenda() {
                 .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
                 .slice(0, 10)
                 .map((atendimento) => {
-                  const cliente = clientes.find(c => c.id === atendimento.clienteId);
+                  const cliente = clientes.find(c => c.id === atendimento.cliente_id);
                   return (
                     <div key={atendimento.id} className="border rounded-md p-4">
                       <div className="flex justify-between items-center">
                         <div>
                           <h3 className="text-lg font-semibold">
-                            {cliente ? cliente.nome : atendimento.clienteNome}
+                            {cliente ? cliente.nome : 'Cliente não encontrado'}
                           </h3>
                           <p className="text-sm text-muted-foreground">{atendimento.servico}</p>
                           {cliente && (

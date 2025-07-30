@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Atendimento, Cliente } from '@/types';
+import { Atendimento, Cliente } from '@/hooks/useSupabaseData';
 
 interface MonthlyCalendarProps {
   atendimentos: Atendimento[];
@@ -43,7 +43,7 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
       const atendimentoDate = new Date(a.data);
       return atendimentoDate.toDateString() === date.toDateString();
     }).map(a => {
-      const cliente = clientes.find(c => c.id === a.clienteId);
+      const cliente = clientes.find(c => c.id === a.cliente_id);
       return {
         ...a,
         clienteNome: cliente?.nome || 'Cliente não encontrado'
@@ -116,11 +116,11 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
                     {day.getDate()}
                   </span>
                 </div>
-                <div className="space-y-1">
-                  {dayAtendimentos.map((atendimento) => (
+                <div className="space-y-1 overflow-hidden">
+                  {dayAtendimentos.slice(0, 2).map((atendimento) => (
                       <div
                         key={atendimento.id}
-                        className={`text-xs p-1 rounded truncate ${
+                        className={`text-xs p-1 rounded flex items-center gap-1 ${
                           isPast 
                             ? 'bg-muted/30 text-muted-foreground' 
                             : atendimento.status === 'realizado'
@@ -131,10 +131,16 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
                         }`}
                         title={`${atendimento.hora} - ${atendimento.clienteNome} - ${atendimento.servico}`}
                       >
-                        <div className="font-medium text-foreground">{atendimento.hora}</div>
-                        <div className="truncate text-foreground">{atendimento.clienteNome}</div>
+                        <span className="font-medium text-foreground whitespace-nowrap">{atendimento.hora}</span>
+                        <span className="text-foreground">-</span>
+                        <span className="truncate text-foreground">{atendimento.clienteNome}</span>
                       </div>
                   ))}
+                  {dayAtendimentos.length > 2 && (
+                    <div className="text-xs text-muted-foreground text-center">
+                      ...mais {dayAtendimentos.length - 2}
+                    </div>
+                  )}
                 </div>
               </div>
             );

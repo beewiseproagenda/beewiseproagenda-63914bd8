@@ -14,6 +14,155 @@ export type Database = {
   }
   public: {
     Tables: {
+      atendimentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data: string
+          forma_pagamento: string
+          hora: string
+          id: string
+          observacoes: string | null
+          servico: string
+          status: string
+          updated_at: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data: string
+          forma_pagamento: string
+          hora: string
+          id?: string
+          observacoes?: string | null
+          servico: string
+          status: string
+          updated_at?: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data?: string
+          forma_pagamento?: string
+          hora?: string
+          id?: string
+          observacoes?: string | null
+          servico?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clientes: {
+        Row: {
+          agendamento_fixo: Json | null
+          cpf_cnpj: string
+          criado_em: string
+          email: string
+          endereco: Json
+          id: string
+          nome: string
+          pacote_id: string | null
+          recorrencia: string | null
+          recorrente: boolean | null
+          telefone: string
+          tipo_cobranca: string | null
+          tipo_pessoa: string
+          ultimo_atendimento: string | null
+          user_id: string
+        }
+        Insert: {
+          agendamento_fixo?: Json | null
+          cpf_cnpj: string
+          criado_em?: string
+          email: string
+          endereco?: Json
+          id?: string
+          nome: string
+          pacote_id?: string | null
+          recorrencia?: string | null
+          recorrente?: boolean | null
+          telefone: string
+          tipo_cobranca?: string | null
+          tipo_pessoa: string
+          ultimo_atendimento?: string | null
+          user_id: string
+        }
+        Update: {
+          agendamento_fixo?: Json | null
+          cpf_cnpj?: string
+          criado_em?: string
+          email?: string
+          endereco?: Json
+          id?: string
+          nome?: string
+          pacote_id?: string | null
+          recorrencia?: string | null
+          recorrente?: boolean | null
+          telefone?: string
+          tipo_cobranca?: string | null
+          tipo_pessoa?: string
+          ultimo_atendimento?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      despesas: {
+        Row: {
+          categoria: string
+          created_at: string
+          data: string
+          descricao: string
+          id: string
+          observacoes: string | null
+          recorrencia: Json | null
+          recorrente: boolean | null
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          data: string
+          descricao: string
+          id?: string
+          observacoes?: string | null
+          recorrencia?: Json | null
+          recorrente?: boolean | null
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: string
+          observacoes?: string | null
+          recorrencia?: Json | null
+          recorrente?: boolean | null
+          tipo?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -41,6 +190,78 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      receitas: {
+        Row: {
+          categoria: string
+          created_at: string
+          data: string
+          descricao: string
+          forma_pagamento: string
+          id: string
+          observacoes: string | null
+          recorrencia: Json | null
+          recorrente: boolean | null
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          data: string
+          descricao: string
+          forma_pagamento: string
+          id?: string
+          observacoes?: string | null
+          recorrencia?: Json | null
+          recorrente?: boolean | null
+          user_id: string
+          valor: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          data?: string
+          descricao?: string
+          forma_pagamento?: string
+          id?: string
+          observacoes?: string | null
+          recorrencia?: Json | null
+          recorrente?: boolean | null
+          user_id?: string
+          valor?: number
+        }
+        Relationships: []
+      }
+      servicos_pacotes: {
+        Row: {
+          criado_em: string
+          descricao: string | null
+          id: string
+          nome: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          criado_em?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          criado_em?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          tipo?: string
+          user_id?: string
+          valor?: number
         }
         Relationships: []
       }
