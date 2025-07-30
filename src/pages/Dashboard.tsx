@@ -6,11 +6,12 @@ import { DayAppointmentsModal } from "@/components/DayAppointmentsModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { useBwData } from "@/hooks/useBwData";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useState } from "react";
 
 export default function Dashboard() {
-  const { dadosFinanceiros, atendimentos, clientes } = useBwData();
+  const { atendimentos, clientes, calcularDadosFinanceiros } = useSupabaseData();
+  const dadosFinanceiros = calcularDadosFinanceiros();
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedAppointments, setSelectedAppointments] = useState<any[]>([]);
@@ -46,7 +47,7 @@ export default function Dashboard() {
         return dataAtendimento.getMonth() === mesAtual && 
                dataAtendimento.getFullYear() === anoAtual;
       })
-      .map(a => a.clienteId)
+      .map(a => a.cliente_id)
   ).size;
 
   // Atendimentos realizados no mês
@@ -73,7 +74,7 @@ export default function Dashboard() {
       return dataAtendimento.toDateString() === hoje.toDateString();
     })
     .map(a => {
-      const cliente = clientes.find(c => c.id === a.clienteId);
+      const cliente = clientes.find(c => c.id === a.cliente_id);
       return {
         ...a,
         clienteNome: cliente?.nome || 'Cliente não encontrado'
@@ -105,7 +106,7 @@ export default function Dashboard() {
       const dataAtendimento = new Date(a.data);
       return dataAtendimento.toDateString() === data.toDateString();
     }).map(a => {
-      const cliente = clientes.find(c => c.id === a.clienteId);
+      const cliente = clientes.find(c => c.id === a.cliente_id);
       return {
         ...a,
         clienteNome: cliente?.nome || 'Cliente não encontrado'
@@ -173,7 +174,7 @@ export default function Dashboard() {
                       <Clock className="h-4 w-4" />
                       <div>
                          <span className="font-medium">{agendamento.hora} - {agendamento.clienteNome}</span>
-                         <p className="text-sm text-muted-foreground">{agendamento.servico}</p>
+                    <p className="text-sm text-muted-foreground">{agendamento.servico}</p>
                          {agendamento.observacoes && (
                            <p className="text-xs text-muted-foreground">{agendamento.observacoes}</p>
                          )}
@@ -193,8 +194,8 @@ export default function Dashboard() {
                        agendamento.status === 'cancelado' ? 'Cancelado' : 
                        'Agendado'}
                     </Badge>
-                    <p className="font-medium text-foreground">{formatCurrency(agendamento.valor)}</p>
-                    <p className="text-xs text-muted-foreground">{agendamento.formaPagamento}</p>
+                     <p className="font-medium text-foreground">{formatCurrency(Number(agendamento.valor))}</p>
+                     <p className="text-xs text-muted-foreground">{agendamento.forma_pagamento}</p>
                   </div>
                 </div>
               ))

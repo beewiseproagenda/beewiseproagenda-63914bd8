@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { useBwData } from '@/hooks/useBwData';
-import { ServicoPacote } from '@/types';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
+import type { ServicoPacote } from '@/hooks/useSupabaseData';
 import { toast } from "sonner";
 
 export default function PacotesServicos() {
-  const { servicosPacotes, adicionarServicoPacote, atualizarServicoPacote, removerServicoPacote } = useBwData();
+  const { servicosPacotes, adicionarServicoPacote, atualizarServicoPacote, removerServicoPacote } = useSupabaseData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ServicoPacote | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -180,9 +180,9 @@ export default function PacotesServicos() {
                 {item.descricao && (
                   <p className="text-sm text-muted-foreground">{item.descricao}</p>
                 )}
-                <div className="pt-1 text-xs text-muted-foreground">
-                  Cadastrado em {new Date(item.criadoEm).toLocaleDateString('pt-BR')}
-                </div>
+                 <div className="pt-1 text-xs text-muted-foreground">
+                   Cadastrado em {new Date(item.criado_em).toLocaleDateString('pt-BR')}
+                 </div>
               </CardContent>
             </Card>
           ))}

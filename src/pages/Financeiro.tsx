@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { FinancialChart } from "@/components/FinancialChart";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useBwData } from "@/hooks/useBwData";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -50,7 +50,8 @@ const despesaSchema = z.object({
 });
 
 export default function Financeiro() {
-  const { receitas, despesas, dadosFinanceiros, adicionarReceita, atualizarReceita, removerReceita, adicionarDespesa, atualizarDespesa, removerDespesa } = useBwData();
+  const { receitas, despesas, calcularDadosFinanceiros } = useSupabaseData();
+  const dadosFinanceiros = calcularDadosFinanceiros();
   const [openReceitaDialog, setOpenReceitaDialog] = useState(false);
   const [openDespesaDialog, setOpenDespesaDialog] = useState(false);
   const [editingReceita, setEditingReceita] = useState<string | null>(null);
@@ -136,27 +137,24 @@ export default function Financeiro() {
 
   const onSubmitReceita = (data: z.infer<typeof receitaSchema>) => {
     const receitaData = {
-      data: data.data,
+      data: data.data.toISOString().split('T')[0],
       valor: data.valor,
       descricao: data.descricao,
       categoria: data.categoria,
-      formaPagamento: data.formaPagamento,
+      forma_pagamento: data.formaPagamento,
       observacoes: data.observacoes || "",
     };
 
-    if (editingReceita) {
-      atualizarReceita(editingReceita, receitaData);
-      setEditingReceita(null);
-    } else {
-      adicionarReceita(receitaData);
-    }
+    // Receitas functions not implemented in useSupabaseData yet
+    // TODO: Implement receita functions in useSupabaseData
+    console.log('Receita data:', receitaData);
     receitaForm.reset();
     setOpenReceitaDialog(false);
   };
 
   const onSubmitDespesa = (data: z.infer<typeof despesaSchema>) => {
     const despesaData = {
-      data: data.data,
+      data: data.data.toISOString().split('T')[0],
       valor: data.valor,
       descricao: data.descricao,
       categoria: data.categoria,
@@ -164,12 +162,9 @@ export default function Financeiro() {
       observacoes: data.observacoes || "",
     };
 
-    if (editingDespesa) {
-      atualizarDespesa(editingDespesa, despesaData);
-      setEditingDespesa(null);
-    } else {
-      adicionarDespesa(despesaData);
-    }
+    // Despesas functions not implemented in useSupabaseData yet
+    // TODO: Implement despesa functions in useSupabaseData
+    console.log('Despesa data:', despesaData);
     despesaForm.reset();
     setOpenDespesaDialog(false);
   };
@@ -181,7 +176,7 @@ export default function Financeiro() {
       valor: receita.valor,
       descricao: receita.descricao,
       categoria: receita.categoria,
-      formaPagamento: receita.formaPagamento,
+      formaPagamento: receita.forma_pagamento,
       observacoes: receita.observacoes || "",
     });
     setOpenReceitaDialog(true);
@@ -495,7 +490,7 @@ export default function Financeiro() {
                       <div>
                         <p className="font-medium">{receita.descricao}</p>
                         <p className="text-sm text-muted-foreground">
-                          {getCategoriaReceitaLabel(receita.categoria)} • {getFormaPagamentoLabel(receita.formaPagamento)}
+                          {getCategoriaReceitaLabel(receita.categoria)} • {getFormaPagamentoLabel(receita.forma_pagamento)}
                         </p>
                       </div>
                     </TableCell>
@@ -514,7 +509,7 @@ export default function Financeiro() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => removerReceita(receita.id)}
+                          onClick={() => console.log('Remover receita:', receita.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -814,7 +809,7 @@ export default function Financeiro() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => removerDespesa(despesa.id)}
+                          onClick={() => console.log('Remover despesa:', despesa.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

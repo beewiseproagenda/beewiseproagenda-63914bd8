@@ -9,12 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useBwData } from "@/hooks/useBwData";
-import { Cliente } from "@/types";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
+import type { Cliente } from "@/hooks/useSupabaseData";
 import { toast } from "sonner";
 
 export default function Clientes() {
-  const { clientes, servicosPacotes, atendimentos, adicionarCliente, atualizarCliente, removerCliente } = useBwData();
+  const { clientes, servicosPacotes, atendimentos, adicionarCliente, atualizarCliente, removerCliente } = useSupabaseData();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -113,16 +113,17 @@ export default function Clientes() {
       nome: formData.nome,
       telefone: formData.telefone,
       email: formData.email,
-      tipoPessoa: formData.tipoPessoa,
-      cpfCnpj: formData.cpfCnpj,
+      tipo_pessoa: formData.tipoPessoa,
+      cpf_cnpj: formData.cpfCnpj,
       endereco: formData.endereco,
       recorrente: formData.recorrente,
-      recorrencia: formData.recorrente ? formData.recorrencia : undefined,
-      agendamentoFixo: formData.recorrente && formData.agendamentoFixo.dia && formData.agendamentoFixo.hora 
+      recorrencia: formData.recorrente ? formData.recorrencia : null,
+      agendamento_fixo: formData.recorrente && formData.agendamentoFixo.dia && formData.agendamentoFixo.hora 
         ? formData.agendamentoFixo 
-        : undefined,
-      pacoteId: formData.pacoteId || undefined,
-      tipoCobranca: formData.tipoCobranca,
+        : null,
+      pacote_id: formData.pacoteId || null,
+      tipo_cobranca: formData.tipoCobranca,
+      ultimo_atendimento: null,
     };
 
     if (editingCliente) {
@@ -142,9 +143,9 @@ export default function Clientes() {
       nome: cliente.nome,
       telefone: cliente.telefone,
       email: cliente.email || "",
-      tipoPessoa: cliente.tipoPessoa || "cpf",
-      cpfCnpj: cliente.cpfCnpj || "",
-      endereco: cliente.endereco || {
+      tipoPessoa: (cliente.tipo_pessoa as "cpf" | "cnpj") || "cpf",
+      cpfCnpj: cliente.cpf_cnpj || "",
+      endereco: (typeof cliente.endereco === 'object' && cliente.endereco && !Array.isArray(cliente.endereco)) ? cliente.endereco as any : {
         cep: "",
         rua: "",
         numero: "",
@@ -154,10 +155,10 @@ export default function Clientes() {
         estado: "",
       },
       recorrente: cliente.recorrente || false,
-      recorrencia: cliente.recorrencia || "semanal",
-      agendamentoFixo: cliente.agendamentoFixo || { dia: "", hora: "" },
-      pacoteId: cliente.pacoteId || "",
-      tipoCobranca: cliente.tipoCobranca || "variavel",
+      recorrencia: (cliente.recorrencia as "diaria" | "semanal" | "mensal") || "semanal",
+      agendamentoFixo: (typeof cliente.agendamento_fixo === 'object' && cliente.agendamento_fixo && !Array.isArray(cliente.agendamento_fixo)) ? cliente.agendamento_fixo as any : { dia: "", hora: "" },
+      pacoteId: cliente.pacote_id || "",
+      tipoCobranca: (cliente.tipo_cobranca as "pacote" | "variavel") || "variavel",
     });
     setIsDialogOpen(true);
   };
@@ -570,17 +571,17 @@ export default function Clientes() {
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
                       Recorrência {cliente.recorrencia}
-                      {cliente.agendamentoFixo &&
-                        ` - ${cliente.agendamentoFixo.dia} às ${cliente.agendamentoFixo.hora}`
+                      {cliente.agendamento_fixo && typeof cliente.agendamento_fixo === 'object' && !Array.isArray(cliente.agendamento_fixo) &&
+                        ` - ${(cliente.agendamento_fixo as any).dia} às ${(cliente.agendamento_fixo as any).hora}`
                       }
                     </p>
                   </div>
                 )}
-                {cliente.tipoCobranca === "pacote" && cliente.pacoteId && (
+                {cliente.tipo_cobranca === "pacote" && cliente.pacote_id && (
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
-                      Pacote: {servicosPacotes.find(sp => sp.id === cliente.pacoteId)?.nome}
+                      Pacote: {servicosPacotes.find(sp => sp.id === cliente.pacote_id)?.nome}
                     </p>
                   </div>
                 )}
@@ -599,7 +600,7 @@ export default function Clientes() {
           <CardContent>
             <div className="space-y-2">
               {clientes
-                .filter(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id))
+                .filter(cliente => !atendimentos?.some(atendimento => atendimento.cliente_id === cliente.id))
                 .slice(0, 5)
                 .map(cliente => (
                   <div key={cliente.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
@@ -609,7 +610,7 @@ export default function Clientes() {
                     </Badge>
                   </div>
                 ))}
-              {clientes.filter(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id)).length === 0 && (
+              {clientes.filter(cliente => !atendimentos?.some(atendimento => atendimento.cliente_id === cliente.id)).length === 0 && (
                 <p className="text-sm text-muted-foreground">Todos os clientes têm agendamentos</p>
               )}
             </div>
@@ -624,8 +625,8 @@ export default function Clientes() {
             <div className="space-y-2">
               {clientes
                 .map(cliente => {
-                  const agendamentos = atendimentos?.filter(atendimento => atendimento.clienteId === cliente.id) || [];
-                  const totalFaturamento = agendamentos.reduce((acc, atendimento) => acc + atendimento.valor, 0);
+                  const agendamentos = atendimentos?.filter(atendimento => atendimento.cliente_id === cliente.id) || [];
+                  const totalFaturamento = agendamentos.reduce((acc, atendimento) => acc + Number(atendimento.valor), 0);
                   return {
                     ...cliente,
                     totalAgendamentos: agendamentos.length,
@@ -648,7 +649,7 @@ export default function Clientes() {
                     </Badge>
                   </div>
                 ))}
-              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id)) && (
+              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.cliente_id === cliente.id)) && (
                 <p className="text-sm text-muted-foreground">Nenhum cliente com agendamentos ainda</p>
               )}
             </div>
@@ -667,7 +668,7 @@ export default function Clientes() {
               {clientes
                 .map(cliente => {
                   const consultasRealizadas = atendimentos?.filter(atendimento => 
-                    atendimento.clienteId === cliente.id && atendimento.status === 'realizado'
+                    atendimento.cliente_id === cliente.id && atendimento.status === 'realizado'
                   ) || [];
                   return {
                     ...cliente,
@@ -690,7 +691,7 @@ export default function Clientes() {
                     </Badge>
                   </div>
                 ))}
-              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id && atendimento.status === 'realizado')) && (
+              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.cliente_id === cliente.id && atendimento.status === 'realizado')) && (
                 <p className="text-sm text-muted-foreground">Nenhuma consulta realizada ainda</p>
               )}
             </div>
@@ -706,9 +707,9 @@ export default function Clientes() {
               {clientes
                 .map(cliente => {
                   const consultasRealizadas = atendimentos?.filter(atendimento => 
-                    atendimento.clienteId === cliente.id && atendimento.status === 'realizado'
+                    atendimento.cliente_id === cliente.id && atendimento.status === 'realizado'
                   ) || [];
-                  const totalFaturamento = consultasRealizadas.reduce((acc, atendimento) => acc + atendimento.valor, 0);
+                  const totalFaturamento = consultasRealizadas.reduce((acc, atendimento) => acc + Number(atendimento.valor), 0);
                   return {
                     ...cliente,
                     totalFaturamento
@@ -730,7 +731,7 @@ export default function Clientes() {
                     </Badge>
                   </div>
                 ))}
-              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.clienteId === cliente.id && atendimento.status === 'realizado')) && (
+              {clientes.every(cliente => !atendimentos?.some(atendimento => atendimento.cliente_id === cliente.id && atendimento.status === 'realizado')) && (
                 <p className="text-sm text-muted-foreground">Nenhum faturamento registrado ainda</p>
               )}
             </div>
