@@ -302,6 +302,144 @@ export const useSupabaseData = () => {
     });
   };
 
+  // Despesa functions
+  const adicionarDespesa = async (despesaData: Omit<Despesa, 'id' | 'user_id' | 'created_at'>) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('despesas')
+      .insert([{ ...despesaData, user_id: user.id }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    setDespesas(prev => [...prev, data]);
+    toast({
+      title: "Sucesso",
+      description: "Despesa adicionada com sucesso"
+    });
+    
+    return data;
+  };
+
+  const atualizarDespesa = async (id: string, despesaData: Partial<Despesa>) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('despesas')
+      .update(despesaData)
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    setDespesas(prev => prev.map(d => d.id === id ? data : d));
+    toast({
+      title: "Sucesso",
+      description: "Despesa atualizada com sucesso"
+    });
+  };
+
+  const removerDespesa = async (id: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('despesas')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    
+    setDespesas(prev => prev.filter(d => d.id !== id));
+    toast({
+      title: "Sucesso",
+      description: "Despesa removida com sucesso"
+    });
+  };
+
+  // Receita functions
+  const adicionarReceita = async (receitaData: Omit<Receita, 'id' | 'user_id' | 'created_at'>) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('receitas')
+      .insert([{ ...receitaData, user_id: user.id }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    setReceitas(prev => [...prev, data]);
+    toast({
+      title: "Sucesso",
+      description: "Receita adicionada com sucesso"
+    });
+    
+    return data;
+  };
+
+  const atualizarReceita = async (id: string, receitaData: Partial<Receita>) => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('receitas')
+      .update(receitaData)
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    setReceitas(prev => prev.map(r => r.id === id ? data : r));
+    toast({
+      title: "Sucesso",
+      description: "Receita atualizada com sucesso"
+    });
+  };
+
+  const removerReceita = async (id: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('receitas')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    
+    setReceitas(prev => prev.filter(r => r.id !== id));
+    toast({
+      title: "Sucesso",
+      description: "Receita removida com sucesso"
+    });
+  };
+
+  // Helper function to calculate recurring entries for future months
+  const calcularRecorrenciaFutura = (despesa: Despesa, targetMonth: number, targetYear: number) => {
+    if (!despesa.recorrente || !despesa.recorrencia) return 0;
+
+    const despesaDate = new Date(despesa.data);
+    const targetDate = new Date(targetYear, targetMonth, 1);
+    
+    // Se a despesa é posterior ao mês alvo, não deve ser incluída
+    if (despesaDate > targetDate) return 0;
+
+    const recorrencia = despesa.recorrencia as { tipo: string; dia?: number };
+    
+    if (recorrencia.tipo === 'mensal') {
+      // Para despesas mensais, incluir se a data original é anterior ou igual ao mês alvo
+      return Number(despesa.valor);
+    }
+    
+    return 0;
+  };
+
   // Financial calculations
   const calcularDadosFinanceiros = () => {
     const today = new Date();
@@ -330,6 +468,13 @@ export const useSupabaseData = () => {
     const projecaoMesAtual = atendimentosAgendados.reduce((sum, a) => sum + Number(a.valor), 0);
     const totalDespesas = despesasMesAtual.reduce((sum, d) => sum + Number(d.valor), 0);
 
+    // Add recurring expenses to current month
+    const despesasRecorrentesMesAtual = despesas
+      .filter(d => d.recorrente)
+      .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, currentMonth, currentYear), 0);
+
+    const totalDespesasComRecorrencia = totalDespesas + despesasRecorrentesMesAtual;
+
     // Historical data for 6 months
     const historicoMensal = [];
     for (let i = 3; i >= 0; i--) {
@@ -354,12 +499,17 @@ export const useSupabaseData = () => {
         new Date(d.data).getFullYear() === year
       );
 
+      // Add recurring expenses for this month
+      const despesasRecorrentesMes = despesas
+        .filter(d => d.recorrente)
+        .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, month, year), 0);
+
       historicoMensal.push({
         mes: date.toLocaleDateString('pt-BR', { month: 'short' }),
         faturamento: atendimentosRealizadosMes.reduce((sum, a) => sum + Number(a.valor), 0),
         realizado: atendimentosRealizadosMes.reduce((sum, a) => sum + Number(a.valor), 0),
         agendado: atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor), 0),
-        despesas: despesasMes.reduce((sum, d) => sum + Number(d.valor), 0)
+        despesas: despesasMes.reduce((sum, d) => sum + Number(d.valor), 0) + despesasRecorrentesMes
       });
     }
 
@@ -369,7 +519,7 @@ export const useSupabaseData = () => {
       faturamento: faturamentoMesAtual + projecaoMesAtual,
       realizado: faturamentoMesAtual,
       agendado: projecaoMesAtual,
-      despesas: totalDespesas
+      despesas: totalDespesasComRecorrencia
     });
 
     // Next month projection
@@ -381,24 +531,29 @@ export const useSupabaseData = () => {
     );
 
     const projecaoProximoMes = atendimentosProximoMes.reduce((sum, a) => sum + Number(a.valor), 0);
+    
+    // Calculate recurring expenses for next month
+    const despesasRecorrentesProximoMes = despesas
+      .filter(d => d.recorrente)
+      .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, nextMonth.getMonth(), nextMonth.getFullYear()), 0);
 
     historicoMensal.push({
       mes: nextMonth.toLocaleDateString('pt-BR', { month: 'short' }),
       faturamento: projecaoProximoMes,
       realizado: 0,
       agendado: projecaoProximoMes,
-      despesas: 0
+      despesas: despesasRecorrentesProximoMes
     });
 
     const faturamentoMediaMensal = historicoMensal.slice(0, 4).reduce((sum, m) => sum + m.realizado, 0) / 4;
-    const lucroLiquido = faturamentoMesAtual - totalDespesas;
+    const lucroLiquido = faturamentoMesAtual - totalDespesasComRecorrencia;
 
     return {
       faturamentoMesAtual,
       faturamentoMediaMensal,
       projecaoProximoMes,
       lucroLiquido,
-      totalDespesas,
+      totalDespesas: totalDespesasComRecorrencia,
       historicoMensal,
       variacaoFaturamento: 0,
       variacaoDespesas: 0,
@@ -429,6 +584,16 @@ export const useSupabaseData = () => {
     adicionarServicoPacote,
     atualizarServicoPacote,
     removerServicoPacote,
+    
+    // Despesa functions
+    adicionarDespesa,
+    atualizarDespesa,
+    removerDespesa,
+    
+    // Receita functions
+    adicionarReceita,
+    atualizarReceita,
+    removerReceita,
     
     // Calculations
     calcularDadosFinanceiros

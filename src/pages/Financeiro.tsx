@@ -50,7 +50,7 @@ const despesaSchema = z.object({
 });
 
 export default function Financeiro() {
-  const { receitas, despesas, calcularDadosFinanceiros } = useSupabaseData();
+  const { receitas, despesas, calcularDadosFinanceiros, adicionarDespesa, atualizarDespesa, removerDespesa, adicionarReceita, atualizarReceita, removerReceita } = useSupabaseData();
   const dadosFinanceiros = calcularDadosFinanceiros();
   const [openReceitaDialog, setOpenReceitaDialog] = useState(false);
   const [openDespesaDialog, setOpenDespesaDialog] = useState(false);
@@ -135,38 +135,58 @@ export default function Financeiro() {
     return labels[forma as keyof typeof labels] || forma;
   };
 
-  const onSubmitReceita = (data: z.infer<typeof receitaSchema>) => {
-    const receitaData = {
-      data: data.data.toISOString().split('T')[0],
-      valor: data.valor,
-      descricao: data.descricao,
-      categoria: data.categoria,
-      forma_pagamento: data.formaPagamento,
-      observacoes: data.observacoes || "",
-    };
+  const onSubmitReceita = async (data: z.infer<typeof receitaSchema>) => {
+    try {
+      const receitaData = {
+        data: data.data.toISOString().split('T')[0],
+        valor: data.valor,
+        descricao: data.descricao,
+        categoria: data.categoria,
+        forma_pagamento: data.formaPagamento,
+        observacoes: data.observacoes || "",
+        recorrente: data.recorrente || false,
+        recorrencia: data.recorrente ? data.recorrencia : null,
+      };
 
-    // Receitas functions not implemented in useSupabaseData yet
-    // TODO: Implement receita functions in useSupabaseData
-    console.log('Receita data:', receitaData);
-    receitaForm.reset();
-    setOpenReceitaDialog(false);
+      if (editingReceita) {
+        await atualizarReceita(editingReceita, receitaData);
+        setEditingReceita(null);
+      } else {
+        await adicionarReceita(receitaData);
+      }
+      
+      receitaForm.reset();
+      setOpenReceitaDialog(false);
+    } catch (error) {
+      console.error('Erro ao salvar receita:', error);
+    }
   };
 
-  const onSubmitDespesa = (data: z.infer<typeof despesaSchema>) => {
-    const despesaData = {
-      data: data.data.toISOString().split('T')[0],
-      valor: data.valor,
-      descricao: data.descricao,
-      categoria: data.categoria,
-      tipo: data.tipo,
-      observacoes: data.observacoes || "",
-    };
+  const onSubmitDespesa = async (data: z.infer<typeof despesaSchema>) => {
+    try {
+      const despesaData = {
+        data: data.data.toISOString().split('T')[0],
+        valor: data.valor,
+        descricao: data.descricao,
+        categoria: data.categoria,
+        tipo: data.tipo,
+        observacoes: data.observacoes || "",
+        recorrente: data.recorrente || false,
+        recorrencia: data.recorrente ? data.recorrencia : null,
+      };
 
-    // Despesas functions not implemented in useSupabaseData yet
-    // TODO: Implement despesa functions in useSupabaseData
-    console.log('Despesa data:', despesaData);
-    despesaForm.reset();
-    setOpenDespesaDialog(false);
+      if (editingDespesa) {
+        await atualizarDespesa(editingDespesa, despesaData);
+        setEditingDespesa(null);
+      } else {
+        await adicionarDespesa(despesaData);
+      }
+      
+      despesaForm.reset();
+      setOpenDespesaDialog(false);
+    } catch (error) {
+      console.error('Erro ao salvar despesa:', error);
+    }
   };
 
   const editReceita = (receita: any) => {
