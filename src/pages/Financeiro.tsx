@@ -220,14 +220,11 @@ export default function Financeiro() {
     lucro: (item.realizado || item.faturamento) - item.despesas
   }));
 
-  // Dados de projeção já estão incluídos no historicoMensal
-  const projecaoData = dadosFinanceiros.historicoMensal
-    .filter(item => item.agendado > 0) // Apenas meses com agendamentos futuros
-    .map(item => ({
-      ...item,
-      faturamento: item.agendado,
-      lucro: item.agendado - item.despesas,
-    }));
+  // Dados de projeção separados dos dados históricos
+  const projecaoData = dadosFinanceiros.projecoesFuturas?.map(item => ({
+    ...item,
+    lucro: item.agendado - item.despesas,
+  })) || [];
 
   return (
     <div className="space-y-6 p-6">
