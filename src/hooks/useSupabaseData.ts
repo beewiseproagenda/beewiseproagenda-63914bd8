@@ -440,6 +440,36 @@ export const useSupabaseData = () => {
     return 0;
   };
 
+  // Helper function to calculate recurring client revenues for future months
+  const calcularReceitaClienteRecorrente = (cliente: Cliente, targetMonth: number, targetYear: number) => {
+    if (!cliente.recorrente) return 0;
+
+    // Buscar o pacote/serviço do cliente
+    const pacoteServico = servicosPacotes.find(sp => sp.id === cliente.pacote_id);
+    if (!pacoteServico) return 0;
+
+    const valor = Number(pacoteServico.valor);
+    
+    // Se o cliente tem recorrência definida, calcular baseado na frequência
+    if (cliente.recorrencia) {
+      switch (cliente.recorrencia) {
+        case 'semanal':
+          // 4 atendimentos por mês aproximadamente
+          return valor * 4;
+        case 'quinzenal':
+          // 2 atendimentos por mês
+          return valor * 2;
+        case 'mensal':
+          // 1 atendimento por mês
+          return valor;
+        default:
+          return valor;
+      }
+    }
+    
+    return valor;
+  };
+
   // Financial calculations
   const calcularDadosFinanceiros = () => {
     const today = new Date();
@@ -555,7 +585,12 @@ export const useSupabaseData = () => {
         .filter(d => d.recorrente)
         .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, futureMonth, futureYear), 0);
 
-      const projecaoReceita = atendimentosFuturos.reduce((sum, a) => sum + Number(a.valor), 0);
+      // Add recurring clients revenue to projections
+      const receitaClientesRecorrentes = clientes
+        .filter(c => c.recorrente)
+        .reduce((sum, c) => sum + calcularReceitaClienteRecorrente(c, futureMonth, futureYear), 0);
+
+      const projecaoReceita = atendimentosFuturos.reduce((sum, a) => sum + Number(a.valor), 0) + receitaClientesRecorrentes;
       const projecaoDespesas = despesasFuturas.reduce((sum, d) => sum + Number(d.valor), 0) + despesasRecorrentesFuturas;
 
       projecoesFuturas.push({
