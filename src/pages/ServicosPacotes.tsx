@@ -71,7 +71,7 @@ export default function ServicosPacotes() {
     setFormData({
       nome: item.nome,
       tipo: item.tipo,
-      valor: item.valor.toString(),
+      valor: '',
       descricao: item.descricao || '',
     });
     setIsFormOpen(true);
