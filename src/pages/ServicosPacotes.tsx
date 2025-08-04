@@ -8,20 +8,20 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { useBwData } from '@/hooks/useBwData';
-import { ServicoPacote } from '@/types';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { PieChart } from '@/components/PieChart';
 import { toast } from "sonner";
 
 export default function ServicosPacotes() {
-  const { servicosPacotes, adicionarServicoPacote, atualizarServicoPacote, removerServicoPacote } = useBwData();
+  const { servicosPacotes, atendimentos, adicionarServicoPacote, atualizarServicoPacote, removerServicoPacote } = useSupabaseData();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<ServicoPacote | null>(null);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [formData, setFormData] = useState({
     nome: '',
     tipo: 'servico' as 'servico' | 'pacote',
-    valor: 0,
+    valor: '',
     descricao: '',
   });
 
@@ -29,7 +29,7 @@ export default function ServicosPacotes() {
     setFormData({
       nome: '',
       tipo: 'servico',
-      valor: 0,
+      valor: '',
       descricao: '',
     });
     setEditingItem(null);
@@ -44,34 +44,40 @@ export default function ServicosPacotes() {
       return;
     }
 
-    if (formData.valor <= 0) {
+    const valorNumerico = typeof formData.valor === 'string' ? parseFloat(formData.valor) : formData.valor;
+    if (!valorNumerico || valorNumerico <= 0) {
       toast.error("Valor deve ser maior que zero");
       return;
     }
 
+    const submitData = {
+      ...formData,
+      valor: valorNumerico
+    };
+
     if (editingItem) {
-      atualizarServicoPacote(editingItem.id, formData);
+      atualizarServicoPacote(editingItem.id, submitData);
       toast.success("Item atualizado com sucesso!");
     } else {
-      adicionarServicoPacote(formData);
+      adicionarServicoPacote(submitData);
       toast.success("Item cadastrado com sucesso!");
     }
 
     resetForm();
   };
 
-  const editarItem = (item: ServicoPacote) => {
+  const editarItem = (item: any) => {
     setEditingItem(item);
     setFormData({
       nome: item.nome,
       tipo: item.tipo,
-      valor: item.valor,
+      valor: item.valor.toString(),
       descricao: item.descricao || '',
     });
     setIsFormOpen(true);
   };
 
-  const excluirItem = (item: ServicoPacote) => {
+  const excluirItem = (item: any) => {
     if (confirm(`Tem certeza que deseja excluir ${item.nome}?`)) {
       removerServicoPacote(item.id);
       toast.success("Item excluído com sucesso!");
@@ -89,6 +95,44 @@ export default function ServicosPacotes() {
     item.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.descricao && item.descricao.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Calcular dados do gráfico de pizza para o mês atual
+  const currentDate = new Date();
+  const currentMonth = currentDate.getMonth() + 1;
+  const currentYear = currentDate.getFullYear();
+  
+  // Pegar vendas do mês anterior para calcular variação
+  const previousMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+  const previousYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+  const vendasMesAtual = servicosPacotes.map(item => {
+    const vendasAtual = atendimentos.filter(a => {
+      const atendimentoDate = new Date(a.data);
+      const atendimentoMonth = atendimentoDate.getMonth() + 1;
+      const atendimentoYear = atendimentoDate.getFullYear();
+      return a.servico === item.nome && atendimentoMonth === currentMonth && atendimentoYear === currentYear && a.status === 'realizado';
+    }).length;
+
+    const vendasAnterior = atendimentos.filter(a => {
+      const atendimentoDate = new Date(a.data);
+      const atendimentoMonth = atendimentoDate.getMonth() + 1;
+      const atendimentoYear = atendimentoDate.getFullYear();
+      return a.servico === item.nome && atendimentoMonth === previousMonth && atendimentoYear === previousYear && a.status === 'realizado';
+    }).length;
+
+    const variacao = vendasAnterior > 0 ? ((vendasAtual - vendasAnterior) / vendasAnterior) * 100 : vendasAtual > 0 ? 100 : 0;
+
+    return {
+      name: item.nome,
+      value: vendasAtual,
+      color: item.tipo === 'servico' ? 'hsl(var(--chart-faturamento))' : 'hsl(var(--chart-agendado))',
+      change: variacao
+    };
+  }).filter(item => item.value > 0);
+
+  const chartData = vendasMesAtual.length > 0 ? vendasMesAtual : [
+    { name: 'Nenhuma venda', value: 1, color: 'hsl(var(--muted))', change: 0 }
+  ];
 
   return (
     <div className="space-y-4 p-4">
@@ -185,7 +229,7 @@ export default function ServicosPacotes() {
                   <p className="text-sm text-muted-foreground">{item.descricao}</p>
                 )}
                 <div className="pt-1 text-xs text-muted-foreground">
-                  Cadastrado em {new Date(item.criadoEm).toLocaleDateString('pt-BR')}
+                  Cadastrado em {new Date(item.criado_em).toLocaleDateString('pt-BR')}
                 </div>
               </CardContent>
             </Card>
@@ -236,14 +280,15 @@ export default function ServicosPacotes() {
 
                 <div>
                   <Label htmlFor="valor">Valor (R$) *</Label>
-                  <Input
-                    id="valor"
-                    type="number"
-                    step="0.01"
-                    value={formData.valor}
-                    onChange={(e) => setFormData({ ...formData, valor: parseFloat(e.target.value) || 0 })}
-                    required
-                  />
+                    <Input
+                      id="valor"
+                      type="number"
+                      step="0.01"
+                      value={formData.valor}
+                      onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                      placeholder="0,00"
+                      required
+                    />
                 </div>
 
                 <div>
@@ -269,6 +314,20 @@ export default function ServicosPacotes() {
           </Card>
         </div>
       )}
+
+      {/* Gráfico de Pizza - Vendas do Mês */}
+      <div className="mt-6">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="lg:col-span-2">
+            <div className="bg-card rounded-lg border p-6">
+              <PieChart 
+                data={chartData}
+                title={`Distribuição de Vendas - ${new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

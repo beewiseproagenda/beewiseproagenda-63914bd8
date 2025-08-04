@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import type { Cliente } from "@/hooks/useSupabaseData";
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { toast } from "sonner";
 
 export default function Clientes() {
@@ -18,6 +19,7 @@ export default function Clientes() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; cliente: Cliente | null }>({ open: false, cliente: null });
 
   const buscarEnderecoPorCep = async (cep: string) => {
     try {
@@ -164,9 +166,14 @@ export default function Clientes() {
   };
 
   const excluirCliente = (cliente: Cliente) => {
-    if (confirm(`Tem certeza que deseja excluir ${cliente.nome}?`)) {
-      removerCliente(cliente.id);
+    setDeleteDialog({ open: true, cliente });
+  };
+
+  const confirmarExclusao = () => {
+    if (deleteDialog.cliente) {
+      removerCliente(deleteDialog.cliente.id);
       toast.success("Cliente excluído com sucesso!");
+      setDeleteDialog({ open: false, cliente: null });
     }
   };
 
@@ -738,6 +745,14 @@ export default function Clientes() {
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmDeleteDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, cliente: deleteDialog.cliente })}
+        onConfirm={confirmarExclusao}
+        title="Confirmar exclusão"
+        message={`Tem certeza que deseja excluir ${deleteDialog.cliente?.nome}? Essa ação não poderá ser desfeita.`}
+      />
     </div>
   );
 }

@@ -67,7 +67,6 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
             tickFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Bar dataKey="realizado" fill="hsl(var(--chart-faturamento))" radius={[4, 4, 0, 0]} />
           <Bar dataKey="agendado" fill="hsl(var(--chart-agendado))" radius={[4, 4, 0, 0]} />
           <Bar dataKey="despesas" fill="hsl(var(--chart-despesas))" radius={[4, 4, 0, 0]} />
         </BarChart>
@@ -94,16 +93,6 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
         <Tooltip content={<CustomTooltip />} />
         <Line 
           type="monotone" 
-          dataKey="realizado" 
-          stroke="hsl(var(--chart-faturamento))" 
-          strokeWidth={3}
-          strokeDasharray="0"
-          strokeOpacity={1}
-          dot={{ fill: 'hsl(var(--chart-faturamento))', strokeWidth: 2, r: 4 }}
-          activeDot={{ r: 6, stroke: 'hsl(var(--chart-faturamento))', strokeWidth: 2 }}
-        />
-        <Line 
-          type="monotone" 
           dataKey="agendado" 
           stroke="hsl(var(--chart-agendado))" 
           strokeWidth={3}
@@ -117,8 +106,8 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
           dataKey="despesas" 
           stroke="hsl(var(--chart-despesas))" 
           strokeWidth={3}
-          strokeDasharray="0"
-          strokeOpacity={1}
+          strokeDasharray="5 5"
+          strokeOpacity={0.8}
           dot={{ fill: 'hsl(var(--chart-despesas))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, stroke: 'hsl(var(--chart-despesas))', strokeWidth: 2 }}
         />
@@ -127,8 +116,8 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
           dataKey="lucro" 
           stroke="hsl(var(--chart-lucro))" 
           strokeWidth={3}
-          strokeDasharray="0"
-          strokeOpacity={1}
+          strokeDasharray="5 5"
+          strokeOpacity={0.8}
           dot={{ fill: 'hsl(var(--chart-lucro))', strokeWidth: 2, r: 4 }}
           activeDot={{ r: 6, stroke: 'hsl(var(--chart-lucro))', strokeWidth: 2 }}
         />

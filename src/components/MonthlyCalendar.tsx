@@ -40,8 +40,10 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
 
   const getAtendimentosForDay = (date: Date) => {
     return atendimentos.filter(a => {
-      const atendimentoDate = new Date(a.data);
-      return atendimentoDate.toDateString() === date.toDateString();
+      const atendimentoDate = new Date(a.data + 'T00:00:00'); // Force local timezone
+      const compareDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const compareAtendimento = new Date(atendimentoDate.getFullYear(), atendimentoDate.getMonth(), atendimentoDate.getDate());
+      return compareAtendimento.getTime() === compareDate.getTime();
     }).map(a => {
       const cliente = clientes.find(c => c.id === a.cliente_id);
       return {

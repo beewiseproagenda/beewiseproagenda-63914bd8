@@ -63,8 +63,12 @@ export default function Agenda() {
 
   const onSubmit = (data: z.infer<typeof atendimentoSchema>) => {
     const servicoSelecionado = servicosPacotes.find(s => s.id === data.servicoId);
+    
+    // Ajustar para fuso horário local
+    const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
+    
     const atendimentoData = {
-      data: data.data.toISOString().split('T')[0], // Convert to YYYY-MM-DD
+      data: localDate.toISOString().split('T')[0], // Convert to YYYY-MM-DD
       hora: data.hora,
       cliente_id: data.clienteId,
       servico: servicoSelecionado?.nome || "",

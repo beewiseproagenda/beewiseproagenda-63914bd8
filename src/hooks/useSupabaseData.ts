@@ -561,8 +561,8 @@ export const useSupabaseData = () => {
     // Calculate future projections (separate from historical data)
     const projecoesFuturas = [];
     
-    // Next 3 months projections
-    for (let i = 1; i <= 3; i++) {
+    // Next 6 months projections
+    for (let i = 1; i <= 6; i++) {
       const futureDate = new Date(currentYear, currentMonth + i, 1);
       const futureMonth = futureDate.getMonth();
       const futureYear = futureDate.getFullYear();
