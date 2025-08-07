@@ -748,7 +748,7 @@ export default function Clientes() {
 
       <ConfirmDeleteDialog
         open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog({ open, cliente: deleteDialog.cliente })}
+        onOpenChange={(open) => setDeleteDialog({ open, cliente: open ? deleteDialog.cliente : null })}
         onConfirm={confirmarExclusao}
         title="Confirmar exclusão"
         message={`Tem certeza que deseja excluir ${deleteDialog.cliente?.nome}? Essa ação não poderá ser desfeita.`}

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { PieChart } from '@/components/PieChart';
+import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
 import { toast } from "sonner";
 
 export default function ServicosPacotes() {
@@ -17,6 +18,7 @@ export default function ServicosPacotes() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: any | null }>({ open: false, item: null });
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -78,9 +80,14 @@ export default function ServicosPacotes() {
   };
 
   const excluirItem = (item: any) => {
-    if (confirm(`Tem certeza que deseja excluir ${item.nome}?`)) {
-      removerServicoPacote(item.id);
+    setDeleteDialog({ open: true, item });
+  };
+
+  const confirmarExclusao = () => {
+    if (deleteDialog.item) {
+      removerServicoPacote(deleteDialog.item.id);
       toast.success("Item excluído com sucesso!");
+      setDeleteDialog({ open: false, item: null });
     }
   };
 
@@ -328,6 +335,14 @@ export default function ServicosPacotes() {
           </div>
         </div>
       </div>
+
+      <ConfirmDeleteDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, item: null })}
+        onConfirm={confirmarExclusao}
+        title="Confirmar exclusão"
+        message={`Tem certeza que deseja excluir ${deleteDialog.item?.nome || 'este item'}? Essa ação não poderá ser desfeita.`}
+      />
     </div>
   );
 }
