@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import type { ServicoPacote } from '@/hooks/useSupabaseData';
+import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { toast } from "sonner";
 
 export default function PacotesServicos() {
@@ -16,18 +17,19 @@ export default function PacotesServicos() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ServicoPacote | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: ServicoPacote | null }>({ open: false, item: null });
 
   const [formData, setFormData] = useState({
     nome: '',
     descricao: '',
-    valor: 0,
+    valor: '',
   });
 
   const resetForm = () => {
     setFormData({
       nome: '',
       descricao: '',
-      valor: 0,
+      valor: '',
     });
     setEditingItem(null);
     setIsFormOpen(false);
@@ -41,13 +43,15 @@ export default function PacotesServicos() {
       return;
     }
 
-    if (formData.valor <= 0) {
+    const valor = parseFloat(formData.valor.toString());
+    if (isNaN(valor) || valor <= 0) {
       toast.error("Valor deve ser maior que zero");
       return;
     }
 
     const servicoPacoteData = {
       ...formData,
+      valor,
       tipo: 'servico' as const
     };
 
@@ -67,15 +71,20 @@ export default function PacotesServicos() {
     setFormData({
       nome: item.nome,
       descricao: item.descricao || '',
-      valor: item.valor,
+      valor: '',
     });
     setIsFormOpen(true);
   };
 
   const excluirItem = (item: ServicoPacote) => {
-    if (confirm(`Tem certeza que deseja excluir ${item.nome}?`)) {
-      removerServicoPacote(item.id);
+    setDeleteDialog({ open: true, item });
+  };
+
+  const confirmarExclusao = () => {
+    if (deleteDialog.item) {
+      removerServicoPacote(deleteDialog.item.id);
       toast.success("Item excluído com sucesso!");
+      setDeleteDialog({ open: false, item: null });
     }
   };
 
@@ -230,7 +239,8 @@ export default function PacotesServicos() {
                     type="number"
                     step="0.01"
                     value={formData.valor}
-                    onChange={(e) => setFormData({ ...formData, valor: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
+                    placeholder="Digite o valor"
                     required
                   />
                 </div>
@@ -248,6 +258,14 @@ export default function PacotesServicos() {
           </Card>
         </div>
       )}
+
+      <ConfirmDeleteDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, item: null })}
+        onConfirm={confirmarExclusao}
+        title="Confirmar exclusão"
+        message={`Tem certeza que deseja excluir ${deleteDialog.item?.nome || 'este item'}? Essa ação não poderá ser desfeita.`}
+      />
     </div>
   );
 }
