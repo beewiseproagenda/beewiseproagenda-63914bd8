@@ -169,11 +169,16 @@ export default function Clientes() {
     setDeleteDialog({ open: true, cliente });
   };
 
-  const confirmarExclusao = () => {
+  const confirmarExclusao = async () => {
     if (deleteDialog.cliente) {
-      removerCliente(deleteDialog.cliente.id);
-      toast.success("Cliente excluído com sucesso!");
-      setDeleteDialog({ open: false, cliente: null });
+      try {
+        await removerCliente(deleteDialog.cliente.id);
+        toast.success("Cliente excluído com sucesso!");
+        setDeleteDialog({ open: false, cliente: null });
+      } catch (error) {
+        console.error('Erro ao excluir cliente:', error);
+        toast.error("Erro ao excluir cliente");
+      }
     }
   };
 
