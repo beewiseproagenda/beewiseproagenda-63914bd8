@@ -169,19 +169,41 @@ export const useSupabaseData = () => {
   const removerCliente = async (id: string) => {
     if (!user) return;
 
-    const { error } = await supabase
-      .from('clientes')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
+    try {
+      // Primeiro, remover todos os atendimentos associados ao cliente
+      const { error: atendimentosError } = await supabase
+        .from('atendimentos')
+        .delete()
+        .eq('cliente_id', id)
+        .eq('user_id', user.id);
 
-    if (error) throw error;
-    
-    setClientes(prev => prev.filter(c => c.id !== id));
-    toast({
-      title: "Sucesso",
-      description: "Cliente removido com sucesso"
-    });
+      if (atendimentosError) throw atendimentosError;
+
+      // Depois, remover o cliente
+      const { error: clienteError } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (clienteError) throw clienteError;
+      
+      // Atualizar o estado local
+      setClientes(prev => prev.filter(c => c.id !== id));
+      setAtendimentos(prev => prev.filter(a => a.cliente_id !== id));
+      
+      toast({
+        title: "Sucesso",
+        description: "Cliente removido com sucesso"
+      });
+    } catch (error) {
+      console.error('Erro ao remover cliente:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao remover cliente. Tente novamente."
+      });
+      throw error;
+    }
   };
 
   // Atendimento functions
