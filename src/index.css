@@ -56,6 +56,12 @@ All colors MUST be HSL.
     --chart-agendado: 197 71% 85%; /* Azul mais claro para agendados */
     --chart-despesas: 0 79% 72%; /* Vermelho claro - lightcoral */
     --chart-lucro: 120 73% 75%; /* Verde claro - lightgreen */
+
+    /* BeeWise Landing Page Colors */
+    --bw-off-white: 32 50% 96%; /* #fff6ec */
+    --bw-yellow-dark: 43 100% 56%; /* #fbbf23 */
+    --bw-yellow-light: 46 95% 78%; /* #fee797 */
+    --bw-blue-dark: 200 100% 13%; /* #002c42 */
   }
 }
 

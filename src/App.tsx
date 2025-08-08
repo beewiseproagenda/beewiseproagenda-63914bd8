@@ -14,6 +14,7 @@ import Financeiro from "./pages/Financeiro";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
+import Landing from "./pages/Landing";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./hooks/useAuth";
 import { useProfile } from "./hooks/useProfile";
@@ -47,9 +48,11 @@ const AppContent = () => {
   if (!user) {
     return (
       <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/landing" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
-        <Route path="*" element={<Login />} />
+        <Route path="*" element={<Landing />} />
       </Routes>
     );
   }
@@ -84,6 +87,7 @@ const AppContent = () => {
           <main className="flex-1 overflow-auto">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/pacotes-servicos" element={<PacotesServicos />} />
