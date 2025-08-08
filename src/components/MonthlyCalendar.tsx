@@ -119,7 +119,7 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
                   </span>
                 </div>
                 <div className="space-y-1 overflow-hidden">
-                  {dayAtendimentos.slice(0, 2).map((atendimento) => (
+                  {dayAtendimentos.slice(0, 1).map((atendimento) => (
                       <div
                         key={atendimento.id}
                         className={`text-xs p-1 rounded flex items-center gap-1 ${
@@ -131,16 +131,16 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
                             ? 'bg-red-100 text-foreground'
                             : 'bg-secondary text-foreground'
                         }`}
-                        title={`${atendimento.hora} - ${atendimento.clienteNome} - ${atendimento.servico}`}
+                        title={`${atendimento.hora.slice(0, 5)} - ${atendimento.clienteNome} - ${atendimento.servico}`}
                       >
-                        <span className="font-medium text-foreground whitespace-nowrap">{atendimento.hora}</span>
+                        <span className="font-medium text-foreground whitespace-nowrap">{atendimento.hora.slice(0, 5)}</span>
                         <span className="text-foreground">-</span>
                         <span className="truncate text-foreground">{atendimento.clienteNome}</span>
                       </div>
                   ))}
-                  {dayAtendimentos.length > 2 && (
+                  {dayAtendimentos.length > 1 && (
                     <div className="text-xs text-muted-foreground text-center">
-                      ...mais {dayAtendimentos.length - 2}
+                      ...
                     </div>
                   )}
                 </div>
