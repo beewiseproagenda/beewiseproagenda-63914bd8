@@ -173,7 +173,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2 text-primary">
                       <Clock className="h-4 w-4" />
                       <div>
-                         <span className="font-medium">{agendamento.hora} - {agendamento.clienteNome}</span>
+                          <span className="font-medium">{agendamento.hora.slice(0, 5)} - {agendamento.clienteNome}</span>
                     <p className="text-sm text-muted-foreground">{agendamento.servico}</p>
                          {agendamento.observacoes && (
                            <p className="text-xs text-muted-foreground">{agendamento.observacoes}</p>
@@ -265,30 +265,30 @@ export default function Dashboard() {
                       {day.getDate()}
                     </p>
                   </div>
-                  <div className="space-y-1">
-                    {agendamentosDoDia.slice(0, 3).map((agendamento) => (
-                      <div
-                        key={agendamento.id}
-                        className={`text-xs p-1 rounded truncate ${
-                          isPast 
-                            ? 'bg-muted/30 text-muted-foreground' 
-                            : agendamento.status === 'realizado'
-                            ? 'bg-green-100 text-foreground'
-                            : agendamento.status === 'cancelado'
-                            ? 'bg-red-100 text-foreground'
-                            : 'bg-secondary text-foreground'
-                        }`}
-                        title={`${agendamento.hora} - ${agendamento.clienteNome} - ${agendamento.servico} - ${agendamento.status}`}
-                      >
-                        <div className="font-medium text-foreground">{agendamento.hora}</div>
-                        <div className="truncate text-foreground">{agendamento.clienteNome}</div>
-                      </div>
-                    ))}
-                    {agendamentosDoDia.length > 3 && (
-                      <div className="text-xs text-muted-foreground text-center">
-                        +{agendamentosDoDia.length - 3} mais
-                      </div>
-                    )}
+                   <div className="space-y-1">
+                     {agendamentosDoDia.slice(0, 1).map((agendamento) => (
+                       <div
+                         key={agendamento.id}
+                         className={`text-xs p-1 rounded truncate ${
+                           isPast 
+                             ? 'bg-muted/30 text-muted-foreground' 
+                             : agendamento.status === 'realizado'
+                             ? 'bg-green-100 text-foreground'
+                             : agendamento.status === 'cancelado'
+                             ? 'bg-red-100 text-foreground'
+                             : 'bg-secondary text-foreground'
+                         }`}
+                         title={`${agendamento.hora.slice(0, 5)} - ${agendamento.clienteNome} - ${agendamento.servico} - ${agendamento.status}`}
+                       >
+                         <div className="font-medium text-foreground">{agendamento.hora.slice(0, 5)}</div>
+                         <div className="truncate text-foreground">{agendamento.clienteNome}</div>
+                       </div>
+                     ))}
+                     {agendamentosDoDia.length > 1 && (
+                       <div className="text-xs text-muted-foreground text-center">
+                         ...
+                       </div>
+                     )}
                   </div>
                 </div>
               );
