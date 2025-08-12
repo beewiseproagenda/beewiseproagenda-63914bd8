@@ -11,6 +11,8 @@ import Agenda from "./pages/Agenda";
 import Clientes from "./pages/Clientes";
 import PacotesServicos from "./pages/PacotesServicos";
 import Financeiro from "./pages/Financeiro";
+import Relatorios from "./pages/Relatorios";
+import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
@@ -92,8 +94,8 @@ const AppContent = () => {
               <Route path="/clientes" element={<Clientes />} />
               <Route path="/pacotes-servicos" element={<PacotesServicos />} />
               <Route path="/financeiro" element={<Financeiro />} />
-              <Route path="/relatorios" element={<Dashboard />} />
-              <Route path="/configuracoes" element={<Dashboard />} />
+              <Route path="/relatorios" element={<Relatorios />} />
+              <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
