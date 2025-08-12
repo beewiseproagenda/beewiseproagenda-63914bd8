@@ -70,8 +70,10 @@ export default function Dashboard() {
   const hoje = new Date();
   const agendamentosHoje = atendimentos
     .filter(a => {
-      const dataAtendimento = new Date(a.data);
-      return dataAtendimento.toDateString() === hoje.toDateString();
+      const atendimentoDate = new Date(a.data + 'T00:00:00'); // Force local timezone
+      const compareDate = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+      const compareAtendimento = new Date(atendimentoDate.getFullYear(), atendimentoDate.getMonth(), atendimentoDate.getDate());
+      return compareAtendimento.getTime() === compareDate.getTime();
     })
     .map(a => {
       const cliente = clientes.find(c => c.id === a.cliente_id);
@@ -103,8 +105,10 @@ export default function Dashboard() {
   // Função para obter agendamentos de um dia específico
   const getAgendamentosDoDia = (data: Date) => {
     return atendimentos.filter(a => {
-      const dataAtendimento = new Date(a.data);
-      return dataAtendimento.toDateString() === data.toDateString();
+      const atendimentoDate = new Date(a.data + 'T00:00:00'); // Force local timezone
+      const compareDate = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+      const compareAtendimento = new Date(atendimentoDate.getFullYear(), atendimentoDate.getMonth(), atendimentoDate.getDate());
+      return compareAtendimento.getTime() === compareDate.getTime();
     }).map(a => {
       const cliente = clientes.find(c => c.id === a.cliente_id);
       return {
