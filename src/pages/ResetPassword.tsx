@@ -36,30 +36,27 @@ const ResetPassword = () => {
 
   useEffect(() => {
     // Check if user came from password reset email
-    const checkTokenAndSetSession = async () => {
+    const checkRecoverySession = async () => {
       const accessToken = searchParams.get('access_token');
       const refreshToken = searchParams.get('refresh_token');
       const type = searchParams.get('type');
       
+      // If URL contains recovery tokens, this is a valid password reset
       if (accessToken && refreshToken && type === 'recovery') {
-        try {
-          // Set the session with the tokens from the URL
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          });
+        setHasValidToken(true);
+      } else {
+        // Check if user is already authenticated and session type is recovery
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user && type === 'recovery') {
           setHasValidToken(true);
-        } catch (error) {
-          console.error('Erro ao definir sessão:', error);
+        } else {
           setHasValidToken(false);
         }
-      } else {
-        setHasValidToken(false);
       }
       setIsCheckingToken(false);
     };
 
-    checkTokenAndSetSession();
+    checkRecoverySession();
   }, [searchParams]);
 
   useEffect(() => {
