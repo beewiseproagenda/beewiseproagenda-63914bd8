@@ -55,7 +55,7 @@ const AppContent = () => {
         <Route path="/landing" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="*" element={<Landing />} />
       </Routes>
     );
