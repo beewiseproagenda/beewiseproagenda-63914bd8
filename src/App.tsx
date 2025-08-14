@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import Landing from "./pages/Landing";
+import ResetPassword from "./pages/ResetPassword";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./hooks/useAuth";
 import { useProfile } from "./hooks/useProfile";
@@ -54,6 +55,7 @@ const AppContent = () => {
         <Route path="/landing" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Landing />} />
       </Routes>
     );

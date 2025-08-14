@@ -61,7 +61,7 @@ export default function Financeiro() {
     resolver: zodResolver(receitaSchema),
     defaultValues: {
       data: new Date(),
-      valor: 0,
+      valor: undefined,
       descricao: "",
       categoria: "servico_prestado",
       formaPagamento: "pix",
@@ -74,7 +74,7 @@ export default function Financeiro() {
     resolver: zodResolver(despesaSchema),
     defaultValues: {
       data: new Date(),
-      valor: 0,
+      valor: undefined,
       descricao: "",
       categoria: "outros",
       tipo: "variavel",
@@ -306,12 +306,13 @@ export default function Financeiro() {
                           <FormItem>
                             <FormLabel>Valor (R$)</FormLabel>
                             <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                              />
+                               <Input
+                                 type="number"
+                                 step="0.01"
+                                 placeholder="Digite o valor"
+                                 {...field}
+                                 onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -606,12 +607,13 @@ export default function Financeiro() {
                           <FormItem>
                             <FormLabel>Valor (R$)</FormLabel>
                             <FormControl>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                              />
+                               <Input
+                                 type="number"
+                                 step="0.01"
+                                 placeholder="Digite o valor"
+                                 {...field}
+                                 onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
