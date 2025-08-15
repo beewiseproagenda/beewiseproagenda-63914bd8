@@ -41,13 +41,30 @@ const ResetPassword = () => {
       const refreshToken = searchParams.get('refresh_token');
       const type = searchParams.get('type');
       
-      // If URL contains recovery tokens, this is a valid password reset
+      // If URL contains recovery tokens, set the session first
       if (accessToken && refreshToken && type === 'recovery') {
-        setHasValidToken(true);
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+          
+          if (error) {
+            console.error('Erro ao definir sessão de recuperação:', error);
+            setHasValidToken(false);
+          } else if (data.session) {
+            setHasValidToken(true);
+          } else {
+            setHasValidToken(false);
+          }
+        } catch (error) {
+          console.error('Erro inesperado ao definir sessão:', error);
+          setHasValidToken(false);
+        }
       } else {
-        // Check if user is already authenticated and session type is recovery
+        // Check if user is already authenticated with a recovery session
         const { data: { session } } = await supabase.auth.getSession();
-        if (session && session.user && type === 'recovery') {
+        if (session?.user) {
           setHasValidToken(true);
         } else {
           setHasValidToken(false);
