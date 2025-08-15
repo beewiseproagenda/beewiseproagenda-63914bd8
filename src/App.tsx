@@ -47,8 +47,15 @@ const AppContent = () => {
     }
   };
 
-  // Public routes (login/signup)
-  if (!user) {
+  // Check if current URL is a password reset link
+  const isPasswordResetLink = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return window.location.pathname === '/redefinir-senha' || 
+           (urlParams.get('type') === 'recovery' && urlParams.get('access_token'));
+  };
+
+  // Public routes (login/signup/password reset)
+  if (!user || isPasswordResetLink()) {
     return (
       <Routes>
         <Route path="/" element={<Landing />} />
