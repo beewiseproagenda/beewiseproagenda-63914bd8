@@ -54,6 +54,31 @@ export const useAuth = () => {
     return { error };
   };
 
+  const checkEmailExists = async (email: string) => {
+    try {
+      // Tentativa de login com senha inválida para verificar se o email existe
+      // O Supabase retorna diferentes erros para email inexistente vs senha errada
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: 'invalid_password_check_email_exists'
+      });
+      
+      // Se o erro é "Invalid login credentials", o email existe mas a senha está errada
+      // Se o erro é "User not found" ou similar, o email não existe
+      if (error) {
+        // Email existe se o erro é sobre credenciais inválidas
+        const emailExists = error.message.includes('Invalid login credentials') ||
+                           error.message.includes('Invalid user credentials') ||
+                           error.message.includes('Too many requests');
+        return { exists: emailExists, error: null };
+      }
+      
+      return { exists: true, error: null };
+    } catch (error: any) {
+      return { exists: false, error };
+    }
+  };
+
   const resetPassword = async (email: string) => {
     const redirectUrl = `${window.location.origin}/redefinir-senha`;
     
@@ -70,6 +95,7 @@ export const useAuth = () => {
     signUp,
     signIn,
     signOut,
-    resetPassword
+    resetPassword,
+    checkEmailExists
   };
 };

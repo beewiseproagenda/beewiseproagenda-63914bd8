@@ -15,13 +15,43 @@ const Cadastro = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const [emailChecking, setEmailChecking] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const { signUp, checkEmailExists } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const handleEmailBlur = async () => {
+    if (!email || emailChecking) return;
+    
+    setEmailChecking(true);
+    setEmailError('');
+    
+    const { exists, error } = await checkEmailExists(email);
+    
+    if (error) {
+      setEmailError('Erro ao verificar email');
+    } else if (exists) {
+      setEmailError('Este email já está cadastrado');
+    }
+    
+    setEmailChecking(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Verificar se há erro de email antes de prosseguir
+    if (emailError) {
+      toast({
+        title: "Erro na validação",
+        description: emailError,
+        variant: "destructive"
+      });
+      setLoading(false);
+      return;
+    }
 
     // Validar senhas
     if (password !== confirmPassword) {
@@ -118,10 +148,21 @@ const Cadastro = () => {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setEmailError('');
+                }}
+                onBlur={handleEmailBlur}
                 required
                 placeholder="seu@email.com"
+                className={emailError ? 'border-destructive' : ''}
               />
+              {emailChecking && (
+                <p className="text-sm text-muted-foreground">Verificando email...</p>
+              )}
+              {emailError && (
+                <p className="text-sm text-destructive">{emailError}</p>
+              )}
             </div>
             
             <div className="space-y-2">
@@ -151,7 +192,7 @@ const Cadastro = () => {
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={loading}
+              disabled={loading || emailChecking || !!emailError}
             >
               {loading ? "Cadastrando..." : "Cadastrar"}
             </Button>

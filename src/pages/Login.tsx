@@ -15,7 +15,7 @@ const Login = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const { signIn, resetPassword } = useAuth();
+  const { signIn, resetPassword, checkEmailExists } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -50,6 +50,30 @@ const Login = () => {
     
     setResetLoading(true);
     
+    // Primeiro verificar se o email existe
+    const { exists, error: checkError } = await checkEmailExists(resetEmail);
+    
+    if (checkError) {
+      toast({
+        title: "Erro ao verificar e-mail",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive"
+      });
+      setResetLoading(false);
+      return;
+    }
+    
+    if (!exists) {
+      toast({
+        title: "E-mail não encontrado",
+        description: "Este e-mail não está cadastrado em nossa base de dados.",
+        variant: "destructive"
+      });
+      setResetLoading(false);
+      return;
+    }
+    
+    // Se o email existe, prosseguir com o reset
     const { error } = await resetPassword(resetEmail);
     
     if (error) {
