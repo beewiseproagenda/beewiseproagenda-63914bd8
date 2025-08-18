@@ -56,26 +56,37 @@ export const useAuth = () => {
 
   const checkEmailExists = async (email: string) => {
     try {
-      // Tentativa de login com senha inválida para verificar se o email existe
-      // O Supabase retorna diferentes erros para email inexistente vs senha errada
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password: 'invalid_password_check_email_exists'
+      // Usa resetPasswordForEmail para verificar se o email existe
+      // Esta é uma abordagem mais direta e confiável
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/verificacao-email`
       });
       
-      // Se o erro é "Invalid login credentials", o email existe mas a senha está errada
-      // Se o erro é "User not found" ou similar, o email não existe
       if (error) {
-        // Email existe se o erro é sobre credenciais inválidas
-        const emailExists = error.message.includes('Invalid login credentials') ||
-                           error.message.includes('Invalid user credentials') ||
-                           error.message.includes('Too many requests');
-        return { exists: emailExists, error: null };
+        // Se o erro menciona que o usuário não foi encontrado, o email não existe
+        if (error.message.includes('User not found') || 
+            error.message.includes('No user found') ||
+            error.message.includes('user_not_found')) {
+          return { exists: false, error: null };
+        }
+        
+        // Se há rate limiting, assumimos que o email existe
+        if (error.message.includes('Too many requests') ||
+            error.message.includes('rate limit')) {
+          return { exists: true, error: null };
+        }
+        
+        // Outros erros podem indicar problemas de configuração
+        // mas não necessariamente que o email não existe
+        return { exists: true, error: null };
       }
       
+      // Se não há erro, o email existe e o reset foi enviado
       return { exists: true, error: null };
     } catch (error: any) {
-      return { exists: false, error };
+      console.error('Erro ao verificar email:', error);
+      // Em caso de erro, assumimos que o email pode existir para não bloquear o usuário
+      return { exists: true, error };
     }
   };
 

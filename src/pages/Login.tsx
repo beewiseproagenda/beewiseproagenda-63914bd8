@@ -47,51 +47,73 @@ const Login = () => {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetEmail) return;
+
+    if (!/\S+@\S+\.\S+/.test(resetEmail)) {
+      toast({
+        title: "Email inválido",
+        description: "Por favor, digite um email válido.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setResetLoading(true);
     
-    // Primeiro verificar se o email existe
-    const { exists, error: checkError } = await checkEmailExists(resetEmail);
-    
-    if (checkError) {
+    try {
+      // Verificar se o email existe antes de enviar o reset
+      const { exists, error: checkError } = await checkEmailExists(resetEmail);
+      
+      if (checkError) {
+        toast({
+          title: "Erro de verificação",
+          description: "Não foi possível verificar o email. Tentando enviar mesmo assim...",
+        });
+      }
+      
+      if (exists === false) {
+        toast({
+          title: "Email não encontrado",
+          description: "Este email não está cadastrado em nossa base de dados.",
+          variant: "destructive",
+        });
+        setResetLoading(false);
+        return;
+      }
+      
+      // Se o email existe ou não conseguimos verificar, enviar o reset
+      const { error } = await resetPassword(resetEmail);
+      
+      if (error) {
+        if (error.message.includes('User not found')) {
+          toast({
+            title: "Email não encontrado",
+            description: "Este email não está cadastrado em nossa base de dados.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Erro ao enviar email",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Email enviado!",
+          description: "Verifique sua caixa de entrada para redefinir sua senha.",
+        });
+        setResetDialogOpen(false);
+        setResetEmail("");
+      }
+    } catch (error: any) {
       toast({
-        title: "Erro ao verificar e-mail",
-        description: "Tente novamente em alguns instantes.",
-        variant: "destructive"
+        title: "Erro",
+        description: "Ocorreu um erro inesperado. Tente novamente.",
+        variant: "destructive",
       });
+    } finally {
       setResetLoading(false);
-      return;
     }
-    
-    if (!exists) {
-      toast({
-        title: "E-mail não encontrado",
-        description: "Este e-mail não está cadastrado em nossa base de dados.",
-        variant: "destructive"
-      });
-      setResetLoading(false);
-      return;
-    }
-    
-    // Se o email existe, prosseguir com o reset
-    const { error } = await resetPassword(resetEmail);
-    
-    if (error) {
-      toast({
-        title: "Erro ao enviar e-mail",
-        description: error.message,
-        variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "E-mail enviado!",
-        description: "Verifique sua caixa de entrada para redefinir sua senha."
-      });
-      setResetDialogOpen(false);
-      setResetEmail('');
-    }
-    
-    setResetLoading(false);
   };
 
   return (
