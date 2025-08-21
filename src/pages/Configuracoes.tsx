@@ -1,10 +1,11 @@
+import React from "react";
 import { useTheme } from "next-themes";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Sun, Moon, Monitor } from "lucide-react";
 
-function Configuracoes() {
+const Configuracoes: React.FC = () => {
   const { theme, setTheme } = useTheme();
 
   return (
@@ -81,6 +82,6 @@ function Configuracoes() {
       </Card>
     </div>
   );
-}
+};
 
 export default Configuracoes;
