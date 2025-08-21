@@ -81,50 +81,57 @@ const AppContent = () => {
     );
   }
 
-  // Protected routes
+  // Protected routes - Full theme control for authenticated users
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-background">
-        <AppSidebar />
-        
-        <div className="flex-1 flex flex-col">
-          <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
-            <SidebarTrigger className="mr-4">
-              <Menu className="h-5 w-5" />
-            </SidebarTrigger>
-            <div className="flex-1 flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-foreground">
-                {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
-              </h1>
-              <PWAStatus />
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSignOut}
-              className="text-foreground hover:bg-background/10"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
-          </header>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange={false}
+    >
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-background">
+          <AppSidebar />
           
-          <main className="flex-1 overflow-auto">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/agenda" element={<Agenda />} />
-              <Route path="/clientes" element={<Clientes />} />
-              <Route path="/pacotes-servicos" element={<PacotesServicos />} />
-              <Route path="/financeiro" element={<Financeiro />} />
-              <Route path="/relatorios" element={<Relatorios />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
+          <div className="flex-1 flex flex-col">
+            <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+              <SidebarTrigger className="mr-4">
+                <Menu className="h-5 w-5" />
+              </SidebarTrigger>
+              <div className="flex-1 flex items-center gap-3">
+                <h1 className="text-xl font-semibold text-foreground">
+                  {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                </h1>
+                <PWAStatus />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSignOut}
+                className="text-foreground hover:bg-background/10"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Sair
+              </Button>
+            </header>
+            
+            <main className="flex-1 overflow-auto">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/agenda" element={<Agenda />} />
+                <Route path="/clientes" element={<Clientes />} />
+                <Route path="/pacotes-servicos" element={<PacotesServicos />} />
+                <Route path="/financeiro" element={<Financeiro />} />
+                <Route path="/relatorios" element={<Relatorios />} />
+                <Route path="/configuracoes" element={<Configuracoes />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </ThemeProvider>
   );
 };
 
@@ -138,21 +145,14 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange={false}
-      >
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AppContent />
-            <PWAInstallPrompt />
-          </BrowserRouter>
-        </TooltipProvider>
-      </ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AppContent />
+          <PWAInstallPrompt />
+        </BrowserRouter>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };
