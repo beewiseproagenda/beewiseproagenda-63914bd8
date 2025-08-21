@@ -1,6 +1,6 @@
 import { Calendar, Users, DollarSign, FileText, Home, Settings, Package } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
-import bwLogo from "/lovable-uploads/2961a698-54c9-4c44-9240-ba03a700bbf4.png";
+import bwLogo from "@/assets/bw-logo.png";
 
 import {
   Sidebar,
