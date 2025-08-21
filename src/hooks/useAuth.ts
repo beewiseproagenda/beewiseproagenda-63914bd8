@@ -54,42 +54,6 @@ export const useAuth = () => {
     return { error };
   };
 
-  const checkEmailExists = async (email: string) => {
-    try {
-      // Usa resetPasswordForEmail para verificar se o email existe
-      // Esta é uma abordagem mais direta e confiável
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/verificacao-email`
-      });
-      
-      if (error) {
-        // Se o erro menciona que o usuário não foi encontrado, o email não existe
-        if (error.message.includes('User not found') || 
-            error.message.includes('No user found') ||
-            error.message.includes('user_not_found')) {
-          return { exists: false, error: null };
-        }
-        
-        // Se há rate limiting, assumimos que o email existe
-        if (error.message.includes('Too many requests') ||
-            error.message.includes('rate limit')) {
-          return { exists: true, error: null };
-        }
-        
-        // Outros erros podem indicar problemas de configuração
-        // mas não necessariamente que o email não existe
-        return { exists: true, error: null };
-      }
-      
-      // Se não há erro, o email existe e o reset foi enviado
-      return { exists: true, error: null };
-    } catch (error: any) {
-      console.error('Erro ao verificar email:', error);
-      // Em caso de erro, assumimos que o email pode existir para não bloquear o usuário
-      return { exists: true, error };
-    }
-  };
-
   const resetPassword = async (email: string) => {
     const redirectUrl = `${window.location.origin}/redefinir-senha`;
     
@@ -106,7 +70,6 @@ export const useAuth = () => {
     signUp,
     signIn,
     signOut,
-    resetPassword,
-    checkEmailExists
+    resetPassword
   };
 };
