@@ -165,21 +165,4 @@ All colors MUST be HSL.
   .text-chart-despesas {
     color: hsl(var(--chart-despesas));
   }
-
-  /* PWA Improvements */
-  @media (max-width: 768px) {
-    .pwa-mobile-optimized {
-      @apply touch-manipulation select-none;
-    }
-    
-    /* Improve tap targets */
-    button, [role="button"] {
-      @apply min-h-[44px] min-w-[44px];
-    }
-    
-    /* Prevent zoom on input focus */
-    input, select, textarea {
-      font-size: 16px !important;
-    }
-  }
 }

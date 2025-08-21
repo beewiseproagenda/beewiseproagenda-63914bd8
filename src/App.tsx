@@ -23,10 +23,6 @@ import { useAuth } from "./hooks/useAuth";
 import { useProfile } from "./hooks/useProfile";
 import { Button } from "./components/ui/button";
 import { useToast } from "./hooks/use-toast";
-import { useEffect } from 'react';
-import { usePWA } from '@/hooks/usePWA';
-import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
-import { PWAStatus } from "@/components/PWAStatus";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
@@ -83,11 +79,10 @@ const AppContent = () => {
             <SidebarTrigger className="mr-4">
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
-            <div className="flex-1 flex items-center gap-3">
+            <div className="flex-1">
               <h1 className="text-xl font-semibold text-foreground">
                 {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
               </h1>
-              <PWAStatus />
             </div>
             <Button
               variant="ghost"
@@ -119,25 +114,15 @@ const AppContent = () => {
   );
 };
 
-const App = () => {
-  const { registerServiceWorker } = usePWA();
-
-  useEffect(() => {
-    // Register service worker on app startup
-    registerServiceWorker();
-  }, [registerServiceWorker]);
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppContent />
-          <PWAInstallPrompt />
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 export default App;
