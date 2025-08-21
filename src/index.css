@@ -63,6 +63,60 @@ All colors MUST be HSL.
     --bw-yellow-light: 46 95% 78%; /* #fee797 */
     --bw-blue-dark: 200 100% 13%; /* #002c42 */
   }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 48 100% 50%;
+    --primary-foreground: 222.2 84% 4.9%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 48 100% 20%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 48 100% 50%;
+
+    --sidebar-background: 222.2 84% 6%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 48 100% 50%;
+    --sidebar-primary-foreground: 222.2 84% 4.9%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 48 100% 50%;
+
+    /* Calendar day box color - lighter than background for dark mode */
+    --calendar-day-bg: 217.2 32.6% 17.5%;
+
+    /* Financial chart colors - adjusted for dark mode */
+    --chart-faturamento: 197 71% 60%;
+    --chart-agendado: 197 71% 70%;
+    --chart-despesas: 0 79% 65%;
+    --chart-lucro: 120 73% 65%;
+
+    /* BeeWise Landing Page Colors - Dark Mode */
+    --bw-off-white: 222.2 84% 8%;
+    --bw-yellow-dark: 48 100% 50%;
+    --bw-yellow-light: 48 100% 35%;
+    --bw-blue-dark: 200 100% 20%;
+  }
 }
 
 @layer base {
