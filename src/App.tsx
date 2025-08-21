@@ -59,17 +59,25 @@ const AppContent = () => {
            (urlParams.get('type') === 'recovery' && urlParams.get('access_token'));
   };
 
-  // Public routes (login/signup/password reset)
+  // Public routes (login/signup/password reset) - Always use light theme
   if (!user || isPasswordResetLink()) {
     return (
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/landing" element={<Landing />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/cadastro" element={<Cadastro />} />
-        <Route path="/redefinir-senha" element={<ResetPassword />} />
-        <Route path="*" element={<Landing />} />
-      </Routes>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="light"
+        enableSystem={false}
+        disableTransitionOnChange={false}
+        forcedTheme="light"
+      >
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/landing" element={<Landing />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/redefinir-senha" element={<ResetPassword />} />
+          <Route path="*" element={<Landing />} />
+        </Routes>
+      </ThemeProvider>
     );
   }
 
