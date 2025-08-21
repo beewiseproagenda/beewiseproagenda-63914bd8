@@ -59,79 +59,64 @@ const AppContent = () => {
            (urlParams.get('type') === 'recovery' && urlParams.get('access_token'));
   };
 
-  // Public routes (login/signup/password reset) - Always use light theme
+  // Public routes (login/signup/password reset)
   if (!user || isPasswordResetLink()) {
     return (
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="light"
-        enableSystem={false}
-        disableTransitionOnChange={false}
-        forcedTheme="light"
-      >
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/landing" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/cadastro" element={<Cadastro />} />
-          <Route path="/redefinir-senha" element={<ResetPassword />} />
-          <Route path="*" element={<Landing />} />
-        </Routes>
-      </ThemeProvider>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/landing" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/cadastro" element={<Cadastro />} />
+        <Route path="/redefinir-senha" element={<ResetPassword />} />
+        <Route path="*" element={<Landing />} />
+      </Routes>
     );
   }
 
-  // Protected routes - Full theme control for authenticated users
+  // Protected routes
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange={false}
-    >
-      <SidebarProvider>
-        <div className="min-h-screen flex w-full bg-background">
-          <AppSidebar />
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full bg-background">
+        <AppSidebar />
+        
+        <div className="flex-1 flex flex-col">
+          <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+            <SidebarTrigger className="mr-4">
+              <Menu className="h-5 w-5" />
+            </SidebarTrigger>
+            <div className="flex-1 flex items-center gap-3">
+              <h1 className="text-xl font-semibold text-foreground">
+                {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+              </h1>
+              <PWAStatus />
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSignOut}
+              className="text-foreground hover:bg-background/10"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Sair
+            </Button>
+          </header>
           
-          <div className="flex-1 flex flex-col">
-            <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
-              <SidebarTrigger className="mr-4">
-                <Menu className="h-5 w-5" />
-              </SidebarTrigger>
-              <div className="flex-1 flex items-center gap-3">
-                <h1 className="text-xl font-semibold text-foreground">
-                  {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
-                </h1>
-                <PWAStatus />
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="text-foreground hover:bg-background/10"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
-            </header>
-            
-            <main className="flex-1 overflow-auto">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/agenda" element={<Agenda />} />
-                <Route path="/clientes" element={<Clientes />} />
-                <Route path="/pacotes-servicos" element={<PacotesServicos />} />
-                <Route path="/financeiro" element={<Financeiro />} />
-                <Route path="/relatorios" element={<Relatorios />} />
-                <Route path="/configuracoes" element={<Configuracoes />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-          </div>
+          <main className="flex-1 overflow-auto">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/agenda" element={<Agenda />} />
+              <Route path="/clientes" element={<Clientes />} />
+              <Route path="/pacotes-servicos" element={<PacotesServicos />} />
+              <Route path="/financeiro" element={<Financeiro />} />
+              <Route path="/relatorios" element={<Relatorios />} />
+              <Route path="/configuracoes" element={<Configuracoes />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </main>
         </div>
-      </SidebarProvider>
-    </ThemeProvider>
+      </div>
+    </SidebarProvider>
   );
 };
 
@@ -145,14 +130,21 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppContent />
-          <PWAInstallPrompt />
-        </BrowserRouter>
-      </TooltipProvider>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange={false}
+      >
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppContent />
+            <PWAInstallPrompt />
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };
