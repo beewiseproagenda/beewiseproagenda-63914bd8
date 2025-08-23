@@ -1,7 +1,7 @@
 {
   "name": "BeeWise - Sistema de Gestão",
   "short_name": "BeeWise",
-  "description": "Sistema completo de gestão para profissionais autônomos - agenda, clientes, financeiro e relatórios",
+  "description": "Sistema de gestão para profissionais autônomos",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FFFF00",
