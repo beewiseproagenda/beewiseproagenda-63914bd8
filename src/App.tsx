@@ -117,11 +117,20 @@ const AppContent = () => {
             <SidebarTrigger className="mr-4">
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
-            <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <img 
+                src="/lovable-uploads/e7b1daed-54ad-4039-a5f0-00d14227101e.png" 
+                alt="BeeWise Logo" 
+                className="h-8 w-auto"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
               <h1 className="text-xl font-semibold text-foreground">
                 {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
               </h1>
             </div>
+            <div className="flex-1"></div>
             <Button
               variant="ghost"
               size="sm"
