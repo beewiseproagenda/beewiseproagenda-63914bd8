@@ -24,6 +24,9 @@ import { useAuth } from "./hooks/useAuth";
 import { useProfile } from "./hooks/useProfile";
 import { Button } from "./components/ui/button";
 import { useToast } from "./hooks/use-toast";
+import { usePWA } from "./hooks/usePWA";
+import { PWAInstallPrompt, PWAStatus } from "./components/PWAInstallPrompt";
+
 const queryClient = new QueryClient();
 
 const AppContent = () => {
@@ -31,6 +34,12 @@ const AppContent = () => {
   const { profile } = useProfile();
   const { signOut } = useAuth();
   const { toast } = useToast();
+  const { registerServiceWorker } = usePWA();
+
+  // Register service worker on app start
+  React.useEffect(() => {
+    registerServiceWorker();
+  }, []);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -110,6 +119,9 @@ const AppContent = () => {
             </Routes>
           </main>
         </div>
+        
+        <PWAInstallPrompt />
+        <PWAStatus />
       </div>
     </SidebarProvider>
   );
