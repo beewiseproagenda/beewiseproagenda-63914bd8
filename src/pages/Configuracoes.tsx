@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { 
   Download, 
   HelpCircle, 
@@ -11,12 +12,15 @@ import {
   Settings, 
   RefreshCw,
   Trash2,
-  Info
+  Info,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { useInstallGuide } from '@/hooks/useInstallGuide';
 import { usePWA } from '@/hooks/usePWA';
 import { InstallGuideModal } from '@/components/InstallGuideModal';
 import { useToast } from '@/hooks/use-toast';
+import { useThemeContext } from '@/components/ThemeProvider';
 
 function Configuracoes() {
   const { 
@@ -32,6 +36,7 @@ function Configuracoes() {
   } = useInstallGuide();
   const { isInstalled, checkForUpdates } = usePWA();
   const { toast } = useToast();
+  const { theme, toggleTheme, isDark } = useThemeContext();
 
   const handleShowInstallGuide = () => {
     showGuide();
@@ -80,6 +85,37 @@ function Configuracoes() {
         <Settings className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold">Configurações</h1>
       </div>
+
+      {/* Theme Settings Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {isDark ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            Aparência
+          </CardTitle>
+          <CardDescription>
+            Configure o tema da aplicação entre modo claro e escuro
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-3">
+              {isDark ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              <div>
+                <p className="font-medium">Modo escuro</p>
+                <p className="text-sm text-muted-foreground">
+                  {isDark ? "Tema escuro ativado" : "Tema claro ativado"}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={isDark}
+              onCheckedChange={toggleTheme}
+              aria-label="Alternar modo escuro"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* PWA Installation Section */}
       <Card>
