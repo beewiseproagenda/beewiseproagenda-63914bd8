@@ -25,7 +25,9 @@ import { useProfile } from "./hooks/useProfile";
 import { Button } from "./components/ui/button";
 import { useToast } from "./hooks/use-toast";
 import { usePWA } from "./hooks/usePWA";
+import { useInstallGuide } from "./hooks/useInstallGuide";
 import { PWAInstallPrompt, PWAStatus } from "./components/PWAInstallPrompt";
+import { InstallGuideModal } from "./components/InstallGuideModal";
 
 const queryClient = new QueryClient();
 
@@ -35,11 +37,30 @@ const AppContent = () => {
   const { signOut } = useAuth();
   const { toast } = useToast();
   const { registerServiceWorker } = usePWA();
+  const { 
+    deviceType, 
+    shouldShowGuide, 
+    hasSeenGuide, 
+    showGuide, 
+    hideGuide, 
+    markAsShown 
+  } = useInstallGuide();
 
   // Register service worker on app start
   React.useEffect(() => {
     registerServiceWorker();
   }, []);
+
+  // Show install guide on first login (only for authenticated users)
+  React.useEffect(() => {
+    if (user && !hasSeenGuide) {
+      // Delay to let the user see the dashboard first
+      const timer = setTimeout(() => {
+        showGuide();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, hasSeenGuide, showGuide]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -122,6 +143,12 @@ const AppContent = () => {
         
         <PWAInstallPrompt />
         <PWAStatus />
+        <InstallGuideModal
+          isOpen={shouldShowGuide}
+          onClose={hideGuide}
+          deviceType={deviceType}
+          onMarkAsShown={markAsShown}
+        />
       </div>
     </SidebarProvider>
   );
