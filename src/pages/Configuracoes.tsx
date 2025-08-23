@@ -22,11 +22,13 @@ function Configuracoes() {
   const { 
     deviceType, 
     shouldShowGuide, 
-    hasSeenGuide, 
+    hasSeenInSession, 
     showGuide, 
     hideGuide, 
-    markAsShown,
-    resetGuide 
+    markAsShownInSession,
+    disablePermanently,
+    resetGuide,
+    isDisabledPermanently 
   } = useInstallGuide();
   const { isInstalled, checkForUpdates } = usePWA();
   const { toast } = useToast();
@@ -130,10 +132,15 @@ function Configuracoes() {
               <div>
                 <p className="font-medium">Status do guia</p>
                 <p className="text-sm text-muted-foreground">
-                  {hasSeenGuide ? "Já foi mostrado" : "Será mostrado no próximo login"}
+                  {isDisabledPermanently 
+                    ? "Desabilitado permanentemente" 
+                    : hasSeenInSession 
+                      ? "Mostrado nesta sessão" 
+                      : "Será mostrado no próximo login"
+                  }
                 </p>
               </div>
-              {hasSeenGuide && (
+              {(hasSeenInSession || isDisabledPermanently) && (
                 <Button onClick={handleResetGuide} variant="outline" size="sm" className="gap-2">
                   <Trash2 className="h-3 w-3" />
                   Resetar
@@ -179,7 +186,8 @@ function Configuracoes() {
         isOpen={shouldShowGuide}
         onClose={hideGuide}
         deviceType={deviceType}
-        onMarkAsShown={markAsShown}
+        onMarkAsShownInSession={markAsShownInSession}
+        onDisablePermanently={disablePermanently}
       />
     </div>
   );

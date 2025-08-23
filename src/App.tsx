@@ -40,10 +40,12 @@ const AppContent = () => {
   const { 
     deviceType, 
     shouldShowGuide, 
-    hasSeenGuide, 
+    hasSeenInSession, 
     showGuide, 
     hideGuide, 
-    markAsShown 
+    markAsShownInSession,
+    disablePermanently,
+    isDisabledPermanently 
   } = useInstallGuide();
 
   // Register service worker on app start
@@ -53,14 +55,14 @@ const AppContent = () => {
 
   // Show install guide on first login (only for authenticated users)
   React.useEffect(() => {
-    if (user && !hasSeenGuide) {
+    if (user && !hasSeenInSession && !isDisabledPermanently) {
       // Delay to let the user see the dashboard first
       const timer = setTimeout(() => {
         showGuide();
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [user, hasSeenGuide, showGuide]);
+  }, [user, hasSeenInSession, isDisabledPermanently, showGuide]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
@@ -147,7 +149,8 @@ const AppContent = () => {
           isOpen={shouldShowGuide}
           onClose={hideGuide}
           deviceType={deviceType}
-          onMarkAsShown={markAsShown}
+          onMarkAsShownInSession={markAsShownInSession}
+          onDisablePermanently={disablePermanently}
         />
       </div>
     </SidebarProvider>

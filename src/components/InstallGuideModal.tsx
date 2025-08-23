@@ -24,7 +24,8 @@ interface InstallGuideModalProps {
   isOpen: boolean;
   onClose: () => void;
   deviceType: DeviceType;
-  onMarkAsShown: () => void;
+  onMarkAsShownInSession: () => void;
+  onDisablePermanently: () => Promise<void>;
 }
 
 const AndroidInstructions = () => (
@@ -151,14 +152,21 @@ export const InstallGuideModal: React.FC<InstallGuideModalProps> = ({
   isOpen,
   onClose,
   deviceType,
-  onMarkAsShown,
+  onMarkAsShownInSession,
+  onDisablePermanently,
 }) => {
-  const [dontShowAgain, setDontShowAgain] = React.useState(false);
+  const handleGotIt = () => {
+    onMarkAsShownInSession();
+    onClose();
+  };
 
-  const handleClose = () => {
-    if (dontShowAgain) {
-      onMarkAsShown();
-    }
+  const handleLater = () => {
+    onMarkAsShownInSession();
+    onClose();
+  };
+
+  const handleDontShowAgain = async () => {
+    await onDisablePermanently();
     onClose();
   };
 
@@ -241,29 +249,23 @@ export const InstallGuideModal: React.FC<InstallGuideModalProps> = ({
             {renderInstructions()}
           </div>
 
-          <div className="flex items-center space-x-2 p-3 bg-muted/30 rounded-lg">
-            <Checkbox
-              id="dont-show-again"
-              checked={dontShowAgain}
-              onCheckedChange={(checked) => setDontShowAgain(checked as boolean)}
-            />
-            <label
-              htmlFor="dont-show-again"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Não mostrar novamente
-            </label>
-          </div>
-
-          <div className="flex gap-3">
-            <Button onClick={handleClose} className="flex-1">
+          <div className="flex gap-2">
+            <Button onClick={handleGotIt} className="flex-1">
               <CheckCircle className="h-4 w-4 mr-2" />
               Entendi!
             </Button>
-            <Button variant="outline" onClick={onClose}>
-              Depois
+            <Button variant="outline" onClick={handleLater} className="flex-1">
+              Mais tarde
             </Button>
           </div>
+          
+          <Button 
+            variant="ghost" 
+            onClick={handleDontShowAgain}
+            className="w-full text-muted-foreground hover:text-foreground"
+          >
+            Não mostrar mais
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

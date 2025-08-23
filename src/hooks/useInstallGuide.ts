@@ -1,22 +1,28 @@
 import { useState, useEffect } from 'react';
-import { useLocalStorage } from './useLocalStorage';
+import { useProfile } from './useProfile';
+import { supabase } from '@/integrations/supabase/client';
 
 export type DeviceType = 'android' | 'ios' | 'desktop';
 
 interface UseInstallGuideReturn {
   deviceType: DeviceType;
   shouldShowGuide: boolean;
-  hasSeenGuide: boolean;
+  hasSeenInSession: boolean;
   showGuide: () => void;
   hideGuide: () => void;
-  markAsShown: () => void;
+  markAsShownInSession: () => void;
+  disablePermanently: () => Promise<void>;
   resetGuide: () => void;
+  isDisabledPermanently: boolean;
 }
 
 export const useInstallGuide = (): UseInstallGuideReturn => {
-  const [hasSeenGuide, setHasSeenGuide] = useLocalStorage('pwa-install-guide-seen', false);
+  const [hasSeenInSession, setHasSeenInSession] = useState(false);
   const [shouldShowGuide, setShouldShowGuide] = useState(false);
   const [deviceType, setDeviceType] = useState<DeviceType>('desktop');
+  const { profile, refetch } = useProfile();
+  
+  const isDisabledPermanently = (profile as any)?.pwa_install_guide_disabled || false;
 
   // Detect device type
   useEffect(() => {
@@ -36,22 +42,42 @@ export const useInstallGuide = (): UseInstallGuideReturn => {
   const showGuide = () => setShouldShowGuide(true);
   const hideGuide = () => setShouldShowGuide(false);
 
-  const markAsShown = () => {
-    setHasSeenGuide(true);
+  const markAsShownInSession = () => {
+    setHasSeenInSession(true);
     setShouldShowGuide(false);
   };
 
+  const disablePermanently = async () => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ pwa_install_guide_disabled: true })
+        .eq('user_id', profile?.user_id);
+      
+      if (error) throw error;
+      
+      // Refetch profile to update local data
+      await refetch();
+      
+      setShouldShowGuide(false);
+    } catch (error) {
+      console.error('Error disabling PWA install guide:', error);
+    }
+  };
+
   const resetGuide = () => {
-    setHasSeenGuide(false);
+    setHasSeenInSession(false);
   };
 
   return {
     deviceType,
     shouldShowGuide,
-    hasSeenGuide,
+    hasSeenInSession,
     showGuide,
     hideGuide,
-    markAsShown,
+    markAsShownInSession,
+    disablePermanently,
     resetGuide,
+    isDisabledPermanently,
   };
 };
