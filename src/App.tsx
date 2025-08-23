@@ -53,16 +53,21 @@ const AppContent = () => {
     registerServiceWorker();
   }, []);
 
-  // Show install guide on first login (only for authenticated users)
+  // Show install guide on login based on conditions
   React.useEffect(() => {
-    if (user && !hasSeenInSession && !isDisabledPermanently) {
-      // Delay to let the user see the dashboard first
-      const timer = setTimeout(() => {
-        showGuide();
-      }, 2000);
-      return () => clearTimeout(timer);
+    if (user && profile) {
+      // Check all conditions for showing the guide
+      const shouldShow = !isDisabledPermanently && !hasSeenInSession;
+      
+      if (shouldShow) {
+        // Delay to let the user see the dashboard first
+        const timer = setTimeout(() => {
+          showGuide();
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [user, hasSeenInSession, isDisabledPermanently, showGuide]);
+  }, [user, profile, isDisabledPermanently, hasSeenInSession, showGuide]);
 
   const handleSignOut = async () => {
     const { error } = await signOut();
