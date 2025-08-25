@@ -205,6 +205,36 @@ export type Database = {
         }
         Relationships: []
       }
+      mercadopago_webhooks: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          processed: boolean
+          request_id: string
+          signature_valid: boolean
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          payload: Json
+          processed?: boolean
+          request_id: string
+          signature_valid?: boolean
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed?: boolean
+          request_id?: string
+          signature_valid?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string

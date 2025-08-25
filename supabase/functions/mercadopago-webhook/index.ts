@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createHash, createHmac } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,6 +11,44 @@ const corsHeaders = {
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[MERCADOPAGO-WEBHOOK] ${step}${detailsStr}`);
+};
+
+// Validar assinatura do Mercado Pago
+const validateSignature = (xSignature: string, xRequestId: string, payload: string, secret: string): boolean => {
+  try {
+    // Extrair ts e v1 do header x-signature
+    const signatureParts = xSignature.split(',');
+    let ts = '';
+    let hash = '';
+
+    for (const part of signatureParts) {
+      const [key, value] = part.trim().split('=');
+      if (key === 'ts') ts = value;
+      if (key === 'v1') hash = value;
+    }
+
+    if (!ts || !hash) {
+      logStep("ERROR: Missing ts or v1 in signature");
+      return false;
+    }
+
+    // Criar string para validação: id + request-id + ts + payload
+    const dataToSign = `id:${xRequestId};request-id:${xRequestId};ts:${ts};${payload}`;
+    
+    // Calcular HMAC SHA256
+    const expectedHash = createHmac("sha256", secret).update(dataToSign).digest("hex");
+    
+    logStep("Signature validation", { 
+      expectedHash: expectedHash.substring(0, 10) + "...", 
+      receivedHash: hash.substring(0, 10) + "...",
+      valid: expectedHash === hash 
+    });
+
+    return expectedHash === hash;
+  } catch (error) {
+    logStep("ERROR: Signature validation failed", { error: error.message });
+    return false;
+  }
 };
 
 interface WebhookPayload {
@@ -54,11 +93,16 @@ serve(async (req) => {
   // Only accept POST requests
   if (req.method !== "POST") {
     logStep("ERROR: Method not allowed", { method: req.method });
-    return new Response("Method not allowed", { 
-      status: 405, 
-      headers: corsHeaders 
+    return new Response(JSON.stringify({ "status": "received" }), { 
+      status: 200, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
+
+  let requestId = '';
+  let signatureValid = false;
+  let payload: any = null;
+  let eventType = '';
 
   try {
     logStep("Webhook received");
@@ -70,53 +114,156 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Parse webhook payload
-    const payload: WebhookPayload = await req.json();
-    logStep("Webhook payload received", payload);
+    // Extrair headers de assinatura
+    const xSignature = req.headers.get("x-signature");
+    const xRequestId = req.headers.get("x-request-id");
+    requestId = xRequestId || '';
 
-    // Validate webhook authenticity (basic validation)
-    const userAgent = req.headers.get("user-agent");
-    if (!userAgent || !userAgent.includes("MercadoPago")) {
-      logStep("WARNING: Suspicious webhook source", { userAgent });
-    }
-
-    // Check if this is a payment notification
-    if (payload.type !== "payment") {
-      logStep("INFO: Non-payment notification ignored", { type: payload.type });
-      return new Response("OK", { 
-        status: 200, 
-        headers: corsHeaders 
+    // Ler payload como texto primeiro
+    const payloadText = await req.text();
+    
+    // Validar assinatura se os headers estiverem presentes
+    const webhookSecret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
+    if (xSignature && xRequestId && webhookSecret) {
+      signatureValid = validateSignature(xSignature, xRequestId, payloadText, webhookSecret);
+      
+      if (!signatureValid) {
+        logStep("ERROR: Invalid signature", { requestId });
+        // Ainda salvar o webhook mesmo com assinatura inválida para auditoria
+      }
+    } else {
+      logStep("WARNING: Missing signature headers or secret", { 
+        hasSignature: !!xSignature, 
+        hasRequestId: !!xRequestId, 
+        hasSecret: !!webhookSecret 
       });
     }
 
-    // Get payment ID from the webhook
+    // Parse payload JSON
+    try {
+      payload = JSON.parse(payloadText);
+    } catch (error) {
+      logStep("ERROR: Invalid JSON payload", { error: error.message });
+      payload = { raw_payload: payloadText };
+    }
+
+    eventType = payload.type || 'unknown';
+    
+    logStep("Webhook details", { 
+      requestId, 
+      eventType, 
+      signatureValid,
+      action: payload.action
+    });
+
+    // Salvar webhook na tabela de logs
+    await saveWebhookLog(supabaseClient, requestId, eventType, payload, signatureValid);
+
+    // Processar eventos específicos
+    let processed = false;
+    
+    switch (eventType) {
+      case 'payment':
+        if (payload.action === 'payment.updated' || payload.action === 'payment.created') {
+          processed = await handlePaymentEvent(supabaseClient, payload);
+        }
+        break;
+        
+      case 'subscription':
+        if (payload.action === 'subscription.created') {
+          processed = await handleSubscriptionCreated(supabaseClient, payload);
+        } else if (payload.action === 'subscription.cancelled') {
+          processed = await handleSubscriptionCancelled(supabaseClient, payload);
+        }
+        break;
+        
+      default:
+        logStep("INFO: Event type not handled, saved to log only", { eventType });
+    }
+
+    // Atualizar status de processamento
+    if (processed) {
+      await updateWebhookProcessed(supabaseClient, requestId);
+    }
+
+    logStep("Webhook processed successfully", { requestId, processed });
+
+    // Sempre retornar 200 OK com status received
+    return new Response(JSON.stringify({ "status": "received" }), { 
+      status: 200, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logStep("ERROR in webhook processing", { 
+      message: errorMessage, 
+      requestId 
+    });
+    
+    // Tentar salvar o erro no log se possível
+    try {
+      const supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        { auth: { persistSession: false } }
+      );
+      
+      if (payload) {
+        await saveWebhookLog(supabaseClient, requestId, eventType || 'error', 
+          { ...payload, error: errorMessage }, signatureValid);
+      }
+    } catch (logError) {
+      logStep("ERROR: Failed to save error log", { error: logError.message });
+    }
+    
+    // Sempre retornar 200 OK mesmo em caso de erro
+    return new Response(JSON.stringify({ "status": "received" }), { 
+      status: 200, 
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});
+
+async function saveWebhookLog(supabaseClient: any, requestId: string, eventType: string, payload: any, signatureValid: boolean) {
+  try {
+    const { error } = await supabaseClient
+      .from('mercadopago_webhooks')
+      .insert({
+        request_id: requestId,
+        event_type: eventType,
+        payload: payload,
+        signature_valid: signatureValid,
+        processed: false
+      });
+
+    if (error) {
+      logStep("ERROR: Failed to save webhook log", error);
+    } else {
+      logStep("Webhook log saved successfully", { requestId, eventType });
+    }
+  } catch (error) {
+    logStep("ERROR: Exception saving webhook log", { error: error.message });
+  }
+}
+
+async function handlePaymentEvent(supabaseClient: any, payload: any): Promise<boolean> {
+  try {
     const paymentId = payload.data?.id;
     if (!paymentId) {
-      logStep("ERROR: No payment ID in webhook");
-      return new Response("No payment ID", { 
-        status: 400, 
-        headers: corsHeaders 
-      });
+      logStep("ERROR: No payment ID in payment webhook");
+      return false;
     }
 
-    logStep("Processing payment notification", { paymentId });
+    logStep("Processing payment event", { paymentId, action: payload.action });
 
-    // Here you would typically fetch payment details from Mercado Pago API
-    // For now, we'll simulate the payment data structure
-    // In a real implementation, you'd need to:
-    // 1. Call Mercado Pago API to get payment details
-    // 2. Validate the payment using your access token
-    
     const mercadoPagoAccessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
     if (!mercadoPagoAccessToken) {
       logStep("ERROR: MercadoPago access token not configured");
-      return new Response("Configuration error", { 
-        status: 500, 
-        headers: corsHeaders 
-      });
+      return false;
     }
 
-    // Fetch payment details from Mercado Pago
+    // Buscar detalhes do pagamento da API do Mercado Pago
     const paymentResponse = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
@@ -130,43 +277,124 @@ serve(async (req) => {
       logStep("ERROR: Failed to fetch payment from MercadoPago", { 
         status: paymentResponse.status 
       });
-      return new Response("Failed to fetch payment", { 
-        status: 500, 
-        headers: corsHeaders 
-      });
+      return false;
     }
 
-    const paymentData: PaymentData = await paymentResponse.json();
+    const paymentData = await paymentResponse.json();
     logStep("Payment data retrieved", { 
       id: paymentData.id, 
       status: paymentData.status,
       email: paymentData.payer?.email 
     });
 
-    // Update subscription status in database
+    // Usar a função existente para atualizar status da assinatura
     await updateSubscriptionStatus(supabaseClient, paymentData);
-
-    logStep("Webhook processed successfully");
-
-    // Always return 200 OK to acknowledge receipt
-    return new Response("OK", { 
-      status: 200, 
-      headers: corsHeaders 
-    });
-
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logStep("ERROR in webhook processing", { message: errorMessage });
     
-    // Still return 200 to avoid webhook retries for application errors
-    return new Response("OK", { 
-      status: 200, 
-      headers: corsHeaders 
-    });
+    return true;
+  } catch (error) {
+    logStep("ERROR: Failed to handle payment event", { error: error.message });
+    return false;
   }
-});
+}
 
-async function updateSubscriptionStatus(supabaseClient: any, paymentData: PaymentData) {
+async function handleSubscriptionCreated(supabaseClient: any, payload: any): Promise<boolean> {
+  try {
+    logStep("Processing subscription created event", { payload });
+    
+    // Extrair dados da assinatura
+    const subscriptionData = payload.data;
+    if (!subscriptionData) {
+      logStep("ERROR: No subscription data in webhook");
+      return false;
+    }
+
+    // Atualizar tabela de subscribers
+    const subscriptionRecord = {
+      email: subscriptionData.payer_email || 'unknown',
+      subscribed: true,
+      subscription_tier: 'Premium',
+      subscription_end: subscriptionData.end_date ? new Date(subscriptionData.end_date).toISOString() : null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabaseClient
+      .from('subscribers')
+      .upsert(subscriptionRecord, { 
+        onConflict: 'email',
+        ignoreDuplicates: false 
+      });
+
+    if (error) {
+      logStep("ERROR: Failed to create subscription", error);
+      return false;
+    }
+
+    logStep("Subscription created successfully", { email: subscriptionRecord.email });
+    return true;
+  } catch (error) {
+    logStep("ERROR: Failed to handle subscription created", { error: error.message });
+    return false;
+  }
+}
+
+async function handleSubscriptionCancelled(supabaseClient: any, payload: any): Promise<boolean> {
+  try {
+    logStep("Processing subscription cancelled event", { payload });
+    
+    // Extrair dados da assinatura
+    const subscriptionData = payload.data;
+    if (!subscriptionData) {
+      logStep("ERROR: No subscription data in webhook");
+      return false;
+    }
+
+    // Desativar assinatura
+    const subscriptionRecord = {
+      email: subscriptionData.payer_email || 'unknown',
+      subscribed: false,
+      subscription_tier: null,
+      subscription_end: null,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabaseClient
+      .from('subscribers')
+      .upsert(subscriptionRecord, { 
+        onConflict: 'email',
+        ignoreDuplicates: false 
+      });
+
+    if (error) {
+      logStep("ERROR: Failed to cancel subscription", error);
+      return false;
+    }
+
+    logStep("Subscription cancelled successfully", { email: subscriptionRecord.email });
+    return true;
+  } catch (error) {
+    logStep("ERROR: Failed to handle subscription cancelled", { error: error.message });
+    return false;
+  }
+}
+
+async function updateWebhookProcessed(supabaseClient: any, requestId: string) {
+  try {
+    const { error } = await supabaseClient
+      .from('mercadopago_webhooks')
+      .update({ processed: true })
+      .eq('request_id', requestId);
+
+    if (error) {
+      logStep("ERROR: Failed to update webhook processed status", error);
+    } else {
+      logStep("Webhook marked as processed", { requestId });
+    }
+  } catch (error) {
+    logStep("ERROR: Exception updating webhook processed status", { error: error.message });
+  }
+}
+
+async function updateSubscriptionStatus(supabaseClient: any, paymentData: any) {
   logStep("Updating subscription status", { 
     paymentId: paymentData.id,
     status: paymentData.status,
