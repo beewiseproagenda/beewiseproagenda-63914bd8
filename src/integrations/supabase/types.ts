@@ -235,6 +235,63 @@ export type Database = {
         }
         Relationships: []
       }
+      mp_events: {
+        Row: {
+          created_at: string | null
+          id: number
+          payload: Json | null
+          resource_id: string | null
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          payload?: Json | null
+          resource_id?: string | null
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          payload?: Json | null
+          resource_id?: string | null
+          type?: string | null
+        }
+        Relationships: []
+      }
+      plans: {
+        Row: {
+          code: string
+          created_at: string | null
+          id: string
+          interval: string
+          is_active: boolean | null
+          mp_preapproval_plan_id: string
+          price_cents: number
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          id?: string
+          interval: string
+          is_active?: boolean | null
+          mp_preapproval_plan_id: string
+          price_cents: number
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          id?: string
+          interval?: string
+          is_active?: boolean | null
+          mp_preapproval_plan_id?: string
+          price_cents?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -378,6 +435,53 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancelled_at: string | null
+          created_at: string | null
+          id: string
+          mp_preapproval_id: string | null
+          next_charge_at: string | null
+          plan_code: string
+          started_at: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          created_at?: string | null
+          id?: string
+          mp_preapproval_id?: string | null
+          next_charge_at?: string | null
+          plan_code: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          created_at?: string | null
+          id?: string
+          mp_preapproval_id?: string | null
+          next_charge_at?: string | null
+          plan_code?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_code_fkey"
+            columns: ["plan_code"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       user_roles: {
         Row: {

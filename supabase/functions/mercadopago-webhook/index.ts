@@ -177,6 +177,10 @@ serve(async (req) => {
         }
         break;
         
+      case 'preapproval':
+        processed = await handlePreapprovalEvent(supabaseClient, payload);
+        break;
+        
       default:
         logStep("INFO: Event type not handled, saved to log only", { eventType });
     }
@@ -497,5 +501,117 @@ async function updateSubscriptionStatus(supabaseClient: any, paymentData: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR in updateSubscriptionStatus", { message: errorMessage });
     throw error;
+  }
+}
+
+async function handlePreapprovalEvent(supabaseClient: any, payload: any): Promise<boolean> {
+  try {
+    const preapprovalId = payload.data?.id;
+    if (!preapprovalId) {
+      logStep("ERROR: No preapproval ID in preapproval webhook");
+      return false;
+    }
+
+    logStep("Processing preapproval event", { preapprovalId, action: payload.action });
+
+    const mercadoPagoAccessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN") || Deno.env.get("MP_ACCESS_TOKEN");
+    if (!mercadoPagoAccessToken) {
+      logStep("ERROR: MercadoPago access token not configured");
+      return false;
+    }
+
+    // Buscar detalhes do preapproval da API do Mercado Pago
+    const preapprovalResponse = await fetch(
+      `https://api.mercadopago.com/preapproval/${preapprovalId}`,
+      {
+        headers: {
+          "Authorization": `Bearer ${mercadoPagoAccessToken}`
+        }
+      }
+    );
+
+    if (!preapprovalResponse.ok) {
+      logStep("ERROR: Failed to fetch preapproval from MercadoPago", { 
+        status: preapprovalResponse.status 
+      });
+      return false;
+    }
+
+    const preapprovalData = await preapprovalResponse.json();
+    logStep("Preapproval data retrieved", { 
+      id: preapprovalData.id, 
+      status: preapprovalData.status,
+      payer_email: preapprovalData.payer_email,
+      external_reference: preapprovalData.external_reference
+    });
+
+    // Parse external_reference para obter user_id, plan_code e subscription_id
+    const externalRef = preapprovalData.external_reference;
+    if (!externalRef) {
+      logStep("WARNING: No external_reference in preapproval data");
+      return false;
+    }
+
+    const [userId, planCode, subscriptionId] = externalRef.split('|');
+    if (!userId || !planCode || !subscriptionId) {
+      logStep("ERROR: Invalid external_reference format", { external_reference: externalRef });
+      return false;
+    }
+
+    logStep("Parsed external reference", { userId, planCode, subscriptionId });
+
+    // Calcular next_charge_at baseado no interval do plano
+    let nextChargeAt = null;
+    if (preapprovalData.auto_recurring?.next_payment_date) {
+      nextChargeAt = preapprovalData.auto_recurring.next_payment_date;
+    }
+
+    // Determinar cancelled_at se o status for cancelled
+    let cancelledAt = null;
+    if (preapprovalData.status === 'cancelled') {
+      cancelledAt = new Date().toISOString();
+    }
+
+    // Atualizar subscription na tabela subscriptions
+    const subscriptionUpdate = {
+      mp_preapproval_id: preapprovalData.id,
+      status: preapprovalData.status,
+      next_charge_at: nextChargeAt,
+      cancelled_at: cancelledAt,
+      updated_at: new Date().toISOString()
+    };
+
+    logStep("Updating subscription", { subscriptionId, subscriptionUpdate });
+
+    const { error: subscriptionError } = await supabaseClient
+      .from('subscriptions')
+      .update(subscriptionUpdate)
+      .eq('id', subscriptionId);
+
+    if (subscriptionError) {
+      logStep("ERROR: Failed to update subscription", subscriptionError);
+      return false;
+    }
+
+    logStep("Subscription updated successfully");
+
+    // Salvar no mp_events também para auditoria
+    const { error: eventError } = await supabaseClient
+      .from('mp_events')
+      .insert({
+        type: 'preapproval',
+        resource_id: preapprovalId,
+        payload: preapprovalData,
+      });
+
+    if (eventError) {
+      logStep("WARNING: Failed to save mp_event", eventError);
+    }
+
+    return true;
+
+  } catch (error) {
+    logStep("ERROR: Failed to handle preapproval event", { error: error.message });
+    return false;
   }
 }
