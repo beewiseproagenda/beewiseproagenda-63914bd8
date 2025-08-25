@@ -82,21 +82,21 @@ const Cadastro = () => {
               <p className="text-muted-foreground">
                 Complete seu cadastro escolhendo o plano ideal para você
               </p>
+              {user && !user.email_confirmed_at && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4">
+                  <p className="text-sm text-amber-800 font-medium">
+                    📧 Confirme seu e-mail para habilitar a assinatura
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Verifique sua caixa de entrada e clique no link de confirmação
+                  </p>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <PlanSelector />
             </CardContent>
           </Card>
-          
-          <div className="text-center">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/login')}
-              className="text-sm"
-            >
-              Pular por agora e fazer login
-            </Button>
-          </div>
         </div>
       </div>
     );

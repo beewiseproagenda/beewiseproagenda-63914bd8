@@ -6,31 +6,48 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Check, Crown, Zap } from 'lucide-react';
 
 export const PlanSelector = () => {
   const [selectedPlan, setSelectedPlan] = useState<'mensal' | 'anual'>('mensal');
   const [isCreating, setIsCreating] = useState(false);
+  const { user } = useAuth();
   const { plans, currentSubscription, createSubscription, formatPrice, getStatusText, isActiveSubscription } = useSubscription();
   const { toast } = useToast();
 
+  // Verificar se o email foi confirmado
+  const emailConfirmed = user?.email_confirmed_at !== null;
+
   const handleSubscribe = async () => {
+    if (!emailConfirmed) {
+      toast({
+        title: 'Email não confirmado',
+        description: 'Confirme seu email antes de assinar um plano.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setIsCreating(true);
+      console.log('Creating subscription:', { selectedPlan, userId: user?.id });
+      
       const result = await createSubscription(selectedPlan);
+      console.log('Subscription result:', result);
       
       if (result?.init_point) {
-        // Redirecionar para o Mercado Pago
+        console.log('Redirecting to Mercado Pago:', result.init_point);
         window.location.href = result.init_point;
       } else {
-        throw new Error('Erro ao criar assinatura');
+        throw new Error('No init_point received from server');
       }
     } catch (error) {
       console.error('Error creating subscription:', error);
       toast({
         title: 'Erro',
-        description: 'Erro ao criar assinatura. Tente novamente.',
+        description: error instanceof Error ? error.message : 'Erro ao criar assinatura. Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -74,9 +91,6 @@ export const PlanSelector = () => {
     <div className="w-full max-w-4xl mx-auto space-y-6">
       <div className="text-center space-y-2">
         <h2 className="text-2xl font-bold">Escolha seu Plano</h2>
-        <p className="text-muted-foreground">
-          Desbloqueie todo o potencial do BeeWise Pro
-        </p>
       </div>
 
       <RadioGroup value={selectedPlan} onValueChange={(value) => setSelectedPlan(value as 'mensal' | 'anual')}>
@@ -142,7 +156,7 @@ export const PlanSelector = () => {
                     BeeWise Pro - Anual
                   </CardTitle>
                 </div>
-                <Badge variant="secondary" className="mx-auto w-fit">
+                <Badge variant="secondary" className="mx-auto w-fit text-yellow-700 bg-yellow-100">
                   <Zap className="w-3 h-3 mr-1" />
                   Economize 25%
                 </Badge>
@@ -151,10 +165,10 @@ export const PlanSelector = () => {
               <CardContent className="text-center space-y-4">
                 <div>
                   <div className="text-3xl font-bold">
-                    R$ 178,80
+                    R$ 14,90
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    /ano (economize 25% vs mensal)
+                    /mês (R$ 178,80/ano)
                   </div>
                   <div className="text-sm text-green-600 font-medium mt-1">
                     Parcelamento em até 12x no cartão disponível no checkout
@@ -188,7 +202,7 @@ export const PlanSelector = () => {
       <div className="text-center">
         <Button 
           onClick={handleSubscribe} 
-          disabled={isCreating}
+          disabled={isCreating || !emailConfirmed}
           size="lg"
           className="w-full max-w-sm"
         >
@@ -201,6 +215,12 @@ export const PlanSelector = () => {
             selectedPlan === 'mensal' ? 'Assinar Mensal' : 'Assinar Anual'
           )}
         </Button>
+        
+        {!emailConfirmed && (
+          <p className="text-sm text-amber-600 mt-2 font-medium">
+            ⚠️ Confirme seu email para habilitar a assinatura
+          </p>
+        )}
         
         <p className="text-xs text-muted-foreground mt-2">
           Você será redirecionado para o Mercado Pago para finalizar o pagamento

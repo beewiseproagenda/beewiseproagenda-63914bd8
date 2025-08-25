@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/hooks/use-toast';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -15,9 +17,23 @@ const Login = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const { signIn, resetPassword } = useAuth();
+  const { signIn, resetPassword, user } = useAuth();
+  const { isActiveSubscription, loading: subscriptionLoading } = useSubscription();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  // Redirect authenticated users with valid subscription
+  useEffect(() => {
+    if (user && !subscriptionLoading) {
+      const emailConfirmed = user.email_confirmed_at !== null;
+      
+      if (emailConfirmed && isActiveSubscription) {
+        navigate('/');
+      } else if (!emailConfirmed || !isActiveSubscription) {
+        navigate('/cadastro');
+      }
+    }
+  }, [user, isActiveSubscription, subscriptionLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,15 +49,14 @@ const Login = () => {
           : error.message,
         variant: "destructive"
       });
+      setLoading(false);
     } else {
       toast({
         title: "Login realizado com sucesso!",
-        description: "Você será redirecionado para o dashboard."
+        description: "Verificando seu acesso..."
       });
-      navigate('/');
+      // O useEffect acima irá redirecionar baseado no status
     }
-
-    setLoading(false);
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -72,7 +87,10 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      {subscriptionLoading ? (
+        <LoadingSpinner />
+      ) : (
+        <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Entrar</CardTitle>
         </CardHeader>
@@ -166,6 +184,7 @@ const Login = () => {
           </div>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 };

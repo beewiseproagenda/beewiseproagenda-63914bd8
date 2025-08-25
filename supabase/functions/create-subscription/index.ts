@@ -37,13 +37,32 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get environment variables
-    const mpAccessToken = Deno.env.get('MP_ACCESS_TOKEN');
+    // Get environment variables with better error handling
+    const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
     const appUrl = Deno.env.get('APP_URL');
 
-    if (!mpAccessToken || !appUrl) {
-      logStep('Missing environment variables', { mpAccessToken: !!mpAccessToken, appUrl: !!appUrl });
-      throw new Error('Missing required environment variables');
+    logStep('Environment check', { 
+      mpAccessToken: !!mpAccessToken, 
+      appUrl: !!appUrl,
+      supabaseUrl: !!supabaseUrl,
+      supabaseServiceKey: !!supabaseServiceKey 
+    });
+
+    if (!mpAccessToken || !appUrl || !supabaseUrl || !supabaseServiceKey) {
+      const missingVars = [];
+      if (!mpAccessToken) missingVars.push('MERCADOPAGO_ACCESS_TOKEN or MP_ACCESS_TOKEN');
+      if (!appUrl) missingVars.push('APP_URL');
+      if (!supabaseUrl) missingVars.push('SUPABASE_URL');
+      if (!supabaseServiceKey) missingVars.push('SUPABASE_SERVICE_ROLE_KEY');
+      
+      logStep('Missing environment variables', { missingVars });
+      return new Response(
+        JSON.stringify({ 
+          error: 'Configuração ausente', 
+          details: `Missing variables: ${missingVars.join(', ')}` 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Parse request body

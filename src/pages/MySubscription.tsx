@@ -105,7 +105,7 @@ export const MySubscription = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
-            <Button onClick={() => window.location.href = '/cadastros'}>
+            <Button onClick={() => window.location.href = '/cadastro'}>
               Assinar BeeWise Pro
             </Button>
           </CardContent>
@@ -234,7 +234,7 @@ export const MySubscription = () => {
                   <p className="text-sm text-red-700 mt-1">
                     Para regularizar sua assinatura, clique no botão abaixo.
                   </p>
-                  <Button size="sm" className="mt-2" onClick={() => window.location.href = '/cadastros'}>
+                  <Button size="sm" className="mt-2" onClick={() => window.location.href = '/cadastro'}>
                     Regularizar assinatura
                   </Button>
                 </div>

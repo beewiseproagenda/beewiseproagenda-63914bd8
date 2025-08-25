@@ -59,11 +59,11 @@ export const SubscriptionSuccess = () => {
   }, [isActiveSubscription, isPolling, pollCount, refetch]);
 
   const handleReturnToDashboard = () => {
-    navigate('/dashboard');
+    navigate('/');
   };
 
   const handleTryAgain = () => {
-    navigate('/cadastros');
+    navigate('/cadastro');
   };
 
   const getStatusIcon = () => {
