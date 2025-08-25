@@ -1,4 +1,4 @@
-import { Calendar, Users, DollarSign, FileText, Home, Settings, Package } from "lucide-react";
+import { Calendar, Users, DollarSign, FileText, Home, Settings, Package, Crown, UserPlus } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import beeWiseLogo from "@/assets/beewise-logo.png";
 
@@ -21,6 +21,8 @@ const menuItems = [
   { title: "Pacotes e Serviços", url: "/pacotes-servicos", icon: Package },
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
+  { title: "Cadastros", url: "/cadastros", icon: UserPlus },
+  { title: "Minha Assinatura", url: "/minha-assinatura", icon: Crown },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 

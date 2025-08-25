@@ -18,6 +18,9 @@ import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
+import Cadastros from "./pages/Cadastros";
+import { SubscriptionSuccess } from "./pages/SubscriptionSuccess";
+import { MySubscription } from "./pages/MySubscription";
 import Landing from "./pages/Landing";
 import ResetPassword from "./pages/ResetPassword";
 import PaymentReturn from "./pages/PaymentReturn";
@@ -146,6 +149,9 @@ const AppContent = () => {
               <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/relatorios" element={<Relatorios />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
+              <Route path="/cadastros" element={<Cadastros />} />
+              <Route path="/assinatura/sucesso" element={<SubscriptionSuccess />} />
+              <Route path="/minha-assinatura" element={<MySubscription />} />
               <Route path="/payment/return" element={<PaymentReturn />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
