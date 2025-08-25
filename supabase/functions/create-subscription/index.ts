@@ -69,13 +69,32 @@ serve(async (req) => {
     const requestData: CreateSubscriptionRequest = await req.json();
     logStep('Request data parsed', requestData);
 
-    const { user_id, email, plan_code } = requestData;
+    const { user_id, email, plan_code, onboarding_token } = requestData;
+
+    logStep('Request data parsed', { user_id, email, plan_code, has_onboarding_token: !!onboarding_token });
 
     if (!user_id || !email || !plan_code) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: user_id, email, plan_code' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // If onboarding_token is provided, validate it (for pre-login flow)
+    if (onboarding_token) {
+      const { data: tokenValidation, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
+        body: { token: onboarding_token }
+      });
+
+      if (tokenError || !tokenValidation?.valid) {
+        logStep('Invalid onboarding token', { tokenError });
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired onboarding token' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      logStep('Onboarding token validated', { userId: tokenValidation.userId });
     }
 
     // 1. Buscar o plano pelo plan_code

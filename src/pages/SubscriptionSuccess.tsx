@@ -63,7 +63,7 @@ export const SubscriptionSuccess = () => {
   };
 
   const handleTryAgain = () => {
-    navigate('/cadastro');
+    navigate('/assinar');
   };
 
   const getStatusIcon = () => {
@@ -159,9 +159,9 @@ export const SubscriptionSuccess = () => {
           )}
 
           <div className="flex flex-col gap-2">
-            <Button onClick={handleReturnToDashboard} className="w-full">
+            <Button onClick={() => navigate('/login')} className="w-full">
               <Home className="w-4 h-4 mr-2" />
-              Ir para o Dashboard
+              Concluir Login
             </Button>
             
             {(status === 'rejected' || status === 'cancelled' || 

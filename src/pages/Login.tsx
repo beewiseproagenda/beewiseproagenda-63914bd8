@@ -30,7 +30,7 @@ const Login = () => {
       if (emailConfirmed && isActiveSubscription) {
         navigate('/');
       } else if (!emailConfirmed || !isActiveSubscription) {
-        navigate('/cadastro');
+        navigate('/assinar');
       }
     }
   }, [user, isActiveSubscription, subscriptionLoading, navigate]);

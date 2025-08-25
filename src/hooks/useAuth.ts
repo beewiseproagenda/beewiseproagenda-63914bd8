@@ -28,9 +28,18 @@ export const useAuth = () => {
   }, []);
 
   const signUp = async (email: string, password: string, userData: { first_name: string; last_name: string; phone: string }) => {
-    const redirectUrl = `${window.location.origin}/`;
+    // Create onboarding token first
+    const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-onboarding-token', {
+      body: { userId: 'temp', email } // temp userId, will be replaced after user creation
+    });
+
+    if (tokenError) {
+      return { error: tokenError };
+    }
+
+    const redirectUrl = `${window.location.origin}/verificado?ot=${tokenData.token}`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -38,7 +47,15 @@ export const useAuth = () => {
         data: userData
       }
     });
-    return { error };
+
+    if (!error && data.user) {
+      // Update token with real userId
+      await supabase.functions.invoke('create-onboarding-token', {
+        body: { userId: data.user.id, email }
+      });
+    }
+    
+    return { data, error };
   };
 
   const signIn = async (email: string, password: string) => {

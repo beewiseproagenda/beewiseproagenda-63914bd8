@@ -27,7 +27,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const emailConfirmed = user.email_confirmed_at !== null;
   
   if (!emailConfirmed || !isActiveSubscription) {
-    return <Navigate to="/cadastro" replace />;
+    return <Navigate to="/assinar" replace />;
   }
 
   return <>{children}</>;

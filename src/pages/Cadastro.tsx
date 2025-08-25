@@ -4,10 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { PlanSelector } from '@/components/PlanSelector';
+import { supabase } from '@/integrations/supabase/client';
+import { Mail } from 'lucide-react';
 
 const Cadastro = () => {
   const [firstName, setFirstName] = useState('');
@@ -17,8 +17,9 @@ const Cadastro = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<'personal' | 'plan'>('personal');
-  const { signUp, user } = useAuth();
+  const [step, setStep] = useState<'personal' | 'email-sent'>('personal');
+  const [resendLoading, setResendLoading] = useState(false);
+  const { signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -47,7 +48,7 @@ const Cadastro = () => {
       return;
     }
 
-    const { error } = await signUp(email, password, {
+    const { data, error } = await signUp(email, password, {
       first_name: firstName,
       last_name: lastName,
       phone: phone
@@ -61,43 +62,114 @@ const Cadastro = () => {
           : error.message,
         variant: "destructive"
       });
-    } else {
-      toast({
-        title: "Cadastro realizado com sucesso!",
-        description: "Agora escolha seu plano para começar a usar o BeeWise Pro."
-      });
-      setStep('plan');
+      setLoading(false);
+      return;
+    }
+
+    // Force sign out to prevent auto-login
+    await supabase.auth.signOut();
+
+    if (data.user) {
+      // Create onboarding token
+      try {
+        const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-onboarding-token', {
+          body: {
+            userId: data.user.id,
+            email: data.user.email
+          }
+        });
+
+        if (tokenError) {
+          throw tokenError;
+        }
+
+        console.log('Onboarding token created, step should change to email-sent');
+        setStep('email-sent');
+        
+        toast({
+          title: "Cadastro realizado com sucesso!",
+          description: "Enviamos um e-mail para confirmação. Verifique sua caixa de entrada."
+        });
+      } catch (tokenError) {
+        console.error('Error creating onboarding token:', tokenError);
+        toast({
+          title: "Erro no cadastro",
+          description: "Erro ao criar token de verificação. Tente novamente.",
+          variant: "destructive"
+        });
+      }
     }
 
     setLoading(false);
   };
 
-  if (step === 'plan') {
+  const handleResendEmail = async () => {
+    setResendLoading(true);
+    
+    try {
+      // Trigger password reset to resend email verification
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "E-mail reenviado!",
+        description: "Verifique sua caixa de entrada."
+      });
+    } catch (error) {
+      console.error('Error resending email:', error);
+      toast({
+        title: "Erro ao reenviar e-mail",
+        description: "Tente novamente em alguns instantes.",
+        variant: "destructive"
+      });
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  if (step === 'email-sent') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-4xl space-y-6">
-          <Card className="w-full">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-bold">Escolha seu Plano</CardTitle>
-              <p className="text-muted-foreground">
-                Complete seu cadastro escolhendo o plano ideal para você
-              </p>
-              {user && !user.email_confirmed_at && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4">
-                  <p className="text-sm text-amber-800 font-medium">
-                    📧 Confirme seu e-mail para habilitar a assinatura
-                  </p>
-                  <p className="text-xs text-amber-700 mt-1">
-                    Verifique sua caixa de entrada e clique no link de confirmação
-                  </p>
-                </div>
-              )}
-            </CardHeader>
-            <CardContent>
-              <PlanSelector />
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Mail className="w-6 h-6 text-primary" />
+            </div>
+            <CardTitle className="text-xl font-bold">Verifique seu E-mail</CardTitle>
+            <p className="text-muted-foreground">
+              Enviamos um link de verificação para <strong>{email}</strong>
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-center text-sm text-muted-foreground">
+              <p>Clique no link do e-mail para continuar com a escolha do seu plano.</p>
+            </div>
+            
+            <Button 
+              onClick={handleResendEmail} 
+              variant="outline" 
+              className="w-full"
+              disabled={resendLoading}
+            >
+              {resendLoading ? "Reenviando..." : "Reenviar E-mail"}
+            </Button>
+            
+            <div className="text-center">
+              <Link 
+                to="/login" 
+                className="text-primary hover:underline text-sm"
+              >
+                Já tem conta? Faça login
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
