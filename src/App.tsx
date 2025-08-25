@@ -20,6 +20,7 @@ import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import Landing from "./pages/Landing";
 import ResetPassword from "./pages/ResetPassword";
+import PaymentReturn from "./pages/PaymentReturn";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./hooks/useAuth";
 import { useProfile } from "./hooks/useProfile";
@@ -102,6 +103,7 @@ const AppContent = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/redefinir-senha" element={<ResetPassword />} />
+        <Route path="/payment/return" element={<PaymentReturn />} />
         <Route path="*" element={<Landing />} />
       </Routes>
     );
@@ -144,6 +146,7 @@ const AppContent = () => {
               <Route path="/financeiro" element={<Financeiro />} />
               <Route path="/relatorios" element={<Relatorios />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
+              <Route path="/payment/return" element={<PaymentReturn />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
