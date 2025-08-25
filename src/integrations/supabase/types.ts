@@ -163,6 +163,48 @@ export type Database = {
         }
         Relationships: []
       }
+      mercadopago_payments: {
+        Row: {
+          amount: number | null
+          approved_at: string | null
+          created_at: string
+          currency: string | null
+          external_reference: string | null
+          id: string
+          payment_id: string
+          payment_method: string | null
+          status: string
+          updated_at: string
+          user_email: string
+        }
+        Insert: {
+          amount?: number | null
+          approved_at?: string | null
+          created_at: string
+          currency?: string | null
+          external_reference?: string | null
+          id?: string
+          payment_id: string
+          payment_method?: string | null
+          status: string
+          updated_at?: string
+          user_email: string
+        }
+        Update: {
+          amount?: number | null
+          approved_at?: string | null
+          created_at?: string
+          currency?: string | null
+          external_reference?: string | null
+          id?: string
+          payment_id?: string
+          payment_method?: string | null
+          status?: string
+          updated_at?: string
+          user_email?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -268,6 +310,42 @@ export type Database = {
           tipo?: string
           user_id?: string
           valor?: number
+        }
+        Relationships: []
+      }
+      subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          payment_id: string | null
+          subscribed: boolean
+          subscription_end: string | null
+          subscription_tier: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          payment_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          payment_id?: string | null
+          subscribed?: boolean
+          subscription_end?: string | null
+          subscription_tier?: string | null
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
