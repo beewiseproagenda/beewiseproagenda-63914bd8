@@ -155,7 +155,7 @@ export const useSubscription = () => {
     }
   };
 
-  const isActiveSubscription = currentSubscription?.status === 'authorized';
+  const isActiveSubscription = currentSubscription?.status === 'authorized' && !loading;
 
   return {
     plans,

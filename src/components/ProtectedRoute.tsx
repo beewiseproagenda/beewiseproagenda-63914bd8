@@ -26,6 +26,13 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // Gate de acesso: verificar email confirmado e assinatura ativa
   const emailConfirmed = user.email_confirmed_at !== null;
   
+  console.log('[ProtectedRoute] Debug:', { 
+    emailConfirmed, 
+    isActiveSubscription, 
+    currentSubscription: currentSubscription?.status,
+    shouldRedirect: !emailConfirmed || !isActiveSubscription 
+  });
+  
   if (!emailConfirmed || !isActiveSubscription) {
     return <Navigate to="/assinar" replace />;
   }
