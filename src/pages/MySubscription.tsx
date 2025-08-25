@@ -262,8 +262,7 @@ export const MySubscription = () => {
         onOpenChange={setShowCancelDialog}
         onConfirm={handleCancelSubscription}
         title="Cancelar assinatura"
-        confirmText="Cancelar assinatura"
-        isLoading={isCancelling}
+        message="Tem certeza que deseja cancelar sua assinatura? Você perderá acesso aos recursos premium."
       />
     </div>
   );
