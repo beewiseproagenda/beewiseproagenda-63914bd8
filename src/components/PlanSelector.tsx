@@ -73,7 +73,7 @@ export const PlanSelector = () => {
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold">Escolha seu plano</h2>
+        <h2 className="text-2xl font-bold">Escolha seu Plano</h2>
         <p className="text-muted-foreground">
           Desbloqueie todo o potencial do BeeWise Pro
         </p>
@@ -81,63 +81,107 @@ export const PlanSelector = () => {
 
       <RadioGroup value={selectedPlan} onValueChange={(value) => setSelectedPlan(value as 'mensal' | 'anual')}>
         <div className="grid md:grid-cols-2 gap-4">
-          {plans.map((plan) => (
-            <Label key={plan.code} htmlFor={plan.code} className="cursor-pointer">
-              <Card className={`relative transition-all hover:shadow-md ${
-                selectedPlan === plan.code ? 'ring-2 ring-primary' : ''
-              }`}>
-                <CardHeader className="text-center pb-2">
-                  <div className="flex items-center justify-center gap-2">
-                    <RadioGroupItem value={plan.code} id={plan.code} />
-                    <CardTitle className="text-lg">
-                      BeeWise Pro - {plan.code === 'mensal' ? 'Mensal' : 'Anual'}
-                    </CardTitle>
+          {/* Plano Mensal */}
+          <Label htmlFor="mensal" className="cursor-pointer">
+            <Card className={`relative transition-all hover:shadow-md ${
+              selectedPlan === 'mensal' ? 'ring-2 ring-primary' : ''
+            }`}>
+              <CardHeader className="text-center pb-2">
+                <div className="flex items-center justify-center gap-2">
+                  <RadioGroupItem value="mensal" id="mensal" />
+                  <CardTitle className="text-lg">
+                    BeeWise Pro - Mensal
+                  </CardTitle>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="text-center space-y-4">
+                <div>
+                  <div className="text-3xl font-bold">
+                    R$ 19,90
                   </div>
-                  {plan.code === 'anual' && (
-                    <Badge variant="secondary" className="mx-auto w-fit">
-                      <Zap className="w-3 h-3 mr-1" />
-                      Mais popular
-                    </Badge>
-                  )}
-                </CardHeader>
-                
-                <CardContent className="text-center space-y-4">
-                  <div>
-                    <div className="text-3xl font-bold">
-                      {formatPrice(plan.price_cents)}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      /{plan.interval === 'month' ? 'mês' : 'ano'}
-                    </div>
-                    {plan.code === 'anual' && (
-                      <div className="text-xs text-green-600 font-medium mt-1">
-                        12x no cartão no checkout
-                      </div>
-                    )}
+                  <div className="text-sm text-muted-foreground">
+                    /mês
                   </div>
+                  <div className="text-sm text-green-600 font-medium mt-1">
+                    Renovação automática todo mês
+                  </div>
+                </div>
 
-                  <div className="space-y-2 text-sm text-left">
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                      Recursos ilimitados
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                      Suporte prioritário
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                      Relatórios avançados
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                      Integração com Mercado Pago
-                    </div>
+                <div className="space-y-2 text-sm text-left">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    Recursos ilimitados
                   </div>
-                </CardContent>
-              </Card>
-            </Label>
-          ))}
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    Suporte prioritário
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    Relatórios avançados
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    Integração com Mercado Pago
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Label>
+
+          {/* Plano Anual */}
+          <Label htmlFor="anual" className="cursor-pointer">
+            <Card className={`relative transition-all hover:shadow-md ${
+              selectedPlan === 'anual' ? 'ring-2 ring-primary' : ''
+            }`}>
+              <CardHeader className="text-center pb-2">
+                <div className="flex items-center justify-center gap-2">
+                  <RadioGroupItem value="anual" id="anual" />
+                  <CardTitle className="text-lg">
+                    BeeWise Pro - Anual
+                  </CardTitle>
+                </div>
+                <Badge variant="secondary" className="mx-auto w-fit">
+                  <Zap className="w-3 h-3 mr-1" />
+                  Economize 25%
+                </Badge>
+              </CardHeader>
+              
+              <CardContent className="text-center space-y-4">
+                <div>
+                  <div className="text-3xl font-bold">
+                    R$ 178,80
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    /ano (economize 25% vs mensal)
+                  </div>
+                  <div className="text-sm text-green-600 font-medium mt-1">
+                    Parcelamento em até 12x no cartão disponível no checkout
+                  </div>
+                </div>
+
+                <div className="space-y-2 text-sm text-left">
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    Recursos ilimitados
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    Suporte prioritário
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    Relatórios avançados
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                    Integração com Mercado Pago
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Label>
         </div>
       </RadioGroup>
 
@@ -154,7 +198,7 @@ export const PlanSelector = () => {
               Processando...
             </>
           ) : (
-            'Assinar agora'
+            selectedPlan === 'mensal' ? 'Assinar Mensal' : 'Assinar Anual'
           )}
         </Button>
         

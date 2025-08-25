@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { PlanSelector } from '@/components/PlanSelector';
 
 const Cadastro = () => {
   const [firstName, setFirstName] = useState('');
@@ -15,7 +17,8 @@ const Cadastro = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp } = useAuth();
+  const [step, setStep] = useState<'personal' | 'plan'>('personal');
+  const { signUp, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -61,19 +64,52 @@ const Cadastro = () => {
     } else {
       toast({
         title: "Cadastro realizado com sucesso!",
-        description: "Você será redirecionado para a página de login."
+        description: "Agora escolha seu plano para começar a usar o BeeWise Pro."
       });
-      navigate('/login');
+      setStep('plan');
     }
 
     setLoading(false);
   };
 
+  if (step === 'plan') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="w-full max-w-4xl space-y-6">
+          <Card className="w-full">
+            <CardHeader className="text-center">
+              <CardTitle className="text-2xl font-bold">Escolha seu Plano</CardTitle>
+              <p className="text-muted-foreground">
+                Complete seu cadastro escolhendo o plano ideal para você
+              </p>
+            </CardHeader>
+            <CardContent>
+              <PlanSelector />
+            </CardContent>
+          </Card>
+          
+          <div className="text-center">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/login')}
+              className="text-sm"
+            >
+              Pular por agora e fazer login
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Cadastrar</CardTitle>
+          <CardTitle className="text-2xl font-bold">Dados Pessoais</CardTitle>
+          <p className="text-muted-foreground">
+            Primeiro, vamos precisar de algumas informações suas
+          </p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -153,7 +189,7 @@ const Cadastro = () => {
               className="w-full" 
               disabled={loading}
             >
-              {loading ? "Cadastrando..." : "Cadastrar"}
+              {loading ? "Cadastrando..." : "Continuar para escolha do plano"}
             </Button>
           </form>
 
