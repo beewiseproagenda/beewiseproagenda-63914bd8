@@ -69,18 +69,11 @@ serve(async (req) => {
     const requestData: CreateSubscriptionRequest = await req.json();
     logStep('Request data parsed', requestData);
 
-    const { user_id, email, plan_code, onboarding_token } = requestData;
+    let { user_id, email, plan_code, onboarding_token } = requestData;
 
     logStep('Request data parsed', { user_id, email, plan_code, has_onboarding_token: !!onboarding_token });
 
-    if (!user_id || !email || !plan_code) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: user_id, email, plan_code' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // If onboarding_token is provided, validate it (for pre-login flow)
+    // If onboarding_token is provided, validate it and get real user_id (for pre-login flow)
     if (onboarding_token) {
       const { data: tokenValidation, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
         body: { token: onboarding_token }
@@ -95,6 +88,31 @@ serve(async (req) => {
       }
 
       logStep('Onboarding token validated', { userId: tokenValidation.userId });
+      
+      // For onboarding flow, we need to find the real user_id by email
+      // since the token might have "temp" as user_id initially
+      const { data: authUser, error: userError } = await supabase.auth.admin.listUsers();
+      
+      if (userError) {
+        logStep('Error fetching users', userError);
+        throw new Error('Failed to validate user');
+      }
+      
+      const foundUser = authUser.users.find(u => u.email === email);
+      if (!foundUser) {
+        logStep('User not found by email', { email });
+        throw new Error('User not found');
+      }
+      
+      user_id = foundUser.id;
+      logStep('Real user_id found', { real_user_id: user_id });
+    }
+
+    if (!user_id || !email || !plan_code) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: user_id, email, plan_code' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // 1. Buscar o plano pelo plan_code
