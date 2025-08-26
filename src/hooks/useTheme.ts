@@ -35,13 +35,18 @@ export const useTheme = () => {
         .from('profiles')
         .select('dark_mode_enabled')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
-      const userTheme = data.dark_mode_enabled ? 'dark' : 'light';
-      setTheme(userTheme);
-      setLocalTheme(userTheme); // Sync with localStorage
+      if (data) {
+        const userTheme = data.dark_mode_enabled ? 'dark' : 'light';
+        setTheme(userTheme);
+        setLocalTheme(userTheme); // Sync with localStorage
+      } else {
+        // No profile found, use localStorage theme
+        setTheme(localTheme);
+      }
     } catch (error) {
       console.error('Error loading user theme:', error);
       // Fallback to localStorage theme
