@@ -117,66 +117,71 @@ const AppContent = () => {
     );
   }
 
-  // Protected routes - wrapped with ProtectedRoute
+  // Subscription-only interface for logged users without active subscription
   return (
-    <ProtectedRoute>
-      <SidebarProvider>
-        <div className="min-h-screen flex w-full bg-background">
-          <AppSidebar />
-          
-          <div className="flex-1 flex flex-col">
-            <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
-              <SidebarTrigger className="mr-4">
-                <Menu className="h-5 w-5" />
-              </SidebarTrigger>
-              <div className="flex-1">
-                <h1 className="text-xl font-semibold text-foreground">
-                  {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
-                </h1>
+    <Routes>
+      <Route path="/assinar" element={<Subscribe />} />
+      <Route path="/payment/return" element={<PaymentReturn />} />
+      <Route path="*" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/agenda" element={<Agenda />} />
+                    <Route path="/clientes" element={<Clientes />} />
+                    <Route path="/pacotes-servicos" element={<PacotesServicos />} />
+                    <Route path="/financeiro" element={<Financeiro />} />
+                    <Route path="/relatorios" element={<Relatorios />} />
+                    <Route path="/configuracoes" element={<Configuracoes />} />
+                    <Route path="/cadastros" element={<Cadastros />} />
+                    <Route path="/minha-assinatura" element={<MySubscription />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </main>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleSignOut}
-                className="text-foreground hover:bg-background/10"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sair
-              </Button>
-            </header>
-            
-            <main className="flex-1 overflow-auto">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/agenda" element={<Agenda />} />
-                <Route path="/clientes" element={<Clientes />} />
-                <Route path="/pacotes-servicos" element={<PacotesServicos />} />
-                <Route path="/financeiro" element={<Financeiro />} />
-                <Route path="/relatorios" element={<Relatorios />} />
-                <Route path="/configuracoes" element={<Configuracoes />} />
-                <Route path="/cadastros" element={<Cadastros />} />
-                <Route path="/minha-assinatura" element={<MySubscription />} />
-                <Route path="/assinar" element={<Subscribe />} />
-                <Route path="/payment/return" element={<PaymentReturn />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </main>
-          </div>
-          
-          <PWAInstallPrompt />
-          <PWAStatus />
-          <InstallGuideModal
-            isOpen={shouldShowGuide}
-            onClose={hideGuide}
-            deviceType={deviceType}
-            onMarkAsShownInSession={markAsShownInSession}
-            onDisablePermanently={disablePermanently}
-          />
-        </div>
-      </SidebarProvider>
-    </ProtectedRoute>
+              
+              <PWAInstallPrompt />
+              <PWAStatus />
+              <InstallGuideModal
+                isOpen={shouldShowGuide}
+                onClose={hideGuide}
+                deviceType={deviceType}
+                onMarkAsShownInSession={markAsShownInSession}
+                onDisablePermanently={disablePermanently}
+              />
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+    </Routes>
   );
+
 };
 
 const App = () => (

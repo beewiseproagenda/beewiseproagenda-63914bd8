@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { Check, Crown, Zap, AlertCircle } from 'lucide-react';
+import { Check, Crown, Zap, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const Subscribe = () => {
@@ -214,9 +214,31 @@ const Subscribe = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-4xl space-y-6">
-        <Card className="w-full">
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header isolado para página de assinatura */}
+      <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+        <div className="flex-1">
+          <h1 className="text-xl font-semibold text-foreground">
+            BeeWise - Assinar Plano
+          </h1>
+        </div>
+        {userInfo && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.location.href = '/login'}
+            className="text-foreground hover:bg-background/10"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sair
+          </Button>
+        )}
+      </header>
+
+      {/* Conteúdo principal */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="w-full max-w-4xl space-y-6">
+          <Card className="w-full">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold">Escolha seu Plano</CardTitle>
             <p className="text-muted-foreground">
@@ -352,7 +374,8 @@ const Subscribe = () => {
               </p>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );
