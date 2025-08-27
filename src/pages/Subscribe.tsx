@@ -159,8 +159,14 @@ const Subscribe = () => {
     navigate('/cadastro');
   };
 
-  const handleGoToLogin = () => {
-    navigate('/');
+  const handleGoToDashboard = () => {
+    // Se há token de onboarding mas usuário não está autenticado,
+    // redireciona para login para completar a autenticação
+    if (searchParams.get('ot') && !user) {
+      navigate('/login');
+    } else {
+      navigate('/dashboard');
+    }
   };
 
   if (loading || authLoading) {
@@ -204,7 +210,7 @@ const Subscribe = () => {
             <p className="text-muted-foreground">
               Você já tem uma assinatura ativa do BeeWise Pro.
             </p>
-            <Button onClick={handleGoToLogin} className="w-full">
+            <Button onClick={handleGoToDashboard} className="w-full">
               Ir para Dashboard
             </Button>
           </CardContent>
