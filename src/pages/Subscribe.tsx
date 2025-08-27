@@ -37,7 +37,6 @@ const Subscribe = () => {
 
           if (tokenError || !data?.valid) {
             setError('Seu link expirou. Solicite um novo e-mail de verificação.');
-            setLoading(false);
             return;
           }
 
@@ -58,7 +57,7 @@ const Subscribe = () => {
           }
         } 
         // Se não há token, verificar se há usuário logado
-        else if (user && !authLoading) {
+        else if (user) {
           setUserInfo({ userId: user.id, email: user.email || '' });
 
           // Check if user already has active subscription
@@ -76,7 +75,7 @@ const Subscribe = () => {
           }
         }
         // Se não há token nem usuário logado
-        else if (!authLoading) {
+        else {
           setError('Token de acesso não encontrado. Solicite um novo e-mail de verificação.');
         }
 
@@ -84,13 +83,11 @@ const Subscribe = () => {
         console.error('Erro na validação:', err);
         setError('Erro ao validar acesso. Tente novamente.');
       } finally {
-        if (!authLoading) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
-    // Só executa quando o auth não está carregando
+    // Só executa quando o auth terminou de carregar
     if (!authLoading) {
       validateTokenAndCheckSubscription();
     }
