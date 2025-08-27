@@ -160,7 +160,7 @@ const Subscribe = () => {
   };
 
   const handleGoToLogin = () => {
-    navigate('/login');
+    navigate('/');
   };
 
   if (loading || authLoading) {
@@ -205,7 +205,7 @@ const Subscribe = () => {
               Você já tem uma assinatura ativa do BeeWise Pro.
             </p>
             <Button onClick={handleGoToLogin} className="w-full">
-              Ir para Login
+              Ir para Dashboard
             </Button>
           </CardContent>
         </Card>
