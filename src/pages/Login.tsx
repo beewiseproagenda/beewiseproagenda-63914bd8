@@ -22,14 +22,14 @@ const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect authenticated users with valid subscription
+  // Redirect authenticated users based on subscription status
   useEffect(() => {
     if (user && !subscriptionLoading) {
       const emailConfirmed = user.email_confirmed_at !== null;
       
       if (emailConfirmed && isActiveSubscription) {
         navigate('/');
-      } else if (!emailConfirmed || !isActiveSubscription) {
+      } else {
         navigate('/assinar');
       }
     }

@@ -36,6 +36,10 @@ export const useSubscription = () => {
     fetchPlans();
     if (user) {
       fetchCurrentSubscription();
+    } else {
+      // Se não há usuário, não estamos carregando
+      setLoading(false);
+      setCurrentSubscription(null);
     }
   }, [user]);
 
@@ -59,7 +63,10 @@ export const useSubscription = () => {
   };
 
   const fetchCurrentSubscription = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -78,6 +85,7 @@ export const useSubscription = () => {
       } : null);
     } catch (error) {
       console.error('Error fetching subscription:', error);
+      setCurrentSubscription(null);
     } finally {
       setLoading(false);
     }
@@ -155,7 +163,7 @@ export const useSubscription = () => {
     }
   };
 
-  const isActiveSubscription = currentSubscription?.status === 'authorized' && !loading;
+  const isActiveSubscription = currentSubscription?.status === 'authorized';
 
   return {
     plans,
