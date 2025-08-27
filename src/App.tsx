@@ -157,6 +157,7 @@ const AppContent = () => {
                 <Route path="/configuracoes" element={<Configuracoes />} />
                 <Route path="/cadastros" element={<Cadastros />} />
                 <Route path="/minha-assinatura" element={<MySubscription />} />
+                <Route path="/assinar" element={<Subscribe />} />
                 <Route path="/payment/return" element={<PaymentReturn />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
