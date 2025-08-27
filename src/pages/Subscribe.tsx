@@ -25,21 +25,33 @@ const Subscribe = () => {
 
   useEffect(() => {
     const validateTokenAndCheckSubscription = async () => {
+      console.log('[Subscribe] Iniciando validação', { 
+        authLoading, 
+        user: user?.id, 
+        token: searchParams.get('ot') 
+      });
+
       try {
+        setLoading(true);
+        setError(null);
+        
         const otToken = searchParams.get('ot');
         
         // Se há token, usar fluxo de onboarding
         if (otToken) {
-          // Validate onboarding token
+          console.log('[Subscribe] Validando token de onboarding');
+          
           const { data, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
             body: { token: otToken }
           });
 
           if (tokenError || !data?.valid) {
+            console.log('[Subscribe] Token inválido ou expirado');
             setError('Seu link expirou. Solicite um novo e-mail de verificação.');
             return;
           }
 
+          console.log('[Subscribe] Token válido, definindo userInfo');
           setUserInfo({ userId: data.userId, email: data.email });
 
           // Check if user already has active subscription
@@ -47,17 +59,21 @@ const Subscribe = () => {
             .from('subscriptions')
             .select('status')
             .eq('user_id', data.userId)
-            .eq('status', 'authorized')
+            .in('status', ['authorized', 'active'])
             .limit(1);
 
           if (subError) {
-            console.error('Erro ao verificar assinatura:', subError);
+            console.error('[Subscribe] Erro ao verificar assinatura:', subError);
           } else if (subscriptions && subscriptions.length > 0) {
+            console.log('[Subscribe] Assinatura ativa encontrada');
             setHasActiveSubscription(true);
+          } else {
+            console.log('[Subscribe] Nenhuma assinatura ativa encontrada');
           }
         } 
         // Se não há token, verificar se há usuário logado
         else if (user) {
+          console.log('[Subscribe] Usuário logado encontrado, sem token');
           setUserInfo({ userId: user.id, email: user.email || '' });
 
           // Check if user already has active subscription
@@ -65,31 +81,39 @@ const Subscribe = () => {
             .from('subscriptions')
             .select('status')
             .eq('user_id', user.id)
-            .eq('status', 'authorized')
+            .in('status', ['authorized', 'active'])
             .limit(1);
 
           if (subError) {
-            console.error('Erro ao verificar assinatura:', subError);
+            console.error('[Subscribe] Erro ao verificar assinatura:', subError);
           } else if (subscriptions && subscriptions.length > 0) {
+            console.log('[Subscribe] Assinatura ativa encontrada para usuário logado');
             setHasActiveSubscription(true);
+          } else {
+            console.log('[Subscribe] Nenhuma assinatura ativa encontrada para usuário logado');
           }
         }
         // Se não há token nem usuário logado
         else {
-          setError('Token de acesso não encontrado. Solicite um novo e-mail de verificação.');
+          console.log('[Subscribe] Nem token nem usuário encontrado');
+          setError('Acesso negado. Faça login ou solicite um novo e-mail de verificação.');
         }
 
       } catch (err) {
-        console.error('Erro na validação:', err);
+        console.error('[Subscribe] Erro na validação:', err);
         setError('Erro ao validar acesso. Tente novamente.');
       } finally {
+        console.log('[Subscribe] Finalizando validação, setLoading(false)');
         setLoading(false);
       }
     };
 
     // Só executa quando o auth terminou de carregar
     if (!authLoading) {
+      console.log('[Subscribe] Auth não está carregando, iniciando validação');
       validateTokenAndCheckSubscription();
+    } else {
+      console.log('[Subscribe] Auth ainda carregando, aguardando...');
     }
   }, [searchParams, user, authLoading]);
 
