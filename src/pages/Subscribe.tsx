@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 import { Check, Crown, Zap, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,6 +15,7 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<'mensal' | 'anual'>('mensal');
   const [isCreating, setIsCreating] = useState(false);
   const [userInfo, setUserInfo] = useState<{userId: string, email: string} | null>(null);
@@ -26,49 +28,73 @@ const Subscribe = () => {
       try {
         const otToken = searchParams.get('ot');
         
-        if (!otToken) {
+        // Se há token, usar fluxo de onboarding
+        if (otToken) {
+          // Validate onboarding token
+          const { data, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
+            body: { token: otToken }
+          });
+
+          if (tokenError || !data?.valid) {
+            setError('Seu link expirou. Solicite um novo e-mail de verificação.');
+            setLoading(false);
+            return;
+          }
+
+          setUserInfo({ userId: data.userId, email: data.email });
+
+          // Check if user already has active subscription
+          const { data: subscriptions, error: subError } = await supabase
+            .from('subscriptions')
+            .select('status')
+            .eq('user_id', data.userId)
+            .eq('status', 'authorized')
+            .limit(1);
+
+          if (subError) {
+            console.error('Erro ao verificar assinatura:', subError);
+          } else if (subscriptions && subscriptions.length > 0) {
+            setHasActiveSubscription(true);
+          }
+        } 
+        // Se não há token, verificar se há usuário logado
+        else if (user && !authLoading) {
+          setUserInfo({ userId: user.id, email: user.email || '' });
+
+          // Check if user already has active subscription
+          const { data: subscriptions, error: subError } = await supabase
+            .from('subscriptions')
+            .select('status')
+            .eq('user_id', user.id)
+            .eq('status', 'authorized')
+            .limit(1);
+
+          if (subError) {
+            console.error('Erro ao verificar assinatura:', subError);
+          } else if (subscriptions && subscriptions.length > 0) {
+            setHasActiveSubscription(true);
+          }
+        }
+        // Se não há token nem usuário logado
+        else if (!authLoading) {
           setError('Token de acesso não encontrado. Solicite um novo e-mail de verificação.');
-          setLoading(false);
-          return;
-        }
-
-        // Validate onboarding token
-        const { data, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
-          body: { token: otToken }
-        });
-
-        if (tokenError || !data?.valid) {
-          setError('Seu link expirou. Solicite um novo e-mail de verificação.');
-          setLoading(false);
-          return;
-        }
-
-        setUserInfo({ userId: data.userId, email: data.email });
-
-        // Check if user already has active subscription
-        const { data: subscriptions, error: subError } = await supabase
-          .from('subscriptions')
-          .select('status')
-          .eq('user_id', data.userId)
-          .eq('status', 'authorized')
-          .limit(1);
-
-        if (subError) {
-          console.error('Erro ao verificar assinatura:', subError);
-        } else if (subscriptions && subscriptions.length > 0) {
-          setHasActiveSubscription(true);
         }
 
       } catch (err) {
         console.error('Erro na validação:', err);
         setError('Erro ao validar acesso. Tente novamente.');
       } finally {
-        setLoading(false);
+        if (!authLoading) {
+          setLoading(false);
+        }
       }
     };
 
-    validateTokenAndCheckSubscription();
-  }, [searchParams]);
+    // Só executa quando o auth não está carregando
+    if (!authLoading) {
+      validateTokenAndCheckSubscription();
+    }
+  }, [searchParams, user, authLoading]);
 
   const handleSubscribe = async () => {
     if (!userInfo) return;
@@ -116,7 +142,7 @@ const Subscribe = () => {
     navigate('/login');
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <LoadingSpinner />
