@@ -261,7 +261,7 @@ const Cadastro = () => {
               className="w-full" 
               disabled={loading}
             >
-              {loading ? "Cadastrando..." : "Continuar para escolha do plano"}
+              {loading ? "Cadastrando..." : "Continuar para validação do e-mail"}
             </Button>
           </form>
 
