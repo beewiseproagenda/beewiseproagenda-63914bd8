@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Mail } from 'lucide-react';
+import { Mail, Check, X, Eye, EyeOff } from 'lucide-react';
+
+interface PasswordRequirement {
+  text: string;
+  met: boolean;
+}
 
 const Cadastro = () => {
   const [firstName, setFirstName] = useState('');
@@ -19,29 +24,46 @@ const Cadastro = () => {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'personal' | 'email-sent'>('personal');
   const [resendLoading, setResendLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [requirements, setRequirements] = useState<PasswordRequirement[]>([
+    { text: 'Mínimo 8 caracteres', met: false },
+    { text: '1 letra maiúscula (A-Z)', met: false },
+    { text: '1 letra minúscula (a-z)', met: false },
+    { text: '1 número (0-9)', met: false }
+  ]);
+  const [passwordsMatch, setPasswordsMatch] = useState(false);
   const { signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Validate password requirements
+    const newRequirements = [
+      { text: 'Mínimo 8 caracteres', met: password.length >= 8 },
+      { text: '1 letra maiúscula (A-Z)', met: /[A-Z]/.test(password) },
+      { text: '1 letra minúscula (a-z)', met: /[a-z]/.test(password) },
+      { text: '1 número (0-9)', met: /[0-9]/.test(password) }
+    ];
+    setRequirements(newRequirements);
+  }, [password]);
+
+  useEffect(() => {
+    // Check if passwords match
+    setPasswordsMatch(password === confirmPassword && password.length > 0);
+  }, [password, confirmPassword]);
+
+  const allRequirementsMet = requirements.every(req => req.met) && passwordsMatch;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Validar senhas
-    if (password !== confirmPassword) {
+    // Validar todos os requisitos
+    if (!allRequirementsMet) {
       toast({
         title: "Erro na validação",
-        description: "As senhas não coincidem",
-        variant: "destructive"
-      });
-      setLoading(false);
-      return;
-    }
-
-    if (password.length < 6) {
-      toast({
-        title: "Erro na validação",
-        description: "A senha deve ter pelo menos 6 caracteres",
+        description: "Verifique se todos os requisitos foram atendidos",
         variant: "destructive"
       });
       setLoading(false);
@@ -234,32 +256,99 @@ const Cadastro = () => {
             
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="Mínimo 6 caracteres"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="Digite sua senha"
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
             </div>
+
+            {/* Password Requirements */}
+            {password && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Requisitos da senha:</Label>
+                <div className="space-y-1">
+                  {requirements.map((requirement, index) => (
+                    <div key={index} className="flex items-center space-x-2 text-sm">
+                      {requirement.met ? (
+                        <Check className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <X className="h-4 w-4 text-muted-foreground" />
+                      )}
+                      <span className={requirement.met ? "text-green-600" : "text-muted-foreground"}>
+                        {requirement.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirmar Senha</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                placeholder="Confirme sua senha"
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  placeholder="Confirme sua senha"
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              {confirmPassword && !passwordsMatch && (
+                <p className="text-sm text-destructive flex items-center space-x-1">
+                  <X className="h-3 w-3" />
+                  <span>As senhas não coincidem</span>
+                </p>
+              )}
+              {confirmPassword && passwordsMatch && (
+                <p className="text-sm text-green-600 flex items-center space-x-1">
+                  <Check className="h-3 w-3" />
+                  <span>As senhas coincidem</span>
+                </p>
+              )}
             </div>
 
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={loading}
+              disabled={loading || !allRequirementsMet}
             >
               {loading ? "Cadastrando..." : "Continuar para validação do e-mail"}
             </Button>
