@@ -164,18 +164,21 @@ const Subscribe = () => {
       hasToken: !!searchParams.get('ot'),
       hasUser: !!user,
       userEmailConfirmed: user?.email_confirmed_at ? 'confirmed' : 'not_confirmed',
-      hasActiveSubscription
+      hasActiveSubscription,
+      currentPath: window.location.pathname
     });
     
     // Se há token de onboarding mas usuário não está autenticado,
     // redireciona para login para completar a autenticação
     if (searchParams.get('ot') && !user) {
-      console.log('[Subscribe] Redirecionando para login para autenticação');
+      console.log('[Subscribe] Token existe mas usuário não autenticado, indo para login');
       navigate('/login');
-    } else {
-      console.log('[Subscribe] Navegando para dashboard');
-      navigate('/dashboard');
+      return;
     }
+
+    // Para usuários autenticados com assinatura ativa, ir direto para o dashboard
+    console.log('[Subscribe] Usuário autenticado com assinatura ativa, navegando para /');
+    navigate('/', { replace: true });
   };
 
   if (loading || authLoading) {

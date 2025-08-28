@@ -70,6 +70,8 @@ export const useSubscription = () => {
 
     try {
       setLoading(true);
+      console.log('[useSubscription] Buscando assinatura para usuário:', user.id);
+      
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
@@ -78,13 +80,22 @@ export const useSubscription = () => {
         .limit(1);
 
       if (error) throw error;
-      setCurrentSubscription(data?.[0] ? {
+      
+      const subscription = data?.[0] ? {
         ...data[0],
         plan_code: data[0].plan_code as 'mensal' | 'anual',
         status: data[0].status as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected'
-      } : null);
+      } : null;
+      
+      console.log('[useSubscription] Assinatura encontrada:', {
+        hasSubscription: !!subscription,
+        status: subscription?.status,
+        isActive: subscription?.status === 'authorized'
+      });
+      
+      setCurrentSubscription(subscription);
     } catch (error) {
-      console.error('Error fetching subscription:', error);
+      console.error('[useSubscription] Error fetching subscription:', error);
       setCurrentSubscription(null);
     } finally {
       setLoading(false);
