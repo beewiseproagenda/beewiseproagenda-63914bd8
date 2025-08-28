@@ -26,11 +26,15 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // Gate de acesso: verificar email confirmado e assinatura ativa
   const emailConfirmed = user.email_confirmed_at !== null;
   
-  console.log('[ProtectedRoute] Debug:', { 
+  console.log('[ProtectedRoute] Debug completo:', { 
     emailConfirmed, 
     isActiveSubscription, 
     currentSubscription: currentSubscription?.status,
-    shouldRedirect: !emailConfirmed || !isActiveSubscription
+    subscriptionLoading,
+    user: user?.id,
+    userEmail: user?.email,
+    shouldRedirect: !emailConfirmed || !isActiveSubscription,
+    currentPath: window.location.pathname
   });
   
   // Só permite acesso com email confirmado E assinatura ativa

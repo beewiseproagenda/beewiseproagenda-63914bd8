@@ -160,11 +160,20 @@ const Subscribe = () => {
   };
 
   const handleGoToDashboard = () => {
+    console.log('[Subscribe] handleGoToDashboard chamado', {
+      hasToken: !!searchParams.get('ot'),
+      hasUser: !!user,
+      userEmailConfirmed: user?.email_confirmed_at ? 'confirmed' : 'not_confirmed',
+      hasActiveSubscription
+    });
+    
     // Se há token de onboarding mas usuário não está autenticado,
     // redireciona para login para completar a autenticação
     if (searchParams.get('ot') && !user) {
+      console.log('[Subscribe] Redirecionando para login para autenticação');
       navigate('/login');
     } else {
+      console.log('[Subscribe] Navegando para dashboard');
       navigate('/dashboard');
     }
   };
