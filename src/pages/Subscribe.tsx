@@ -145,9 +145,23 @@ const Subscribe = () => {
       }
     } catch (error) {
       console.error('Error creating subscription:', error);
+      
+      // Tratamento específico para diferentes tipos de erro
+      let errorMessage = 'Erro ao criar assinatura. Tente novamente.';
+      
+      if (error?.message?.includes('MP_AUTH_ERROR')) {
+        errorMessage = 'Erro na configuração do pagamento. Entre em contato com o suporte.';
+      } else if (error?.message?.includes('Unauthorized')) {
+        errorMessage = 'Erro de autenticação. Tente fazer login novamente.';
+      } else if (error?.message?.includes('Plan not found')) {
+        errorMessage = 'Plano não encontrado. Recarregue a página e tente novamente.';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: 'Erro',
-        description: error instanceof Error ? error.message : 'Erro ao criar assinatura. Tente novamente.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
