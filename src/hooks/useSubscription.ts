@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -37,7 +38,6 @@ export const useSubscription = () => {
     if (user) {
       fetchCurrentSubscription();
     } else {
-      // Se não há usuário, não estamos carregando
       setLoading(false);
       setCurrentSubscription(null);
     }
@@ -70,7 +70,7 @@ export const useSubscription = () => {
 
     try {
       setLoading(true);
-      console.log('[useSubscription] Buscando assinatura para usuário:', user.id);
+      console.log('[useSubscription] Buscando assinatura para usuário:', user.id, user.email);
       
       const { data, error } = await supabase
         .from('subscriptions')
@@ -79,7 +79,10 @@ export const useSubscription = () => {
         .order('created_at', { ascending: false })
         .limit(1);
 
-      if (error) throw error;
+      if (error) {
+        console.error('[useSubscription] Erro ao buscar assinatura:', error);
+        throw error;
+      }
       
       const subscription = data?.[0] ? {
         ...data[0],
@@ -87,10 +90,11 @@ export const useSubscription = () => {
         status: data[0].status as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected'
       } : null;
       
-      console.log('[useSubscription] Assinatura encontrada:', {
+      console.log('[useSubscription] Resultado da busca:', {
         hasSubscription: !!subscription,
         status: subscription?.status,
-        isActive: subscription?.status === 'authorized'
+        isActive: subscription?.status === 'authorized',
+        subscriptionData: subscription
       });
       
       setCurrentSubscription(subscription);
@@ -131,8 +135,6 @@ export const useSubscription = () => {
     }
 
     try {
-      // Chamada direta à API do Mercado Pago via edge function seria ideal
-      // Por enquanto, vamos atualizar localmente e deixar o webhook sincronizar
       const { error } = await supabase
         .from('subscriptions')
         .update({ 
@@ -175,6 +177,14 @@ export const useSubscription = () => {
   };
 
   const isActiveSubscription = currentSubscription?.status === 'authorized';
+
+  console.log('[useSubscription] Hook state:', {
+    loading,
+    hasSubscription: !!currentSubscription,
+    subscriptionStatus: currentSubscription?.status,
+    isActiveSubscription,
+    userEmail: user?.email
+  });
 
   return {
     plans,
