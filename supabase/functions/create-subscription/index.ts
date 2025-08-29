@@ -145,7 +145,7 @@ serve(async (req) => {
     logStep('Upserting subscription', subscriptionData);
     const { data: subscription, error: subscriptionError } = await supabase
       .from('subscriptions')
-      .upsert(subscriptionData, { onConflict: 'user_id,plan_code' })
+      .upsert(subscriptionData, { onConflict: 'user_id' })
       .select()
       .single();
 
@@ -192,10 +192,24 @@ serve(async (req) => {
         .update({ status: 'rejected' })
         .eq('id', subscription.id);
 
+      // Verificar se é erro de token inválido
+      if (mpResponse.status === 401) {
+        logStep('Mercado Pago authentication failed - check token');
+        return new Response(
+          JSON.stringify({ 
+            error: 'Erro de autenticação com Mercado Pago. Token inválido ou expirado.',
+            details: mpResponseData,
+            code: 'MP_AUTH_ERROR'
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       return new Response(
         JSON.stringify({ 
           error: 'Failed to create subscription with Mercado Pago',
-          details: mpResponseData 
+          details: mpResponseData,
+          status: mpResponse.status 
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
