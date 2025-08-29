@@ -177,8 +177,8 @@ const Subscribe = () => {
     }
 
     // Para usuários autenticados com assinatura ativa, ir direto para o dashboard
-    console.log('[Subscribe] Usuário autenticado com assinatura ativa, navegando para /');
-    navigate('/', { replace: true });
+    console.log('[Subscribe] Usuário autenticado com assinatura ativa, navegando para /dashboard');
+    navigate('/dashboard', { replace: true });
   };
 
   if (loading || authLoading) {
