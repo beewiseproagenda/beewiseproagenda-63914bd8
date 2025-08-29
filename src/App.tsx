@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Menu, LogOut } from "lucide-react";
@@ -117,12 +117,12 @@ const AppContent = () => {
     );
   }
 
-  // Subscription-only interface for logged users without active subscription
+  // Protected app interface for authenticated users
   return (
     <Routes>
       <Route path="/assinar" element={<Subscribe />} />
       <Route path="/payment/return" element={<PaymentReturn />} />
-      <Route path="*" element={
+      <Route path="/dashboard" element={
         <ProtectedRoute>
           <SidebarProvider>
             <div className="min-h-screen flex w-full bg-background">
@@ -150,19 +150,7 @@ const AppContent = () => {
                 </header>
                 
                 <main className="flex-1 overflow-auto">
-                  <Routes>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/agenda" element={<Agenda />} />
-                    <Route path="/clientes" element={<Clientes />} />
-                    <Route path="/pacotes-servicos" element={<PacotesServicos />} />
-                    <Route path="/financeiro" element={<Financeiro />} />
-                    <Route path="/relatorios" element={<Relatorios />} />
-                    <Route path="/configuracoes" element={<Configuracoes />} />
-                    <Route path="/cadastros" element={<Cadastros />} />
-                    <Route path="/minha-assinatura" element={<MySubscription />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
+                  <Dashboard />
                 </main>
               </div>
               
@@ -179,6 +167,288 @@ const AppContent = () => {
           </SidebarProvider>
         </ProtectedRoute>
       } />
+      <Route path="/agenda" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <Agenda />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+      <Route path="/clientes" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <Clientes />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+      <Route path="/pacotes-servicos" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <PacotesServicos />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+      <Route path="/financeiro" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <Financeiro />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+      <Route path="/relatorios" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <Relatorios />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+      <Route path="/configuracoes" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <Configuracoes />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+      <Route path="/cadastros" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <Cadastros />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+      <Route path="/minha-assinatura" element={
+        <ProtectedRoute>
+          <SidebarProvider>
+            <div className="min-h-screen flex w-full bg-background">
+              <AppSidebar />
+              
+              <div className="flex-1 flex flex-col">
+                <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
+                  <SidebarTrigger className="mr-4">
+                    <Menu className="h-5 w-5" />
+                  </SidebarTrigger>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-semibold text-foreground">
+                      {profile ? `Dashboard de ${profile.first_name}` : "BeeWise - ProAgenda"}
+                    </h1>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOut}
+                    className="text-foreground hover:bg-background/10"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sair
+                  </Button>
+                </header>
+                
+                <main className="flex-1 overflow-auto">
+                  <MySubscription />
+                </main>
+              </div>
+            </div>
+          </SidebarProvider>
+        </ProtectedRoute>
+      } />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 

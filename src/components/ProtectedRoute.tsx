@@ -23,7 +23,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     emailConfirmed: user?.email_confirmed_at !== null,
     subscriptionStatus: currentSubscription?.status,
     isActiveSubscription,
-    currentPath: window.location.pathname
+    currentPath: window.location.pathname,
+    timestamp: new Date().toISOString()
   });
 
   // Mostrar loading enquanto qualquer estado estiver carregando
