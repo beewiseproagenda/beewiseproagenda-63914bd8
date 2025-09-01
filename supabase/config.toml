@@ -3,5 +3,8 @@ project_id = "obdwvgxxunkomacbifry"
 [functions.mercadopago-webhook]
 verify_jwt = false
 
-[functions.create-subscription]
+[functions.secure-webhook]
 verify_jwt = false
+
+[functions.create-subscription]
+verify_jwt = true

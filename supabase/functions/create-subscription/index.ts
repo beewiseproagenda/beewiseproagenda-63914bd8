@@ -1,14 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const logStep = (step: string, data?: any) => {
-  console.log(`[create-subscription] ${step}`, data ? JSON.stringify(data, null, 2) : '');
-};
+import { requireAuth, corsHeaders, handleCors, logSafely } from '../_shared/auth.ts';
 
 interface CreateSubscriptionRequest {
   user_id: string;
@@ -17,12 +9,11 @@ interface CreateSubscriptionRequest {
 }
 
 serve(async (req) => {
-  logStep('Request received', { method: req.method, url: req.url });
+  logSafely('Request received', { method: req.method });
   
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -37,15 +28,24 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // SECURITY: Require authentication for all subscription operations
+    const authResult = await requireAuth(req);
+    if (!authResult) {
+      logSafely('Authentication failed');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - Valid authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get environment variables with better error handling
     const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
     const appUrl = Deno.env.get('APP_URL');
 
-    logStep('Environment check', { 
+    logSafely('Environment check', { 
       mpAccessToken: !!mpAccessToken, 
       appUrl: !!appUrl,
-      supabaseUrl: !!supabaseUrl,
-      supabaseServiceKey: !!supabaseServiceKey 
+      authenticatedUser: true
     });
 
     if (!mpAccessToken || !appUrl || !supabaseUrl || !supabaseServiceKey) {
@@ -67,11 +67,24 @@ serve(async (req) => {
 
     // Parse request body
     const requestData: CreateSubscriptionRequest = await req.json();
-    logStep('Request data parsed', requestData);
+    logSafely('Request data parsed', { plan_code: requestData.plan_code });
 
     let { user_id, email, plan_code, onboarding_token } = requestData;
 
-    logStep('Request data parsed', { user_id, email, plan_code, has_onboarding_token: !!onboarding_token });
+    // SECURITY: Enforce user can only create subscriptions for themselves
+    if (user_id && user_id !== authResult.userId) {
+      logSafely('Authorization failed - user mismatch');
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - Can only create subscriptions for yourself' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use authenticated user's data as source of truth
+    user_id = authResult.userId;
+    email = authResult.email;
+
+    logSafely('Request validated', { plan_code, has_onboarding_token: !!onboarding_token });
 
     // If onboarding_token is provided, validate it and get real user_id (for pre-login flow)
     if (onboarding_token) {
@@ -80,32 +93,32 @@ serve(async (req) => {
       });
 
       if (tokenError || !tokenValidation?.valid) {
-        logStep('Invalid onboarding token', { tokenError });
+        logSafely('Invalid onboarding token', { error_code: 'INVALID_TOKEN' });
         return new Response(
           JSON.stringify({ error: 'Invalid or expired onboarding token' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      logStep('Onboarding token validated', { userId: tokenValidation.userId });
+      logSafely('Onboarding token validated');
       
       // For onboarding flow, we need to find the real user_id by email
       // since the token might have "temp" as user_id initially
       const { data: authUser, error: userError } = await supabase.auth.admin.listUsers();
       
       if (userError) {
-        logStep('Error fetching users', userError);
+        logSafely('Error fetching users', { error_code: 'USER_FETCH_ERROR' });
         throw new Error('Failed to validate user');
       }
       
       const foundUser = authUser.users.find(u => u.email === email);
       if (!foundUser) {
-        logStep('User not found by email', { email });
+        logSafely('User not found by email', { error_code: 'USER_NOT_FOUND' });
         throw new Error('User not found');
       }
       
       user_id = foundUser.id;
-      logStep('Real user_id found', { real_user_id: user_id });
+      logSafely('Real user_id found');
     }
 
     if (!user_id || !email || !plan_code) {
@@ -115,26 +128,42 @@ serve(async (req) => {
       );
     }
 
-    // 1. Buscar o plano pelo plan_code
-    logStep('Fetching plan', { plan_code });
+    // 1. Buscar o plano pelo plan_code - SECURITY: Only return whitelisted fields
+    logSafely('Fetching plan', { plan_code });
     const { data: plan, error: planError } = await supabase
       .from('plans')
-      .select('*')
+      .select('id, code, price_cents, interval')
       .eq('code', plan_code)
       .eq('is_active', true)
       .single();
 
     if (planError || !plan) {
-      logStep('Plan not found', { planError, plan_code });
+      logSafely('Plan not found', { error_code: 'PLAN_NOT_FOUND', plan_code });
       return new Response(
         JSON.stringify({ error: 'Plan not found or inactive' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    logStep('Plan found', plan);
+    logSafely('Plan found', { plan_code: plan.code, interval: plan.interval });
 
-    // 2. Fazer upsert em subscriptions com status='pending'
+    // 2. SECURITY: Check if user already has active subscription to prevent abuse
+    const { data: existingSubscription } = await supabase
+      .from('subscriptions')
+      .select('status')
+      .eq('user_id', user_id)
+      .in('status', ['authorized', 'active'])
+      .single();
+
+    if (existingSubscription) {
+      logSafely('User already has active subscription', { status: existingSubscription.status });
+      return new Response(
+        JSON.stringify({ error: 'User already has an active subscription' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // 3. Fazer upsert em subscriptions com status='pending'
     const subscriptionData = {
       user_id,
       plan_code,
@@ -142,25 +171,25 @@ serve(async (req) => {
       started_at: new Date().toISOString(),
     };
 
-    logStep('Upserting subscription', subscriptionData);
+    logSafely('Upserting subscription', { plan_code, status: 'pending' });
     const { data: subscription, error: subscriptionError } = await supabase
       .from('subscriptions')
       .upsert(subscriptionData, { onConflict: 'user_id' })
-      .select()
+      .select('id, user_id, plan_code, status')
       .single();
 
     if (subscriptionError) {
-      logStep('Subscription upsert failed', subscriptionError);
+      logSafely('Subscription upsert failed', { error_code: 'SUBSCRIPTION_ERROR' });
       throw subscriptionError;
     }
 
-    logStep('Subscription created/updated', subscription);
+    logSafely('Subscription created/updated', { subscription_id: subscription.id });
 
-    // 3. Chamar API do Mercado Pago para criar preapproval
+    // 4. Chamar API do Mercado Pago para criar preapproval
     const externalReference = `${user_id}|${plan_code}|${subscription.id}`;
     const idempotencyKey = `${user_id}-${plan_code}-${Date.now()}`;
 
-    // FIXED: Proper preapproval payload structure for RECURRING subscriptions
+    // SECURITY: Build safe payload with validated data
     const preapprovalPayload = {
       reason: `Assinatura BeeWise Pro - ${plan_code === 'mensal' ? 'Mensal' : 'Anual'}`,
       payer_email: email,
@@ -175,12 +204,10 @@ serve(async (req) => {
       notification_url: `${appUrl}/functions/v1/mercadopago-webhook`
     };
 
-    logStep('Creating preapproval with Mercado Pago', { 
-      preapprovalPayload: {
-        ...preapprovalPayload,
-        auto_recurring: preapprovalPayload.auto_recurring
-      }, 
-      idempotencyKey,
+    logSafely('Creating preapproval with Mercado Pago', { 
+      external_reference: externalReference,
+      plan_code,
+      amount: plan.price_cents / 100,
       endpoint: 'https://api.mercadopago.com/preapproval' 
     });
 
@@ -196,21 +223,20 @@ serve(async (req) => {
 
     const mpResponseData = await mpResponse.json();
     
-    // ENHANCED: Detailed error logging with response body
-    logStep('Mercado Pago response', { 
+    // SECURITY: Safe logging without exposing sensitive data
+    logSafely('Mercado Pago response', { 
       status: mpResponse.status, 
       statusText: mpResponse.statusText,
-      data: mpResponseData,
-      responseHeaders: Object.fromEntries(mpResponse.headers.entries())
+      has_init_point: !!mpResponseData.init_point,
+      external_reference: externalReference
     });
 
     if (!mpResponse.ok) {
-      logStep('Mercado Pago API error - DETAILED', {
+      logSafely('Mercado Pago API error', {
         status: mpResponse.status,
         statusText: mpResponse.statusText,
-        responseBody: mpResponseData,
-        sentPayload: preapprovalPayload,
-        endpoint: 'https://api.mercadopago.com/preapproval'
+        external_reference: externalReference,
+        error_code: `MP_${mpResponse.status}`
       });
       
       // Atualizar subscription com erro
@@ -219,28 +245,24 @@ serve(async (req) => {
         .update({ status: 'rejected' })
         .eq('id', subscription.id);
 
-      // ENHANCED: Better error categorization
+      // SECURITY: Return safe error messages without exposing sensitive data
       if (mpResponse.status === 401) {
-        logStep('❌ AUTHENTICATION ERROR - Check your MP_ACCESS_TOKEN');
+        logSafely('Authentication error with Mercado Pago', { error_code: 'MP_AUTH_ERROR' });
         return new Response(
           JSON.stringify({ 
-            error: 'Erro de autenticação com Mercado Pago. Verifique o token de acesso.',
-            details: mpResponseData,
-            code: 'MP_AUTH_ERROR',
-            troubleshooting: 'Verify MP_ACCESS_TOKEN is valid production token'
+            error: 'Erro de autenticação com Mercado Pago. Verifique as credenciais.',
+            code: 'MP_AUTH_ERROR'
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
       if (mpResponse.status === 400) {
-        logStep('❌ BAD REQUEST - Invalid payload structure');
+        logSafely('Bad request to Mercado Pago', { error_code: 'MP_VALIDATION_ERROR' });
         return new Response(
           JSON.stringify({ 
-            error: 'Dados inválidos enviados para o Mercado Pago',
-            details: mpResponseData,
-            code: 'MP_VALIDATION_ERROR',
-            sentPayload: preapprovalPayload
+            error: 'Dados inválidos para o Mercado Pago.',
+            code: 'MP_VALIDATION_ERROR'
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -248,25 +270,23 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ 
-          error: `Mercado Pago API error (${mpResponse.status})`,
-          details: mpResponseData,
+          error: `Erro na API do Mercado Pago (${mpResponse.status})`,
           status: mpResponse.status,
-          statusText: mpResponse.statusText,
           code: 'MP_API_ERROR'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // 4. Retornar init_point
+    // 5. SECURITY: Return only whitelisted response data
     const { init_point } = mpResponseData;
     
     if (!init_point) {
-      logStep('No init_point in response', mpResponseData);
+      logSafely('No init_point in response', { error_code: 'NO_INIT_POINT' });
       throw new Error('No init_point received from Mercado Pago');
     }
 
-    logStep('Success', { init_point });
+    logSafely('Success', { has_init_point: true, external_reference: externalReference });
 
     return new Response(
       JSON.stringify({ init_point }),
@@ -277,13 +297,15 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    logStep('Error in create-subscription', error);
-    console.error('Error in create-subscription:', error);
+    logSafely('Error in create-subscription', { 
+      error_code: 'INTERNAL_ERROR',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
     
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
-        message: error.message 
+        code: 'INTERNAL_ERROR'
       }),
       { 
         status: 500, 
