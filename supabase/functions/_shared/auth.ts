@@ -52,8 +52,8 @@ export const requireAuth = async (req: Request): Promise<AuthResult | null> => {
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://6d45dc04-588b-43e4-8e90-8f2206699257.sandbox.lovable.dev',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Credentials': 'true',
 };
 

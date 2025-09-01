@@ -3,14 +3,34 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { createHash, createHmac } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": "https://6d45dc04-588b-43e4-8e90-8f2206699257.sandbox.lovable.dev",
+  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// Helper logging function
+// SECURITY: Safe logging function that never logs PII
 const logStep = (step: string, details?: any) => {
-  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
-  console.log(`[MERCADOPAGO-WEBHOOK] ${step}${detailsStr}`);
+  if (details) {
+    const safeDetails = {
+      ...details,
+      // Remove sensitive fields
+      email: details.email ? '[EMAIL_REDACTED]' : undefined,
+      payer_email: details.payer_email ? '[EMAIL_REDACTED]' : undefined,
+      user_id: details.user_id ? '[USER_ID]' : undefined,
+      // Keep safe fields
+      status: details.status,
+      id: details.id,
+      paymentId: details.paymentId,
+      preapprovalId: details.preapprovalId,
+      action: details.action,
+      eventType: details.eventType,
+      error_count: details.error_count,
+      requestId: details.requestId
+    };
+    console.log(`[MERCADOPAGO-WEBHOOK] ${step} - ${JSON.stringify(safeDetails)}`);
+  } else {
+    console.log(`[MERCADOPAGO-WEBHOOK] ${step}`);
+  }
 };
 
 // Validar assinatura do Mercado Pago
