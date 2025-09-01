@@ -124,6 +124,8 @@ const Subscribe = () => {
       setIsCreating(true);
       console.log('Creating subscription:', { selectedPlan, userId: userInfo.userId });
       
+      console.log('[Subscribe] Making request to create-subscription Edge Function');
+      
       const { data, error } = await supabase.functions.invoke('create-subscription', {
         body: {
           user_id: userInfo.userId,
@@ -133,8 +135,16 @@ const Subscribe = () => {
         }
       });
       
+      console.log('[Subscribe] Edge Function response:', { 
+        hasError: !!error,
+        hasData: !!data,
+        errorMessage: error?.message,
+        hasInitPoint: !!data?.init_point 
+      });
+      
       if (error) {
-        throw error;
+        console.error('[Subscribe] Edge Function error details:', error);
+        throw new Error(`Edge Function failed: ${error.message}`);
       }
       
       if (data?.init_point) {
@@ -144,12 +154,23 @@ const Subscribe = () => {
         throw new Error('No init_point received from server');
       }
     } catch (error) {
-      console.error('Error creating subscription:', error);
+      console.error('[Subscribe] Detailed error creating subscription:', {
+        error,
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name
+      });
       
-      // Tratamento específico para diferentes tipos de erro
+      // Enhanced error handling with specific network error detection
       let errorMessage = 'Erro ao criar assinatura. Tente novamente.';
       
-      if (error?.message?.includes('MP_AUTH_ERROR')) {
+      if (error?.message?.includes('Failed to fetch')) {
+        errorMessage = 'Erro de conexão: Verifique sua internet e tente novamente.';
+      } else if (error?.message?.includes('Failed to send a request')) {
+        errorMessage = 'Servidor não está respondendo. Tente novamente em alguns minutos.';
+      } else if (error?.message?.includes('Edge Function failed')) {
+        errorMessage = 'Erro interno no servidor. Entre em contato com o suporte.';
+      } else if (error?.message?.includes('MP_AUTH_ERROR')) {
         errorMessage = 'Erro na configuração do pagamento. Entre em contato com o suporte.';
       } else if (error?.message?.includes('Unauthorized')) {
         errorMessage = 'Erro de autenticação. Tente fazer login novamente.';

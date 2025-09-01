@@ -110,6 +110,8 @@ export const useSubscription = () => {
     if (!user) throw new Error('User not authenticated');
 
     try {
+      console.log('[createSubscription] Starting request:', { planCode, userId: user.id });
+      
       const response = await supabase.functions.invoke('create-subscription', {
         body: {
           user_id: user.id,
@@ -118,13 +120,28 @@ export const useSubscription = () => {
         },
       });
 
+      console.log('[createSubscription] Response received:', { 
+        hasError: !!response.error,
+        hasData: !!response.data,
+        errorMessage: response.error?.message 
+      });
+
       if (response.error) {
-        throw response.error;
+        console.error('[createSubscription] Edge function error:', response.error);
+        throw new Error(`Failed to create subscription: ${response.error.message}`);
       }
 
       return response.data;
     } catch (error) {
-      console.error('Error creating subscription:', error);
+      console.error('[createSubscription] Network/client error:', error);
+      
+      // Enhanced error handling
+      if (error.message?.includes('Failed to fetch')) {
+        throw new Error('Network error: Unable to connect to server. Please check your internet connection.');
+      } else if (error.message?.includes('Failed to send a request')) {
+        throw new Error('Request failed: The server is not responding. Please try again later.');
+      }
+      
       throw error;
     }
   };
