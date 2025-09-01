@@ -160,15 +160,29 @@ serve(async (req) => {
     const externalReference = `${user_id}|${plan_code}|${subscription.id}`;
     const idempotencyKey = `${user_id}-${plan_code}-${Date.now()}`;
 
+    // FIXED: Proper preapproval payload structure for RECURRING subscriptions
     const preapprovalPayload = {
-      preapproval_plan_id: plan.mp_preapproval_plan_id,
+      reason: `Assinatura BeeWise Pro - ${plan_code === 'mensal' ? 'Mensal' : 'Anual'}`,
       payer_email: email,
       back_url: `${appUrl}/assinatura/sucesso`,
       external_reference: externalReference,
-      reason: `Assinatura BeeWise Pro - ${plan_code === 'mensal' ? 'Mensal' : 'Anual'}`,
+      auto_recurring: {
+        frequency: plan_code === 'mensal' ? 1 : 12,
+        frequency_type: 'months',
+        transaction_amount: plan.price_cents / 100, // Convert cents to reais
+        currency_id: 'BRL'
+      },
+      notification_url: `${appUrl}/functions/v1/mercadopago-webhook`
     };
 
-    logStep('Creating preapproval with Mercado Pago', { preapprovalPayload, idempotencyKey });
+    logStep('Creating preapproval with Mercado Pago', { 
+      preapprovalPayload: {
+        ...preapprovalPayload,
+        auto_recurring: preapprovalPayload.auto_recurring
+      }, 
+      idempotencyKey,
+      endpoint: 'https://api.mercadopago.com/preapproval' 
+    });
 
     const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
       method: 'POST',
@@ -181,10 +195,23 @@ serve(async (req) => {
     });
 
     const mpResponseData = await mpResponse.json();
-    logStep('Mercado Pago response', { status: mpResponse.status, data: mpResponseData });
+    
+    // ENHANCED: Detailed error logging with response body
+    logStep('Mercado Pago response', { 
+      status: mpResponse.status, 
+      statusText: mpResponse.statusText,
+      data: mpResponseData,
+      responseHeaders: Object.fromEntries(mpResponse.headers.entries())
+    });
 
     if (!mpResponse.ok) {
-      logStep('Mercado Pago API error', mpResponseData);
+      logStep('Mercado Pago API error - DETAILED', {
+        status: mpResponse.status,
+        statusText: mpResponse.statusText,
+        responseBody: mpResponseData,
+        sentPayload: preapprovalPayload,
+        endpoint: 'https://api.mercadopago.com/preapproval'
+      });
       
       // Atualizar subscription com erro
       await supabase
@@ -192,14 +219,28 @@ serve(async (req) => {
         .update({ status: 'rejected' })
         .eq('id', subscription.id);
 
-      // Verificar se é erro de token inválido
+      // ENHANCED: Better error categorization
       if (mpResponse.status === 401) {
-        logStep('Mercado Pago authentication failed - check token');
+        logStep('❌ AUTHENTICATION ERROR - Check your MP_ACCESS_TOKEN');
         return new Response(
           JSON.stringify({ 
-            error: 'Erro de autenticação com Mercado Pago. Token inválido ou expirado.',
+            error: 'Erro de autenticação com Mercado Pago. Verifique o token de acesso.',
             details: mpResponseData,
-            code: 'MP_AUTH_ERROR'
+            code: 'MP_AUTH_ERROR',
+            troubleshooting: 'Verify MP_ACCESS_TOKEN is valid production token'
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (mpResponse.status === 400) {
+        logStep('❌ BAD REQUEST - Invalid payload structure');
+        return new Response(
+          JSON.stringify({ 
+            error: 'Dados inválidos enviados para o Mercado Pago',
+            details: mpResponseData,
+            code: 'MP_VALIDATION_ERROR',
+            sentPayload: preapprovalPayload
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -207,9 +248,11 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to create subscription with Mercado Pago',
+          error: `Mercado Pago API error (${mpResponse.status})`,
           details: mpResponseData,
-          status: mpResponse.status 
+          status: mpResponse.status,
+          statusText: mpResponse.statusText,
+          code: 'MP_API_ERROR'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
