@@ -195,7 +195,7 @@ serve(async (req) => {
     const preapprovalPayload = {
       payer_email: requestEmail || authenticatedUserEmail,
       reason: planConfig.reason,
-      back_url: `${appUrl || 'https://seu-dominio.com'}/assinatura/retorno`,
+      back_url: `${appUrl || 'https://obdwvgxxunkomacbifry.supabase.co'}/assinatura/retorno`,
       auto_recurring: {
         frequency: planConfig.frequency,
         frequency_type: planConfig.frequency_type,
@@ -203,7 +203,7 @@ serve(async (req) => {
         currency_id: 'BRL'
       },
       external_reference,
-      notification_url: `${appUrl || 'https://seu-dominio.com'}/api/mercadopago/webhook`
+      notification_url: `${appUrl || 'https://obdwvgxxunkomacbifry.supabase.co'}/api/mercadopago/webhook`
     };
 
     logSafely('[MP request payload]', {

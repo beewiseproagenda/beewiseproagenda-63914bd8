@@ -118,50 +118,57 @@ const Subscribe = () => {
   }, [searchParams, user, authLoading]);
 
   const handleSubscribe = async () => {
-    if (!userInfo) return;
+    // Validação de sessão antes de fazer qualquer requisição
+    if (!session?.access_token) {
+      alert('Sessão expirou. Faça login novamente.');
+      navigate('/login');
+      return;
+    }
+
+    if (!session?.user?.email) {
+      alert('E-mail do usuário não encontrado. Faça login novamente.');
+      navigate('/login');
+      return;
+    }
 
     try {
       setIsCreating(true);
-      console.log('Creating subscription:', { selectedPlan, userId: userInfo.userId });
-      
-      console.log('[Subscribe] Making request to create-subscription Edge Function');
       
       // Convert selectedPlan to expected format
       const planValue = selectedPlan === 'mensal' ? 'monthly' : 'annual';
       
-      // Use absolute URL for production
-      const response = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription', {
+      console.log('[Subscribe] Making request with real session:', { 
+        planValue, 
+        userEmail: session.user.email,
+        hasAccessToken: !!session.access_token 
+      });
+      
+      const EDGE_URL = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription';
+      
+      const resp = await fetch(EDGE_URL, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session?.access_token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
         },
         body: JSON.stringify({ 
           plan: planValue, 
-          userEmail: userInfo.email 
+          userEmail: session.user.email 
         })
       });
       
-      const responseText = await response.text();
-      let json: any = {};
-      try {
-        json = responseText ? JSON.parse(responseText) : {};
-      } catch {
-        json = { message: responseText };
-      }
+      const json = await resp.json().catch(() => ({}));
       
       console.log('[Subscribe] Edge Function response:', { 
-        status: response.status,
-        ok: response.ok,
-        json,
-        hasInitPoint: !!json?.init_point 
+        status: resp.status,
+        ok: resp.ok,
+        json
       });
       
-      if (!response.ok) {
-        // Show detailed error alert instead of generic toast
-        const alertMsg = `Falha: status=${json.status || response.status} code=${json.code || ""} msg=${json.message || json.detail || "ver console"}`;
+      if (!resp.ok) {
+        const alertMsg = `Falha: status=${json.status || resp.status} code=${json.code || ''} msg=${json.message || json.detail || 'ver console'}`;
         alert(alertMsg);
-        console.error('[Subscribe] Edge Function error details:', json);
+        console.error('SUBSCRIBE ERROR', json);
         return;
       }
       
@@ -169,23 +176,13 @@ const Subscribe = () => {
         console.log('Redirecting to Mercado Pago:', json.init_point);
         window.location.href = json.init_point;
       } else {
-        throw new Error('No init_point received from server');
-      }
-    } catch (error) {
-      console.error('[Subscribe] Network/client error:', error);
-      
-      // Enhanced error handling with specific network error detection
-      let errorMessage = 'Erro ao criar assinatura. Tente novamente.';
-      
-      if (error?.message?.includes('Failed to fetch')) {
-        errorMessage = 'Erro de conexão: Verifique sua internet e tente novamente.';
-      } else if (error?.message?.includes('Failed to send a request')) {
-        errorMessage = 'Servidor não está respondendo. Tente novamente em alguns minutos.';
-      } else if (error instanceof Error) {
-        errorMessage = error.message;
+        alert('Erro: Não foi possível obter o link de pagamento.');
+        console.error('No init_point in response:', json);
       }
       
-      alert(`Erro de rede: ${errorMessage}`);
+    } catch (e) {
+      alert('Sem conexão com a Edge (CORS/HTTPS/rota).');
+      console.error('NETWORK ERROR', e);
     } finally {
       setIsCreating(false);
     }
@@ -409,7 +406,7 @@ const Subscribe = () => {
             <div className="text-center mt-6">
               <Button 
                 onClick={handleSubscribe} 
-                disabled={isCreating}
+                disabled={isCreating || !session?.access_token}
                 size="lg"
                 className="w-full max-w-sm"
               >
@@ -418,6 +415,8 @@ const Subscribe = () => {
                     <LoadingSpinner />
                     Processando...
                   </>
+                ) : !session?.access_token ? (
+                  'Faça login para continuar'
                 ) : (
                   selectedPlan === 'mensal' ? 'Assinar Mensal' : 'Assinar Anual'
                 )}

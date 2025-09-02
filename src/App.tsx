@@ -26,6 +26,7 @@ import Landing from "./pages/Landing";
 import ResetPassword from "./pages/ResetPassword";
 import PaymentReturn from "./pages/PaymentReturn";
 import EmailVerified from "./pages/EmailVerified";
+import SubscriptionReturn from "./pages/SubscriptionReturn";
 import Subscribe from "./pages/Subscribe";
 import { useAuth } from "./hooks/useAuth";
 import { useProfile } from "./hooks/useProfile";
@@ -140,6 +141,7 @@ const AppRoutes = () => {
         <Route path="/verificado" element={<EmailVerified />} />
         <Route path="/assinar" element={<Subscribe />} />
         <Route path="/redefinir-senha" element={<ResetPassword />} />
+        <Route path="/assinatura/retorno" element={<SubscriptionReturn />} />
         <Route path="/assinatura/sucesso" element={<SubscriptionSuccess />} />
         <Route path="/payment/return" element={<PaymentReturn />} />
         <Route path="*" element={<Navigate to="/landing" replace />} />
@@ -172,6 +174,7 @@ const AppRoutes = () => {
     return (
       <Routes>
         <Route path="/assinar" element={<Subscribe />} />
+        <Route path="/assinatura/retorno" element={<SubscriptionReturn />} />
         <Route path="/payment/return" element={<PaymentReturn />} />
         <Route path="*" element={<Navigate to="/assinar" replace />} />
       </Routes>
@@ -241,6 +244,7 @@ const AppRoutes = () => {
 
       {/* Rotas especiais sempre acessíveis */}
       <Route path="/assinar" element={<Subscribe />} />
+      <Route path="/assinatura/retorno" element={<SubscriptionReturn />} />
       <Route path="/payment/return" element={<PaymentReturn />} />
       
       {/* 404 */}
