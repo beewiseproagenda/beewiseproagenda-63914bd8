@@ -126,40 +126,53 @@ const Subscribe = () => {
       
       console.log('[Subscribe] Making request to create-subscription Edge Function');
       
-      const { data, error } = await supabase.functions.invoke('create-subscription', {
-        body: {
-          user_id: userInfo.userId,
-          email: userInfo.email,
-          plan_code: selectedPlan,
-          onboarding_token: searchParams.get('ot')
-        }
+      // Convert selectedPlan to expected format
+      const planValue = selectedPlan === 'mensal' ? 'monthly' : 'annual';
+      
+      // Use absolute URL for production
+      const response = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          plan: planValue, 
+          userEmail: userInfo.email 
+        })
       });
       
-      console.log('[Subscribe] Edge Function response:', { 
-        hasError: !!error,
-        hasData: !!data,
-        errorMessage: error?.message,
-        hasInitPoint: !!data?.init_point 
-      });
-      
-      if (error) {
-        console.error('[Subscribe] Edge Function error details:', error);
-        throw new Error(`Edge Function failed: ${error.message}`);
+      const responseText = await response.text();
+      let json: any = {};
+      try {
+        json = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        json = { message: responseText };
       }
       
-      if (data?.init_point) {
-        console.log('Redirecting to Mercado Pago:', data.init_point);
-        window.location.href = data.init_point;
+      console.log('[Subscribe] Edge Function response:', { 
+        status: response.status,
+        ok: response.ok,
+        json,
+        hasInitPoint: !!json?.init_point 
+      });
+      
+      if (!response.ok) {
+        // Show detailed error alert instead of generic toast
+        const alertMsg = `Falha: status=${json.status || response.status} code=${json.code || ""} msg=${json.message || json.detail || "ver console"}`;
+        alert(alertMsg);
+        console.error('[Subscribe] Edge Function error details:', json);
+        return;
+      }
+      
+      if (json?.init_point) {
+        console.log('Redirecting to Mercado Pago:', json.init_point);
+        window.location.href = json.init_point;
       } else {
         throw new Error('No init_point received from server');
       }
     } catch (error) {
-      console.error('[Subscribe] Detailed error creating subscription:', {
-        error,
-        message: error?.message,
-        stack: error?.stack,
-        name: error?.name
-      });
+      console.error('[Subscribe] Network/client error:', error);
       
       // Enhanced error handling with specific network error detection
       let errorMessage = 'Erro ao criar assinatura. Tente novamente.';
@@ -168,23 +181,11 @@ const Subscribe = () => {
         errorMessage = 'Erro de conexão: Verifique sua internet e tente novamente.';
       } else if (error?.message?.includes('Failed to send a request')) {
         errorMessage = 'Servidor não está respondendo. Tente novamente em alguns minutos.';
-      } else if (error?.message?.includes('Edge Function failed')) {
-        errorMessage = 'Erro interno no servidor. Entre em contato com o suporte.';
-      } else if (error?.message?.includes('MP_AUTH_ERROR')) {
-        errorMessage = 'Erro na configuração do pagamento. Entre em contato com o suporte.';
-      } else if (error?.message?.includes('Unauthorized')) {
-        errorMessage = 'Erro de autenticação. Tente fazer login novamente.';
-      } else if (error?.message?.includes('Plan not found')) {
-        errorMessage = 'Plano não encontrado. Recarregue a página e tente novamente.';
       } else if (error instanceof Error) {
         errorMessage = error.message;
       }
       
-      toast({
-        title: 'Erro',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      alert(`Erro de rede: ${errorMessage}`);
     } finally {
       setIsCreating(false);
     }

@@ -95,7 +95,7 @@ serve(async (req) => {
           message: 'Invalid or expired onboarding token' 
         }), {
           status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
         });
       }
 
@@ -113,7 +113,7 @@ serve(async (req) => {
           message: 'Authentication required' 
         }), {
           status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
         });
       }
 
