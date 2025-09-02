@@ -15,7 +15,7 @@ const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, session } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<'mensal' | 'anual'>('mensal');
   const [isCreating, setIsCreating] = useState(false);
   const [userInfo, setUserInfo] = useState<{userId: string, email: string} | null>(null);

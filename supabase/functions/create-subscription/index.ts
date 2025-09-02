@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { requireAuth, corsHeaders, handleCors, logSafely } from '../_shared/auth.ts';
+import { requireAuth, logSafely } from '../_shared/auth.ts';
 
 interface CreateSubscriptionRequest {
   user_id: string;
@@ -10,9 +10,16 @@ interface CreateSubscriptionRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  const allowedOrigin = Deno.env.get('APP_URL') || 'https://seu-dominio.com';
+  const corsStrict = {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization,content-type'
+  };
+
+  if (req.method === 'OPTIONS') {
+    return new Response('', { status: 204, headers: corsStrict });
+  }
 
   logSafely('[Request received]', { method: req.method });
 
@@ -21,14 +28,14 @@ serve(async (req) => {
     if (req.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
     }
 
     // Environment check
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
+    const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
     const appUrl = Deno.env.get('APP_URL');
 
     logSafely('[Environment check]', {
@@ -44,23 +51,31 @@ serve(async (req) => {
         error: 'Missing MERCADOPAGO_ACCESS_TOKEN'
       }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
     }
 
     // Create Supabase client
     const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
-    // Parse request body
-    const body: CreateSubscriptionRequest = await req.json();
-    const { user_id, email, plan_code, onboarding_token } = body;
+    // Parse request body (support new and legacy shapes)
+    const rawBody: any = await req.json();
+    const { plan, userEmail, plan_code: legacyPlanCode, email: legacyEmail, user_id, onboarding_token } = rawBody || {};
+    const incomingPlanCode = plan
+      ? (plan === 'monthly' ? 'mensal' : plan === 'annual' ? 'anual' : null)
+      : legacyPlanCode;
 
     logSafely('[Request body parsed]', {
       hasUserId: !!user_id,
-      hasEmail: !!email,
-      planCode: plan_code,
+      hasEmail: !!(legacyEmail || userEmail),
+      plan: plan || null,
+      legacyPlanCode: legacyPlanCode || null,
+      resolvedPlanCode: incomingPlanCode,
       hasOnboardingToken: !!onboarding_token
     });
+
+    const plan_code = incomingPlanCode as 'mensal' | 'anual';
+    const requestEmail = (userEmail || legacyEmail) as string | undefined;
 
     let authenticatedUserId: string;
     let authenticatedUserEmail: string;
@@ -116,7 +131,7 @@ serve(async (req) => {
         message: 'Plan must be "mensal" or "anual"' 
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
     }
 
@@ -136,7 +151,7 @@ serve(async (req) => {
         message: 'Failed to check existing subscriptions' 
       }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
     }
 
@@ -147,7 +162,7 @@ serve(async (req) => {
         message: 'User already has an active subscription' 
       }), {
         status: 409,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
     }
 
@@ -168,7 +183,7 @@ serve(async (req) => {
     };
 
     const planConfig = planConfigs[plan_code];
-    const external_reference = `${authenticatedUserId}:${plan_code}:${Date.now()}`;
+    const external_reference = `${authenticatedUserId}:${plan_code}`;
 
     logSafely('[Creating MP preapproval]', {
       planCode: plan_code,
@@ -178,9 +193,9 @@ serve(async (req) => {
 
     // Create Mercado Pago preapproval
     const preapprovalPayload = {
-      payer_email: authenticatedUserEmail,
+      payer_email: requestEmail || authenticatedUserEmail,
       reason: planConfig.reason,
-      back_url: `${appUrl || 'https://seu-dominio.com'}/subscription-return`,
+      back_url: `${appUrl || 'https://seu-dominio.com'}/assinatura/retorno`,
       auto_recurring: {
         frequency: planConfig.frequency,
         frequency_type: planConfig.frequency_type,
@@ -207,9 +222,16 @@ serve(async (req) => {
       body: JSON.stringify(preapprovalPayload)
     });
 
-    const mpData = await mpResponse.json();
+    // Safely parse MP response as JSON or text
+    const rawText = await mpResponse.text();
+    let mpData: any = {};
+    try {
+      mpData = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      mpData = { message: rawText };
+    }
 
-    // Always log MP response (safely) - This is the key fix!
+    // Always log MP response (safely)
     console.log('MP status:', mpResponse.status, 'ref:', external_reference, 'code:', mpData?.error, 'message:', mpData?.message);
     
     logSafely('[MP Response]', {
@@ -236,7 +258,7 @@ serve(async (req) => {
         cause: mpData?.cause
       }), {
         status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
     }
 
@@ -262,7 +284,7 @@ serve(async (req) => {
         message: 'Failed to save subscription' 
       }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
     }
 
@@ -279,7 +301,7 @@ serve(async (req) => {
       external_reference
     }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsStrict, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
@@ -295,7 +317,7 @@ serve(async (req) => {
       timestamp: new Date().toISOString()
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsStrict, 'Content-Type': 'application/json' },
     });
   }
 });

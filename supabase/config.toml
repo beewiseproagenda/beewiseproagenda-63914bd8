@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.ping]
 verify_jwt = false
+
+[functions.diag-env]
+verify_jwt = false
