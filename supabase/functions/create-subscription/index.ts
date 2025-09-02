@@ -28,7 +28,7 @@ serve(async (req) => {
     // Environment check
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
+    const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN');
     const appUrl = Deno.env.get('APP_URL');
 
     logSafely('[Environment check]', {
@@ -285,13 +285,15 @@ serve(async (req) => {
 
   } catch (error) {
     logSafely('[Error in create-subscription]', {
-      error_code: 'INTERNAL_ERROR',
-      message: error.message
+      error_code: 'EDGE_INTERNAL_ERROR',
+      message: error.message,
+      stack: error.stack
     });
 
     return new Response(JSON.stringify({
-      error: 'INTERNAL_ERROR',
-      message: 'Internal server error occurred'
+      error: 'EDGE_INTERNAL_ERROR',
+      detail: error.message,
+      timestamp: new Date().toISOString()
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
