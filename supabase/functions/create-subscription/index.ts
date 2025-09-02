@@ -1,4 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { requireAuth, corsHeaders, handleCors, logSafely } from '../_shared/auth.ts';
 
@@ -6,311 +6,295 @@ interface CreateSubscriptionRequest {
   user_id: string;
   email: string;
   plan_code: 'mensal' | 'anual';
+  onboarding_token?: string;
 }
 
 serve(async (req) => {
-  logSafely('Request received', { method: req.method });
-  
-  // Handle CORS preflight requests
+  // Handle CORS preflight
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
 
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  logSafely('[Request received]', { method: req.method });
 
   try {
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // SECURITY: Require authentication for all subscription operations
-    const authResult = await requireAuth(req);
-    if (!authResult) {
-      logSafely('Authentication failed');
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized - Valid authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Only allow POST method
+    if (req.method !== 'POST') {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+        status: 405,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // Get environment variables with better error handling
+    // Environment check
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
     const appUrl = Deno.env.get('APP_URL');
 
-    logSafely('Environment check', { 
-      mpAccessToken: !!mpAccessToken, 
+    logSafely('[Environment check]', {
+      mpAccessToken: !!mpAccessToken,
       appUrl: !!appUrl,
-      authenticatedUser: true
+      supabaseUrl: !!supabaseUrl,
+      supabaseServiceKey: !!supabaseServiceKey
     });
 
-    if (!mpAccessToken || !appUrl || !supabaseUrl || !supabaseServiceKey) {
-      const missingVars = [];
-      if (!mpAccessToken) missingVars.push('MERCADOPAGO_ACCESS_TOKEN or MP_ACCESS_TOKEN');
-      if (!appUrl) missingVars.push('APP_URL');
-      if (!supabaseUrl) missingVars.push('SUPABASE_URL');
-      if (!supabaseServiceKey) missingVars.push('SUPABASE_SERVICE_ROLE_KEY');
-      
-      logStep('Missing environment variables', { missingVars });
-      return new Response(
-        JSON.stringify({ 
-          error: 'Configuração ausente', 
-          details: `Missing variables: ${missingVars.join(', ')}` 
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!mpAccessToken) {
+      logSafely('[Error]', { error_code: 'MISSING_MP_TOKEN' });
+      return new Response(JSON.stringify({ 
+        error: 'MP_CONFIG_ERROR', 
+        message: 'Mercado Pago access token not configured' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    // Create Supabase client
+    const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
     // Parse request body
-    const requestData: CreateSubscriptionRequest = await req.json();
-    logSafely('Request data parsed', { plan_code: requestData.plan_code });
+    const body: CreateSubscriptionRequest = await req.json();
+    const { user_id, email, plan_code, onboarding_token } = body;
 
-    let { user_id, email, plan_code, onboarding_token } = requestData;
+    logSafely('[Request body parsed]', {
+      hasUserId: !!user_id,
+      hasEmail: !!email,
+      planCode: plan_code,
+      hasOnboardingToken: !!onboarding_token
+    });
 
-    // SECURITY: Enforce user can only create subscriptions for themselves
-    if (user_id && user_id !== authResult.userId) {
-      logSafely('Authorization failed - user mismatch');
-      return new Response(
-        JSON.stringify({ error: 'Forbidden - Can only create subscriptions for yourself' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    let authenticatedUserId: string;
+    let authenticatedUserEmail: string;
 
-    // Use authenticated user's data as source of truth
-    user_id = authResult.userId;
-    email = authResult.email;
-
-    logSafely('Request validated', { plan_code, has_onboarding_token: !!onboarding_token });
-
-    // If onboarding_token is provided, validate it and get real user_id (for pre-login flow)
+    // Handle onboarding token flow
     if (onboarding_token) {
-      const { data: tokenValidation, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
+      logSafely('[Validating onboarding token]');
+      
+      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
         body: { token: onboarding_token }
       });
 
-      if (tokenError || !tokenValidation?.valid) {
-        logSafely('Invalid onboarding token', { error_code: 'INVALID_TOKEN' });
-        return new Response(
-          JSON.stringify({ error: 'Invalid or expired onboarding token' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      if (tokenError || !tokenData?.valid) {
+        logSafely('[Token validation failed]', { error: tokenError?.message });
+        return new Response(JSON.stringify({ 
+          error: 'INVALID_TOKEN', 
+          message: 'Invalid or expired onboarding token' 
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
 
-      logSafely('Onboarding token validated');
+      authenticatedUserId = tokenData.userId;
+      authenticatedUserEmail = tokenData.email;
       
-      // For onboarding flow, we need to find the real user_id by email
-      // since the token might have "temp" as user_id initially
-      const { data: authUser, error: userError } = await supabase.auth.admin.listUsers();
-      
-      if (userError) {
-        logSafely('Error fetching users', { error_code: 'USER_FETCH_ERROR' });
-        throw new Error('Failed to validate user');
+      logSafely('[Token validated]', { userId: '[USER_ID]' });
+    } else {
+      // Standard auth flow
+      const authResult = await requireAuth(req);
+      if (!authResult) {
+        logSafely('[Auth failed]', { error_code: 'UNAUTHORIZED' });
+        return new Response(JSON.stringify({ 
+          error: 'UNAUTHORIZED', 
+          message: 'Authentication required' 
+        }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
+
+      authenticatedUserId = authResult.userId;
+      authenticatedUserEmail = authResult.email;
       
-      const foundUser = authUser.users.find(u => u.email === email);
-      if (!foundUser) {
-        logSafely('User not found by email', { error_code: 'USER_NOT_FOUND' });
-        throw new Error('User not found');
-      }
-      
-      user_id = foundUser.id;
-      logSafely('Real user_id found');
+      logSafely('[User authenticated]', { userId: '[USER_ID]' });
     }
 
-    if (!user_id || !email || !plan_code) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields: user_id, email, plan_code' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Validate input
+    if (!plan_code || !['mensal', 'anual'].includes(plan_code)) {
+      logSafely('[Invalid plan]', { planCode: plan_code });
+      return new Response(JSON.stringify({ 
+        error: 'INVALID_PLAN', 
+        message: 'Plan must be "mensal" or "anual"' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // 1. Buscar o plano pelo plan_code - SECURITY: Only return whitelisted fields
-    logSafely('Fetching plan', { plan_code });
-    const { data: plan, error: planError } = await supabase
-      .from('plans')
-      .select('id, code, price_cents, interval')
-      .eq('code', plan_code)
-      .eq('is_active', true)
-      .single();
-
-    if (planError || !plan) {
-      logSafely('Plan not found', { error_code: 'PLAN_NOT_FOUND', plan_code });
-      return new Response(
-        JSON.stringify({ error: 'Plan not found or inactive' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    logSafely('Plan found', { plan_code: plan.code, interval: plan.interval });
-
-    // 2. SECURITY: Check if user already has active subscription to prevent abuse
-    const { data: existingSubscription } = await supabase
+    // Check for existing active subscription
+    logSafely('[Checking existing subscriptions]');
+    const { data: existingSubscriptions, error: subError } = await supabase
       .from('subscriptions')
-      .select('status')
-      .eq('user_id', user_id)
-      .in('status', ['authorized', 'active'])
-      .single();
+      .select('id, status')
+      .eq('user_id', authenticatedUserId)
+      .in('status', ['pending', 'authorized'])
+      .limit(1);
 
-    if (existingSubscription) {
-      logSafely('User already has active subscription', { status: existingSubscription.status });
-      return new Response(
-        JSON.stringify({ error: 'User already has an active subscription' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (subError) {
+      logSafely('[Database error]', { error: subError.message });
+      return new Response(JSON.stringify({ 
+        error: 'DATABASE_ERROR', 
+        message: 'Failed to check existing subscriptions' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // 3. Fazer upsert em subscriptions com status='pending'
-    const subscriptionData = {
-      user_id,
-      plan_code,
-      status: 'pending',
-      started_at: new Date().toISOString(),
+    if (existingSubscriptions && existingSubscriptions.length > 0) {
+      logSafely('[Active subscription exists]', { status: existingSubscriptions[0].status });
+      return new Response(JSON.stringify({ 
+        error: 'SUBSCRIPTION_EXISTS', 
+        message: 'User already has an active subscription' 
+      }), {
+        status: 409,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Define plan configurations for preapproval
+    const planConfigs = {
+      mensal: {
+        reason: 'BeeWise Pro - Mensal',
+        amount: 19.9,
+        frequency: 1,
+        frequency_type: 'months'
+      },
+      anual: {
+        reason: 'BeeWise Pro - Anual',
+        amount: 178.8,
+        frequency: 12,
+        frequency_type: 'months'
+      }
     };
 
-    logSafely('Upserting subscription', { plan_code, status: 'pending' });
-    const { data: subscription, error: subscriptionError } = await supabase
-      .from('subscriptions')
-      .upsert(subscriptionData, { onConflict: 'user_id' })
-      .select('id, user_id, plan_code, status')
-      .single();
+    const planConfig = planConfigs[plan_code];
+    const external_reference = `${authenticatedUserId}:${plan_code}:${Date.now()}`;
 
-    if (subscriptionError) {
-      logSafely('Subscription upsert failed', { error_code: 'SUBSCRIPTION_ERROR' });
-      throw subscriptionError;
-    }
+    logSafely('[Creating MP preapproval]', {
+      planCode: plan_code,
+      amount: planConfig.amount,
+      external_reference
+    });
 
-    logSafely('Subscription created/updated', { subscription_id: subscription.id });
-
-    // 4. Chamar API do Mercado Pago para criar preapproval
-    const externalReference = `${user_id}|${plan_code}|${subscription.id}`;
-    const idempotencyKey = `${user_id}-${plan_code}-${Date.now()}`;
-
-    // SECURITY: Build safe payload with validated data
+    // Create Mercado Pago preapproval
     const preapprovalPayload = {
-      reason: `Assinatura BeeWise Pro - ${plan_code === 'mensal' ? 'Mensal' : 'Anual'}`,
-      payer_email: email,
-      back_url: `${appUrl}/assinatura/sucesso`,
-      external_reference: externalReference,
+      payer_email: authenticatedUserEmail,
+      reason: planConfig.reason,
+      back_url: `${appUrl || 'https://seu-dominio.com'}/subscription-return`,
       auto_recurring: {
-        frequency: plan_code === 'mensal' ? 1 : 12,
-        frequency_type: 'months',
-        transaction_amount: plan.price_cents / 100, // Convert cents to reais
+        frequency: planConfig.frequency,
+        frequency_type: planConfig.frequency_type,
+        transaction_amount: planConfig.amount,
         currency_id: 'BRL'
       },
-      notification_url: `${appUrl}/functions/v1/mercadopago-webhook`
+      external_reference,
+      notification_url: `${appUrl || 'https://seu-dominio.com'}/api/mercadopago/webhook`
     };
 
-    logSafely('Creating preapproval with Mercado Pago', { 
-      external_reference: externalReference,
-      plan_code,
-      amount: plan.price_cents / 100,
-      endpoint: 'https://api.mercadopago.com/preapproval' 
+    logSafely('[MP request payload]', {
+      reason: planConfig.reason,
+      amount: planConfig.amount,
+      frequency: planConfig.frequency,
+      external_reference
     });
 
     const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${mpAccessToken}`,
-        'Content-Type': 'application/json',
-        'X-Idempotency-Key': idempotencyKey,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(preapprovalPayload),
+      body: JSON.stringify(preapprovalPayload)
     });
 
-    const mpResponseData = await mpResponse.json();
+    const mpData = await mpResponse.json();
+
+    // Always log MP response (safely) - This is the key fix!
+    console.log('MP status:', mpResponse.status, 'ref:', external_reference, 'code:', mpData?.error, 'message:', mpData?.message);
     
-    // SECURITY: Safe logging without exposing sensitive data
-    logSafely('Mercado Pago response', { 
-      status: mpResponse.status, 
-      statusText: mpResponse.statusText,
-      has_init_point: !!mpResponseData.init_point,
-      external_reference: externalReference
+    logSafely('[MP Response]', {
+      status: mpResponse.status,
+      external_reference,
+      error_code: mpData?.error,
+      message: mpData?.message,
+      hasInitPoint: !!(mpData?.init_point || mpData?.sandbox_init_point)
     });
 
     if (!mpResponse.ok) {
-      logSafely('Mercado Pago API error', {
+      logSafely('[MP Error Response]', {
         status: mpResponse.status,
-        statusText: mpResponse.statusText,
-        external_reference: externalReference,
-        error_code: `MP_${mpResponse.status}`
+        error_code: mpData?.error,
+        message: mpData?.message,
+        cause: mpData?.cause
       });
-      
-      // Atualizar subscription com erro
-      await supabase
-        .from('subscriptions')
-        .update({ status: 'rejected' })
-        .eq('id', subscription.id);
 
-      // SECURITY: Return safe error messages without exposing sensitive data
-      if (mpResponse.status === 401) {
-        logSafely('Authentication error with Mercado Pago', { error_code: 'MP_AUTH_ERROR' });
-        return new Response(
-          JSON.stringify({ 
-            error: 'Erro de autenticação com Mercado Pago. Verifique as credenciais.',
-            code: 'MP_AUTH_ERROR'
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      if (mpResponse.status === 400) {
-        logSafely('Bad request to Mercado Pago', { error_code: 'MP_VALIDATION_ERROR' });
-        return new Response(
-          JSON.stringify({ 
-            error: 'Dados inválidos para o Mercado Pago.',
-            code: 'MP_VALIDATION_ERROR'
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ 
-          error: `Erro na API do Mercado Pago (${mpResponse.status})`,
-          status: mpResponse.status,
-          code: 'MP_API_ERROR'
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({
+        error: 'MP_ERROR',
+        status: mpResponse.status,
+        code: mpData?.error,
+        message: mpData?.message || 'Mercado Pago API error',
+        cause: mpData?.cause
+      }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    // 5. SECURITY: Return only whitelisted response data
-    const { init_point } = mpResponseData;
+    // Save subscription to database
+    const subscription = {
+      user_id: authenticatedUserId,
+      plan_code,
+      mp_preapproval_id: mpData.id,
+      status: 'pending' as const,
+      started_at: new Date().toISOString(),
+      external_reference
+    };
+
+    logSafely('[Saving subscription to DB]');
+    const { error: insertError } = await supabase
+      .from('subscriptions')
+      .insert([subscription]);
+
+    if (insertError) {
+      logSafely('[DB Insert Error]', { error: insertError.message });
+      return new Response(JSON.stringify({ 
+        error: 'DATABASE_ERROR', 
+        message: 'Failed to save subscription' 
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const init_point = mpData.init_point || mpData.sandbox_init_point;
     
-    if (!init_point) {
-      logSafely('No init_point in response', { error_code: 'NO_INIT_POINT' });
-      throw new Error('No init_point received from Mercado Pago');
-    }
+    logSafely('[Success]', { 
+      hasInitPoint: !!init_point,
+      external_reference 
+    });
 
-    logSafely('Success', { has_init_point: true, external_reference: externalReference });
-
-    return new Response(
-      JSON.stringify({ init_point }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    return new Response(JSON.stringify({
+      init_point,
+      subscription_id: mpData.id,
+      external_reference
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
 
   } catch (error) {
-    logSafely('Error in create-subscription', { 
+    logSafely('[Error in create-subscription]', {
       error_code: 'INTERNAL_ERROR',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error.message
     });
-    
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        code: 'INTERNAL_ERROR'
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+
+    return new Response(JSON.stringify({
+      error: 'INTERNAL_ERROR',
+      message: 'Internal server error occurred'
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
