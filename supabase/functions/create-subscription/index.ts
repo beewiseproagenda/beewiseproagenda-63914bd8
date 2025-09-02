@@ -39,10 +39,9 @@ serve(async (req) => {
     });
 
     if (!mpAccessToken) {
-      logSafely('[Error]', { error_code: 'MISSING_MP_TOKEN' });
+      logSafely('[Error]', { error_code: 'MISSING_MERCADOPAGO_ACCESS_TOKEN' });
       return new Response(JSON.stringify({ 
-        error: 'MP_CONFIG_ERROR', 
-        message: 'Mercado Pago access token not configured' 
+        error: 'Missing MERCADOPAGO_ACCESS_TOKEN'
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
