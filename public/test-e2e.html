@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste E2E Assinatura MP</title>
+</head>
+<body>
+    <h1>Teste E2E - Fluxo de Assinatura Mercado Pago</h1>
+    
+    <div id="status">Iniciando teste...</div>
+    <pre id="result"></pre>
+    
+    <script>
+        async function testE2E() {
+            const statusDiv = document.getElementById('status');
+            const resultDiv = document.getElementById('result');
+            
+            try {
+                statusDiv.textContent = 'Fase 1: Testando diag-env...';
+                
+                // 1. Teste diag-env
+                const diagResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/diag-env');
+                const diagJson = await diagResp.json();
+                
+                resultDiv.textContent += '=== DIAG-ENV RESPONSE ===\n';
+                resultDiv.textContent += JSON.stringify(diagJson, null, 2) + '\n\n';
+                
+                if (!diagJson.mercadopago_token_present) {
+                    resultDiv.textContent += 'ERRO: MERCADOPAGO_ACCESS_TOKEN não está presente!\n\n';
+                    return;
+                }
+                
+                statusDiv.textContent = 'Fase 2: Testando create-subscription (simulando usuário logado)...';
+                
+                // 2. Teste create-subscription com token fake para ver o erro
+                const fakeToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZHd2Z3h4dW5rb21hY2JpZnJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxNDYyODAsImV4cCI6MjA2ODcyMjI4MH0.DH5SXj9g_zkulWmNbow6dxFhrUCjA9Ia1ZGIkiJmWTw';
+                
+                const subscriptionResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${fakeToken}`
+                    },
+                    body: JSON.stringify({
+                        plan: 'annual',
+                        userEmail: 'lovable+mp@test.local'
+                    })
+                });
+                
+                const subscriptionText = await subscriptionResp.text();
+                let subscriptionJson = {};
+                try {
+                    subscriptionJson = subscriptionText ? JSON.parse(subscriptionText) : {};
+                } catch {
+                    subscriptionJson = { raw_response: subscriptionText };
+                }
+                
+                resultDiv.textContent += '=== CREATE-SUBSCRIPTION RESPONSE ===\n';
+                resultDiv.textContent += `Status: ${subscriptionResp.status}\n`;
+                resultDiv.textContent += `OK: ${subscriptionResp.ok}\n`;
+                resultDiv.textContent += 'Headers:\n';
+                for (const [key, value] of subscriptionResp.headers.entries()) {
+                    resultDiv.textContent += `  ${key}: ${value}\n`;
+                }
+                resultDiv.textContent += 'Body:\n';
+                resultDiv.textContent += JSON.stringify(subscriptionJson, null, 2) + '\n\n';
+                
+                statusDiv.textContent = 'Teste concluído! Verifique os resultados abaixo.';
+                
+            } catch (error) {
+                resultDiv.textContent += `ERRO DE REDE: ${error.message}\n`;
+                statusDiv.textContent = 'Erro durante o teste!';
+            }
+        }
+        
+        // Auto-executar
+        window.onload = testE2E;
+    </script>
+</body>
+</html>

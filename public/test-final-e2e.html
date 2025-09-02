@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste E2E Final</title>
+</head>
+<body>
+    <h1>Teste E2E Final - Simulação Completa</h1>
+    
+    <button id="testBtn" onclick="runCompleteTest()">EXECUTAR TESTE COMPLETO</button>
+    <div id="status">Aguardando...</div>
+    <pre id="result"></pre>
+    
+    <script>
+        async function runCompleteTest() {
+            const statusDiv = document.getElementById('status');
+            const resultDiv = document.getElementById('result');
+            const testBtn = document.getElementById('testBtn');
+            
+            testBtn.disabled = true;
+            resultDiv.textContent = '';
+            
+            try {
+                // TESTE FINAL: create-subscription com TEST_MODE
+                statusDiv.textContent = 'Executando teste final com modo de teste...';
+                
+                const finalResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer TEST_MODE_TOKEN' // Isso ativa o modo de teste
+                    },
+                    body: JSON.stringify({
+                        plan: 'annual',
+                        userEmail: 'felipegamerptbr@gmail.com'
+                    })
+                });
+                
+                const finalText = await finalResp.text();
+                let finalJson = {};
+                try {
+                    finalJson = finalText ? JSON.parse(finalText) : {};
+                } catch {
+                    finalJson = { raw_response: finalText };
+                }
+                
+                resultDiv.textContent += '=== TESTE FINAL: CREATE-SUBSCRIPTION (TEST MODE) ===\n';
+                resultDiv.textContent += `Status: ${finalResp.status}\n`;
+                resultDiv.textContent += `OK: ${finalResp.ok}\n`;
+                resultDiv.textContent += 'Headers:\n';
+                for (const [key, value] of finalResp.headers.entries()) {
+                    resultDiv.textContent += `  ${key}: ${value}\n`;
+                }
+                resultDiv.textContent += '\nResponse Body:\n';
+                resultDiv.textContent += JSON.stringify(finalJson, null, 2) + '\n\n';
+                
+                // Análise do resultado
+                if (finalResp.status === 502 && finalJson.error === 'MP_ERROR') {
+                    resultDiv.textContent += '=== ANÁLISE: ERRO DO MERCADO PAGO ===\n';
+                    resultDiv.textContent += `Status MP: ${finalJson.status}\n`;
+                    resultDiv.textContent += `Código: ${finalJson.code}\n`;
+                    resultDiv.textContent += `Mensagem: ${finalJson.message}\n`;
+                    resultDiv.textContent += `Causa: ${JSON.stringify(finalJson.cause, null, 2)}\n\n`;
+                    
+                    if (finalJson.status === 401) {
+                        resultDiv.textContent += 'CORREÇÃO NECESSÁRIA: Token do Mercado Pago inválido ou expirado.\n';
+                    } else if (finalJson.status === 400) {
+                        resultDiv.textContent += 'CORREÇÃO NECESSÁRIA: Dados do payload inválidos.\n';
+                    }
+                } else if (finalResp.status === 200 && finalJson.init_point) {
+                    resultDiv.textContent += '=== SUCESSO! ===\n';
+                    resultDiv.textContent += `Init Point: ${finalJson.init_point}\n`;
+                    resultDiv.textContent += `Subscription ID: ${finalJson.subscription_id}\n`;
+                    resultDiv.textContent += `External Reference: ${finalJson.external_reference}\n`;
+                } else {
+                    resultDiv.textContent += '=== ERRO INESPERADO ===\n';
+                    resultDiv.textContent += 'Verifique os logs para mais detalhes.\n';
+                }
+                
+                statusDiv.textContent = 'Teste concluído!';
+                
+            } catch (error) {
+                resultDiv.textContent += `\nERRO DE REDE: ${error.message}\n`;
+                statusDiv.textContent = 'Erro durante o teste!';
+            } finally {
+                testBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
