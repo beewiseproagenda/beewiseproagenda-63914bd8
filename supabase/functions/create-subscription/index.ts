@@ -10,15 +10,24 @@ interface CreateSubscriptionRequest {
 }
 
 serve(async (req) => {
-  const allowedOrigin = Deno.env.get('APP_URL') || 'https://6d45dc04-588b-43e4-8e90-8f2206699257.sandbox.lovable.dev';
-  const corsStrict = {
-    'Access-Control-Allow-Origin': allowedOrigin,
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+  // Dynamic CORS whitelist from APP_URL and APP_URL_PREVIEW
+  const getCorsHeaders = (req: Request) => {
+    const appUrl = Deno.env.get('APP_URL')?.trim();
+    const previewUrl = Deno.env.get('APP_URL_PREVIEW')?.trim();
+    const ALLOWED = [appUrl, previewUrl].filter(Boolean) as string[];
+    const origin = req.headers.get('Origin') || '';
+    const allow = ALLOWED.includes(origin) ? origin : '';
+    return {
+      'Access-Control-Allow-Origin': allow,
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    } as Record<string, string>;
   };
 
+  const corsStrict = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
-    return new Response('', { status: 204, headers: corsStrict });
+    return new Response(null, { status: 204, headers: corsStrict });
   }
 
   logSafely('[Request received]', { method: req.method });

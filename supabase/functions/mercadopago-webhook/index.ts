@@ -2,11 +2,17 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { createHash, createHmac } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
-const allowedOrigin = Deno.env.get("APP_URL") || "https://seu-dominio.com";
-const corsHeaders = {
-  "Access-Control-Allow-Origin": allowedOrigin,
-  "Access-Control-Allow-Headers": "authorization, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+const getCorsHeaders = (req: Request) => {
+  const appUrl = Deno.env.get("APP_URL")?.trim();
+  const previewUrl = Deno.env.get("APP_URL_PREVIEW")?.trim();
+  const ALLOWED = [appUrl, previewUrl].filter(Boolean) as string[];
+  const origin = req.headers.get("Origin") || "";
+  const allow = ALLOWED.includes(origin) ? origin : "";
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  } as Record<string, string>;
 };
 
 // SECURITY: Safe logging function that never logs PII
@@ -106,6 +112,7 @@ interface PaymentData {
 }
 
 serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });

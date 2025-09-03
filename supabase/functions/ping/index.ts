@@ -1,52 +1,37 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
-import { corsHeaders, handleCors, logSafely } from '../_shared/auth.ts';
+
+const getCorsHeaders = (req: Request) => {
+  const appUrl = Deno.env.get('APP_URL')?.trim();
+  const previewUrl = Deno.env.get('APP_URL_PREVIEW')?.trim();
+  const ALLOWED = [appUrl, previewUrl].filter(Boolean) as string[];
+  const origin = req.headers.get('Origin') || '';
+  const allow = ALLOWED.includes(origin) ? origin : '';
+  return {
+    'Access-Control-Allow-Origin': allow,
+    'Access-Control-Allow-Methods': 'GET,OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  } as Record<string, string>;
+};
 
 serve(async (req) => {
-  // Handle CORS preflight
-  const corsResponse = handleCors(req);
-  if (corsResponse) return corsResponse;
+  const cors = getCorsHeaders(req);
 
-  try {
-    logSafely('PING_START', { method: req.method, url: req.url });
-
-    const response = {
-      message: 'Pong! Edge Function is working',
-      timestamp: new Date().toISOString(),
-      method: req.method,
-      url: req.url,
-      headers: Object.fromEntries(req.headers.entries()),
-      environment: {
-        SUPABASE_URL: !!Deno.env.get('SUPABASE_URL'),
-        MERCADOPAGO_ACCESS_TOKEN: !!Deno.env.get('MERCADOPAGO_ACCESS_TOKEN'),
-        APP_URL: !!Deno.env.get('APP_URL'),
-      }
-    };
-
-    logSafely('PING_SUCCESS', { hasRequiredEnvs: true });
-
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers: { 
-        ...corsHeaders, 
-        'Content-Type': 'application/json' 
-      },
-    });
-  } catch (error) {
-    logSafely('PING_ERROR', { error: error.message });
-    
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        message: error.message,
-        timestamp: new Date().toISOString()
-      }),
-      {
-        status: 500,
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        },
-      }
-    );
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: cors });
   }
+
+  if (req.method !== 'GET') {
+    return new Response(JSON.stringify({ ok: false, error: 'METHOD_NOT_ALLOWED' }), {
+      status: 405,
+      headers: { ...cors, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const origin = req.headers.get('Origin') || '';
+  const allowHeader = cors['Access-Control-Allow-Origin'];
+
+  return new Response(JSON.stringify({ ok: true, originRecebido: origin, allowHeader }), {
+    status: 200,
+    headers: { ...cors, 'Content-Type': 'application/json' },
+  });
 });

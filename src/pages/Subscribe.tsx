@@ -144,6 +144,7 @@ const Subscribe = () => {
       });
       
       const EDGE_URL = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription';
+      console.log('[Subscribe] Fetch config', { origin: window.location.origin, EDGE_URL });
       
       const resp = await fetch(EDGE_URL, {
         method: 'POST',
