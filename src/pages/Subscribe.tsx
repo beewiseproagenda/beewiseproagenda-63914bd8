@@ -131,7 +131,7 @@ const Subscribe = () => {
       return;
     }
 
-    try {
+  try {
       setIsCreating(true);
       
       // Convert selectedPlan to expected format
@@ -145,6 +145,19 @@ const Subscribe = () => {
       
       const EDGE_URL = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription';
       console.log('[Subscribe] Fetch config', { origin: window.location.origin, EDGE_URL });
+      
+      // Test ping first
+      console.log('[Subscribe] Testing /ping connectivity...');
+      try {
+        const pingResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/ping', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const pingJson = await pingResp.json().catch(() => ({}));
+        console.log('[Subscribe] Ping result:', pingJson);
+      } catch (pingErr) {
+        console.warn('[Subscribe] Ping failed:', pingErr);
+      }
       
       const resp = await fetch(EDGE_URL, {
         method: 'POST',
