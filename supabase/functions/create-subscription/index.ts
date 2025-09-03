@@ -54,6 +54,13 @@ serve(async (req) => {
       supabaseServiceKey: !!supabaseServiceKey
     });
 
+    // Create admin Supabase client for database operations
+    const admin = createClient(
+      supabaseUrl!,
+      supabaseServiceKey!,
+      { auth: { persistSession: false } }
+    );
+
     if (!mpAccessToken) {
       logSafely('[Error]', { error_code: 'MISSING_MERCADOPAGO_ACCESS_TOKEN' });
       return new Response(JSON.stringify({ 
@@ -292,42 +299,43 @@ serve(async (req) => {
       });
     }
 
-    // Save subscription to database
-    const subscription = {
-      user_id: authenticatedUserId,
-      plan_code,
-      mp_preapproval_id: mpData.id,
-      status: 'pending' as const,
-      started_at: new Date().toISOString(),
-      external_reference
-    };
+    const preapprovalId = mpData.id;
+    const init_point = mpData.init_point || mpData.sandbox_init_point;
 
     logSafely('[Saving subscription to DB]');
-    const { error: insertError } = await supabase
-      .from('subscriptions')
-      .insert([subscription]);
 
-    if (insertError) {
-      logSafely('[DB Insert Error]', { error: insertError.message });
-      return new Response(JSON.stringify({ 
-        error: 'DATABASE_ERROR', 
-        message: 'Failed to save subscription' 
-      }), {
-        status: 500,
-        headers: { ...corsStrict, 'Content-Type': 'application/json' },
-      });
+    // Prepare subscription record for mp_subscriptions table
+    const record = {
+      user_id: authenticatedUserId,
+      plan: plan_code === 'mensal' ? 'monthly' : 'annual',
+      external_reference,
+      mp_preapproval_id: preapprovalId,
+      init_point,
+      status: 'pending',
+      raw_response: mpData
+    };
+
+    // Use admin client for database operations
+    const { error: dbErr } = await admin
+      .from('mp_subscriptions')
+      .upsert(record, { onConflict: 'external_reference' });
+
+    if (dbErr) {
+      console.error("DB_SAVE_ERROR", dbErr.message, dbErr.code);
+      logSafely('[DB Save Error]', { error: dbErr.message });
     }
 
-    const init_point = mpData.init_point || mpData.sandbox_init_point;
-    
-    logSafely('[Success]', { 
-      hasInitPoint: !!init_point,
-      external_reference 
+    logSafely('[Success]', {
+      subscriptionSaved: !dbErr,
+      externalReference: external_reference,
+      initPoint: !!init_point
     });
 
+    // Always return 200 with init_point to not break checkout flow
     return new Response(JSON.stringify({
       init_point,
-      subscription_id: mpData.id,
+      saved: !dbErr,
+      save_error: dbErr?.message,
       external_reference
     }), {
       status: 200,

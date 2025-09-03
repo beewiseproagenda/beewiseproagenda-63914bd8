@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHash, createHmac } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
 const getCorsHeaders = (req: Request) => {
@@ -536,111 +536,59 @@ async function handlePreapprovalEvent(supabaseClient: any, payload: any): Promis
   try {
     const preapprovalId = payload.data?.id;
     if (!preapprovalId) {
-      logStep("ERROR: No preapproval ID in preapproval webhook");
+      logStep("ERROR: No preapproval ID in webhook");
       return false;
     }
 
-    logStep("Processing preapproval event", { preapprovalId, action: payload.action });
-
-    const mercadoPagoAccessTokenRaw = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN") || "";
-    const mercadoPagoAccessToken = mercadoPagoAccessTokenRaw.trim();
-    if (!mercadoPagoAccessToken) {
-      logStep("ERROR: MercadoPago access token not configured");
-      return false;
-    }
-
-    // Buscar detalhes do preapproval da API do Mercado Pago
-    const preapprovalResponse = await fetch(
-      `https://api.mercadopago.com/preapproval/${preapprovalId}`,
-      {
-        headers: {
-          "Authorization": `Bearer ${mercadoPagoAccessToken}`
-        }
-      }
-    );
-
-    if (!preapprovalResponse.ok) {
-      logStep("ERROR: Failed to fetch preapproval from MercadoPago", { 
-        status: preapprovalResponse.status 
-      });
-      return false;
-    }
-
-    const preapprovalData = await preapprovalResponse.json();
-    logStep("Preapproval data retrieved", { 
-      id: preapprovalData.id, 
-      status: preapprovalData.status,
-      payer_email: preapprovalData.payer_email,
-      external_reference: preapprovalData.external_reference
+    logStep("Processing preapproval event", { 
+      preapprovalId, 
+      action: payload.action 
     });
 
-    // Parse external_reference para obter user_id, plan_code e subscription_id
-    const externalRef = preapprovalData.external_reference;
-    if (!externalRef) {
-      logStep("WARNING: No external_reference in preapproval data");
-      return false;
+    // Determine status based on action
+    let newStatus = 'pending';
+    switch (payload.action) {
+      case 'preapproval.authorized':
+        newStatus = 'authorized';
+        break;
+      case 'preapproval.cancelled':
+        newStatus = 'cancelled';
+        break;
+      case 'preapproval.finished':
+        newStatus = 'finished';
+        break;
+      default:
+        logStep("Unknown preapproval action", { action: payload.action });
+        return false;
     }
 
-    const [userId, planCode, subscriptionId] = externalRef.split('|');
-    if (!userId || !planCode || !subscriptionId) {
-      logStep("ERROR: Invalid external_reference format", { external_reference: externalRef });
-      return false;
-    }
+    // Update mp_subscriptions table by preapproval_id
+    const { error } = await supabaseClient
+      .from('mp_subscriptions')
+      .update({ 
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('mp_preapproval_id', preapprovalId);
 
-    logStep("Parsed external reference", { userId, planCode, subscriptionId });
-
-    // Calcular next_charge_at baseado no interval do plano
-    let nextChargeAt = null;
-    if (preapprovalData.auto_recurring?.next_payment_date) {
-      nextChargeAt = preapprovalData.auto_recurring.next_payment_date;
-    }
-
-    // Determinar cancelled_at se o status for cancelled
-    let cancelledAt = null;
-    if (preapprovalData.status === 'cancelled') {
-      cancelledAt = new Date().toISOString();
-    }
-
-    // Atualizar subscription na tabela subscriptions
-    const subscriptionUpdate = {
-      mp_preapproval_id: preapprovalData.id,
-      status: preapprovalData.status,
-      next_charge_at: nextChargeAt,
-      cancelled_at: cancelledAt,
-      updated_at: new Date().toISOString()
-    };
-
-    logStep("Updating subscription", { subscriptionId, subscriptionUpdate });
-
-    const { error: subscriptionError } = await supabaseClient
-      .from('subscriptions')
-      .update(subscriptionUpdate)
-      .eq('id', subscriptionId);
-
-    if (subscriptionError) {
-      logStep("ERROR: Failed to update subscription", subscriptionError);
-      return false;
-    }
-
-    logStep("Subscription updated successfully");
-
-    // Salvar no mp_events também para auditoria
-    const { error: eventError } = await supabaseClient
-      .from('mp_events')
-      .insert({
-        type: 'preapproval',
-        resource_id: preapprovalId,
-        payload: preapprovalData,
+    if (error) {
+      logStep("ERROR: Failed to update subscription status", { 
+        error: error.message,
+        preapprovalId 
       });
-
-    if (eventError) {
-      logStep("WARNING: Failed to save mp_event", eventError);
+      return false;
     }
 
+    logStep("Subscription status updated successfully", { 
+      preapprovalId, 
+      newStatus 
+    });
     return true;
 
   } catch (error) {
-    logStep("ERROR: Failed to handle preapproval event", { error: error.message });
+    logStep("ERROR: Exception in handlePreapprovalEvent", { 
+      error: error.message 
+    });
     return false;
   }
 }

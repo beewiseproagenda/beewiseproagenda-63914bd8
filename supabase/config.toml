@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.diag-secret]
 verify_jwt = false
+
+[functions.db-health]
+verify_jwt = false

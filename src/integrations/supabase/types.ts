@@ -259,6 +259,45 @@ export type Database = {
         }
         Relationships: []
       }
+      mp_subscriptions: {
+        Row: {
+          created_at: string
+          external_reference: string
+          id: number
+          init_point: string | null
+          mp_preapproval_id: string | null
+          plan: string
+          raw_response: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          external_reference: string
+          id?: number
+          init_point?: string | null
+          mp_preapproval_id?: string | null
+          plan: string
+          raw_response?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          external_reference?: string
+          id?: number
+          init_point?: string | null
+          mp_preapproval_id?: string | null
+          plan?: string
+          raw_response?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       plans: {
         Row: {
           code: string

@@ -146,7 +146,20 @@ const Subscribe = () => {
       const EDGE_URL = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription';
       console.log('[Subscribe] Fetch config', { origin: window.location.origin, EDGE_URL });
       
-      // Test ping first
+      // Test db-health first
+      console.log('[Subscribe] Testing /db-health connectivity...');
+      try {
+        const healthResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/db-health', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const healthJson = await healthResp.json().catch(() => ({}));
+        console.log('[Subscribe] DB Health result:', healthJson);
+      } catch (healthErr) {
+        console.warn('[Subscribe] DB Health failed:', healthErr);
+      }
+
+      // Test ping connectivity
       console.log('[Subscribe] Testing /ping connectivity...');
       try {
         const pingResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/ping', {
