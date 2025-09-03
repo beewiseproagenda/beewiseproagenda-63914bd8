@@ -6,7 +6,7 @@ serve(async (req) => {
   const corsStrict = {
     'Access-Control-Allow-Origin': appUrl,
     'Access-Control-Allow-Methods': 'GET,OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization,content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   };
 
   if (req.method === 'OPTIONS') {
@@ -25,7 +25,8 @@ serve(async (req) => {
   }
 
   try {
-    const mpToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
+    const mpTokenRaw = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || '';
+    const mpToken = mpTokenRaw.trim();
     
     if (!mpToken) {
       return new Response(JSON.stringify({

@@ -60,7 +60,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const webhookSecret = Deno.env.get('MERCADOPAGO_WEBHOOK_SECRET') || Deno.env.get('MP_WEBHOOK_SECRET');
-    const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
+    const mpAccessToken = (Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || '').trim();
 
     if (!webhookSecret || !mpAccessToken) {
       logSafely('Missing environment variables', { error_code: 'MISSING_ENV' });

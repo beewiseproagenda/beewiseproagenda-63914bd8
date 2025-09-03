@@ -535,7 +535,8 @@ async function handlePreapprovalEvent(supabaseClient: any, payload: any): Promis
 
     logStep("Processing preapproval event", { preapprovalId, action: payload.action });
 
-    const mercadoPagoAccessToken = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN") || Deno.env.get("MP_ACCESS_TOKEN");
+    const mercadoPagoAccessTokenRaw = Deno.env.get("MERCADOPAGO_ACCESS_TOKEN") || "";
+    const mercadoPagoAccessToken = mercadoPagoAccessTokenRaw.trim();
     if (!mercadoPagoAccessToken) {
       logStep("ERROR: MercadoPago access token not configured");
       return false;

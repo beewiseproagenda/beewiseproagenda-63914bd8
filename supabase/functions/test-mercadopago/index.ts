@@ -26,14 +26,13 @@ serve(async (req) => {
   try {
     const { plan_code, email } = await req.json();
     
-    // Get the access token
-    const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
+    const mpAccessToken = (Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || '').trim();
     const appUrl = Deno.env.get('APP_URL');
     
     if (!mpAccessToken) {
       return new Response(JSON.stringify({ 
-        error: 'MP_ACCESS_TOKEN not configured',
-        checkSecrets: 'Go to Supabase dashboard > Functions > Secrets and verify MP_ACCESS_TOKEN exists'
+        error: 'MERCADOPAGO_ACCESS_TOKEN not configured',
+        checkSecrets: 'Go to Supabase dashboard > Functions > Secrets and verify MERCADOPAGO_ACCESS_TOKEN exists'
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

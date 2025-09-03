@@ -21,7 +21,7 @@ serve(async (req) => {
   }
 
   try {
-    const mpPresent = !!(Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN'));
+    const mpPresent = !!(Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')?.trim());
     const envName = appUrl.includes('localhost') ? 'development' : 'production';
     const edgeBase = supabaseUrl ? `${supabaseUrl}/functions/v1` : '';
 

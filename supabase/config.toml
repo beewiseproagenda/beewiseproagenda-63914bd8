@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.mp-validate]
 verify_jwt = false
+
+[functions.diag-secret]
+verify_jwt = false

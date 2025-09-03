@@ -12,9 +12,9 @@ interface CreateSubscriptionRequest {
 serve(async (req) => {
   const allowedOrigin = Deno.env.get('APP_URL') || 'https://6d45dc04-588b-43e4-8e90-8f2206699257.sandbox.lovable.dev';
   const corsStrict = {
-    'Access-Control-Allow-Origin': '*', // Temporarily allow all for testing
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization,content-type'
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
   };
 
   if (req.method === 'OPTIONS') {
@@ -32,10 +32,10 @@ serve(async (req) => {
       });
     }
 
-    // Environment check
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const mpAccessToken = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || Deno.env.get('MP_ACCESS_TOKEN');
+    const mpAccessTokenRaw = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || '';
+    const mpAccessToken = mpAccessTokenRaw.trim();
     const appUrl = Deno.env.get('APP_URL');
 
     logSafely('[Environment check]', {
