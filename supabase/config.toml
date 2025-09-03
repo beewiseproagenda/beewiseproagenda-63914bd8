@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.diag-env]
 verify_jwt = false
+
+[functions.mp-validate]
+verify_jwt = false
