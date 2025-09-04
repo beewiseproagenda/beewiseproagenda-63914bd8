@@ -306,9 +306,12 @@ serve(async (req) => {
         auto_return: 'approved',
         notification_url: 'https://beewiseproagenda.com.br/api/mercadopago/webhook',
         payment_methods: {
+          default_payment_method_id: 'pix',
+          default_payment_type_id: 'bank_transfer',
           excluded_payment_types: [],
           excluded_payment_methods: [],
-          installments: 12
+          installments: 12,
+          default_installments: 1
         },
         statement_descriptor: 'BEEWISE PRO'
       };
