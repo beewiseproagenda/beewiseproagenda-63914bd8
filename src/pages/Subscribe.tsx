@@ -387,10 +387,15 @@ const Subscribe = () => {
                           BeeWise Pro - Anual
                         </CardTitle>
                       </div>
-                      <Badge variant="secondary" className="mx-auto w-fit text-yellow-700 bg-yellow-100">
-                        <Zap className="w-3 h-3 mr-1" />
-                        Economize 25%
-                      </Badge>
+                       <Badge variant="secondary" className="mx-auto w-fit text-yellow-700 bg-yellow-100">
+                         <Zap className="w-3 h-3 mr-1" />
+                         Economize 25%
+                       </Badge>
+                       <div className="mt-2">
+                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                           PIX e Boleto disponíveis
+                         </span>
+                       </div>
                     </CardHeader>
                     
                     <CardContent className="text-center space-y-4">
@@ -419,10 +424,10 @@ const Subscribe = () => {
                           <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
                           Relatórios avançados
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                          Integração com Mercado Pago
-                        </div>
+                         <div className="flex items-center gap-2">
+                           <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+                           PIX, Boleto e Cartão aceitos
+                         </div>
                       </div>
                     </CardContent>
                   </Card>

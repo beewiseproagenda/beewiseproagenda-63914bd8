@@ -266,6 +266,7 @@ export type Database = {
           id: number
           init_point: string | null
           mp_preapproval_id: string | null
+          mp_preference_id: string | null
           plan: string
           raw_response: Json | null
           status: string
@@ -278,6 +279,7 @@ export type Database = {
           id?: number
           init_point?: string | null
           mp_preapproval_id?: string | null
+          mp_preference_id?: string | null
           plan: string
           raw_response?: Json | null
           status?: string
@@ -290,6 +292,7 @@ export type Database = {
           id?: number
           init_point?: string | null
           mp_preapproval_id?: string | null
+          mp_preference_id?: string | null
           plan?: string
           raw_response?: Json | null
           status?: string

@@ -313,13 +313,60 @@ async function handlePaymentEvent(supabaseClient: any, payload: any): Promise<bo
     }
 
     const paymentData = await paymentResponse.json();
+    const externalReference = paymentData.external_reference;
+    
     logStep("Payment data retrieved", { 
       id: paymentData.id, 
       status: paymentData.status,
-      email: paymentData.payer?.email 
+      externalReference
     });
 
-    // Usar a função existente para atualizar status da assinatura
+    if (externalReference) {
+      // Find subscription by external_reference in mp_subscriptions
+      const { data: subscription, error: findError } = await supabaseClient
+        .from('mp_subscriptions')
+        .select('*')
+        .eq('external_reference', externalReference)
+        .single();
+
+      if (subscription && !findError) {
+        let newStatus = subscription.status;
+        
+        // Update status based on payment status (for checkout preferences)
+        if (paymentData.status === 'approved') {
+          newStatus = 'active';
+        } else if (paymentData.status === 'cancelled' || paymentData.status === 'rejected') {
+          newStatus = 'error';
+        } else if (paymentData.status === 'pending') {
+          newStatus = 'pending';
+        }
+
+        if (newStatus !== subscription.status) {
+          const { error: updateError } = await supabaseClient
+            .from('mp_subscriptions')
+            .update({ 
+              status: newStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', subscription.id);
+
+          if (updateError) {
+            logStep('Payment update error', { error: updateError.message });
+          } else {
+            logStep('Payment status updated', { 
+              subscriptionId: subscription.id,
+              oldStatus: subscription.status,
+              newStatus,
+              paymentStatus: paymentData.status
+            });
+          }
+        }
+      } else {
+        logStep('Payment subscription not found', { externalReference, error: findError?.message });
+      }
+    }
+
+    // Also use existing function for legacy compatibility
     await updateSubscriptionStatus(supabaseClient, paymentData);
     
     return true;
@@ -545,9 +592,25 @@ async function handlePreapprovalEvent(supabaseClient: any, payload: any): Promis
       action: payload.action 
     });
 
-    // Determine status based on action
-    let newStatus = 'pending';
+    // Find subscription by preapproval_id in mp_subscriptions  
+    const { data: subscription, error: findError } = await supabaseClient
+      .from('mp_subscriptions')
+      .select('*')
+      .eq('mp_preapproval_id', preapprovalId)
+      .single();
+
+    if (findError || !subscription) {
+      logStep("Preapproval subscription not found", { preapprovalId, error: findError?.message });
+      return false;
+    }
+
+    let newStatus = subscription.status;
+    
+    // Update subscription status based on webhook action
     switch (payload.action) {
+      case 'preapproval.created':
+        newStatus = 'pending';
+        break;
       case 'preapproval.authorized':
         newStatus = 'authorized';
         break;
@@ -562,27 +625,27 @@ async function handlePreapprovalEvent(supabaseClient: any, payload: any): Promis
         return false;
     }
 
-    // Update mp_subscriptions table by preapproval_id
-    const { error } = await supabaseClient
-      .from('mp_subscriptions')
-      .update({ 
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('mp_preapproval_id', preapprovalId);
+    if (newStatus !== subscription.status) {
+      const { error: updateError } = await supabaseClient
+        .from('mp_subscriptions')
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', subscription.id);
 
-    if (error) {
-      logStep("ERROR: Failed to update subscription status", { 
-        error: error.message,
-        preapprovalId 
-      });
-      return false;
+      if (updateError) {
+        logStep("Preapproval update error", { error: updateError.message });
+        return false;
+      } else {
+        logStep("Preapproval status updated", { 
+          subscriptionId: subscription.id,
+          oldStatus: subscription.status,
+          newStatus 
+        });
+      }
     }
 
-    logStep("Subscription status updated successfully", { 
-      preapprovalId, 
-      newStatus 
-    });
     return true;
 
   } catch (error) {

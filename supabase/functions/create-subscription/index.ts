@@ -203,7 +203,7 @@ serve(async (req) => {
       });
     }
 
-    // Define plan configurations for preapproval
+    // Define plan configurations
     const planConfigs = {
       mensal: {
         reason: 'BeeWise Pro - Mensal',
@@ -222,50 +222,126 @@ serve(async (req) => {
     const planConfig = planConfigs[plan_code];
     const external_reference = `${authenticatedUserId}:${plan_code}`;
 
-    logSafely('[Creating MP preapproval]', {
-      planCode: plan_code,
-      amount: planConfig.amount,
-      external_reference
-    });
-
-    // Create Mercado Pago preapproval
-    const preapprovalPayload = {
-      payer_email: requestEmail || authenticatedUserEmail,
-      reason: planConfig.reason,
-      back_url: `${appUrl || 'https://obdwvgxxunkomacbifry.supabase.co'}/assinatura/retorno`,
-      auto_recurring: {
-        frequency: planConfig.frequency,
-        frequency_type: planConfig.frequency_type,
-        transaction_amount: planConfig.amount,
-        currency_id: 'BRL'
-      },
-      external_reference,
-      notification_url: `${appUrl || 'https://obdwvgxxunkomacbifry.supabase.co'}/api/mercadopago/webhook`
-    };
-
-    logSafely('[MP request payload]', {
-      reason: planConfig.reason,
-      amount: planConfig.amount,
-      frequency: planConfig.frequency,
-      external_reference
-    });
-
-    const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${mpAccessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(preapprovalPayload)
-    });
-
-    // Safely parse MP response as JSON or text
-    const rawText = await mpResponse.text();
+    let mpResponse: Response;
     let mpData: any = {};
-    try {
-      mpData = rawText ? JSON.parse(rawText) : {};
-    } catch {
-      mpData = { message: rawText };
+    let init_point: string;
+    let record: any;
+
+    if (plan_code === 'mensal') {
+      // Monthly plan: use preapproval (recurring)
+      logSafely('[Creating MP preapproval]', {
+        planCode: plan_code,
+        amount: planConfig.amount,
+        external_reference
+      });
+
+      const preapprovalPayload = {
+        payer_email: requestEmail || authenticatedUserEmail,
+        reason: planConfig.reason,
+        back_url: `https://beewiseproagenda.com.br/assinatura/retorno`,
+        auto_recurring: {
+          frequency: planConfig.frequency,
+          frequency_type: planConfig.frequency_type,
+          transaction_amount: planConfig.amount,
+          currency_id: 'BRL'
+        },
+        external_reference,
+        notification_url: `https://beewiseproagenda.com.br/api/mercadopago/webhook`
+      };
+
+      mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mpAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(preapprovalPayload)
+      });
+
+      // Parse response
+      const rawText = await mpResponse.text();
+      try {
+        mpData = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        mpData = { message: rawText };
+      }
+
+      if (mpResponse.ok) {
+        init_point = mpData.init_point || mpData.sandbox_init_point;
+        record = {
+          user_id: authenticatedUserId,
+          plan: 'monthly',
+          external_reference,
+          mp_preapproval_id: mpData.id,
+          init_point,
+          status: 'pending',
+          raw_response: mpData
+        };
+      }
+
+    } else {
+      // Annual plan: use checkout preference (PIX, Boleto, Card)
+      logSafely('[Creating MP checkout preference]', {
+        planCode: plan_code,
+        amount: planConfig.amount,
+        external_reference
+      });
+
+      const preferencePayload = {
+        items: [
+          {
+            title: 'BeeWise Pro - Anual',
+            quantity: 1,
+            unit_price: 178.8,
+            currency_id: 'BRL'
+          }
+        ],
+        payer: { email: requestEmail || authenticatedUserEmail },
+        external_reference,
+        back_urls: {
+          success: 'https://beewiseproagenda.com.br/assinatura/retorno?status=success',
+          pending: 'https://beewiseproagenda.com.br/assinatura/retorno?status=pending',
+          failure: 'https://beewiseproagenda.com.br/assinatura/retorno?status=failure'
+        },
+        auto_return: 'approved',
+        notification_url: 'https://beewiseproagenda.com.br/api/mercadopago/webhook',
+        payment_methods: {
+          excluded_payment_types: [],
+          excluded_payment_methods: [],
+          installments: 12
+        },
+        statement_descriptor: 'BEEWISE PRO'
+      };
+
+      mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${mpAccessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(preferencePayload)
+      });
+
+      // Parse response
+      const rawText = await mpResponse.text();
+      try {
+        mpData = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        mpData = { message: rawText };
+      }
+
+      if (mpResponse.ok) {
+        init_point = mpData.init_point || mpData.sandbox_init_point;
+        record = {
+          user_id: authenticatedUserId,
+          plan: 'annual',
+          external_reference,
+          mp_preference_id: mpData.id,
+          init_point,
+          status: 'pending',
+          raw_response: mpData
+        };
+      }
     }
 
     // Always log MP response (safely)
@@ -276,7 +352,8 @@ serve(async (req) => {
       external_reference,
       error_code: mpData?.error,
       message: mpData?.message,
-      hasInitPoint: !!(mpData?.init_point || mpData?.sandbox_init_point)
+      hasInitPoint: !!init_point,
+      kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
     });
 
     if (!mpResponse.ok) {
@@ -299,21 +376,7 @@ serve(async (req) => {
       });
     }
 
-    const preapprovalId = mpData.id;
-    const init_point = mpData.init_point || mpData.sandbox_init_point;
-
     logSafely('[Saving subscription to DB]');
-
-    // Prepare subscription record for mp_subscriptions table
-    const record = {
-      user_id: authenticatedUserId,
-      plan: plan_code === 'mensal' ? 'monthly' : 'annual',
-      external_reference,
-      mp_preapproval_id: preapprovalId,
-      init_point,
-      status: 'pending',
-      raw_response: mpData
-    };
 
     // Use admin client for database operations
     const { error: dbErr } = await admin
@@ -328,7 +391,8 @@ serve(async (req) => {
     logSafely('[Success]', {
       subscriptionSaved: !dbErr,
       externalReference: external_reference,
-      initPoint: !!init_point
+      initPoint: !!init_point,
+      kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
     });
 
     // Always return 200 with init_point to not break checkout flow
@@ -336,7 +400,8 @@ serve(async (req) => {
       init_point,
       saved: !dbErr,
       save_error: dbErr?.message,
-      external_reference
+      external_reference,
+      kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
     }), {
       status: 200,
       headers: { ...corsStrict, 'Content-Type': 'application/json' },
