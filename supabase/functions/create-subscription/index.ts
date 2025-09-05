@@ -287,7 +287,7 @@ serve(async (req) => {
         external_reference
       });
 
-      const preferencePayload = {
+      let preferencePayload: any = {
         items: [
           {
             title: 'BeeWise Pro - Anual',
@@ -306,8 +306,6 @@ serve(async (req) => {
         auto_return: 'approved',
         notification_url: 'https://beewiseproagenda.com.br/api/mercadopago/webhook',
         payment_methods: {
-          default_payment_method_id: 'pix',
-          default_payment_type_id: 'bank_transfer',
           excluded_payment_types: [],
           excluded_payment_methods: [],
           installments: 12,
@@ -316,6 +314,9 @@ serve(async (req) => {
         statement_descriptor: 'BEEWISE PRO'
       };
 
+      let retried = false;
+
+      // First attempt with payment_methods configuration
       mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
         headers: {
@@ -326,15 +327,77 @@ serve(async (req) => {
       });
 
       // Parse response
-      const rawText = await mpResponse.text();
+      let rawText = await mpResponse.text();
       try {
         mpData = rawText ? JSON.parse(rawText) : {};
       } catch {
         mpData = { message: rawText };
       }
 
+      // Check if we need to retry without payment_methods
+      if (!mpResponse.ok && 
+          (mpData?.message?.includes('default_payment_method_id') || 
+           mpData?.message?.includes('default_payment_type_id') ||
+           mpData?.message?.includes('payment_methods'))) {
+        
+        logSafely('[PREFERENCE_RETRY_WITHOUT_PAYMENT_METHODS]', {
+          original_error: mpData?.message,
+          status: mpResponse.status
+        });
+
+        // Retry without payment_methods block
+        const retryPayload = { ...preferencePayload };
+        delete retryPayload.payment_methods;
+        
+        mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${mpAccessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(retryPayload)
+        });
+
+        rawText = await mpResponse.text();
+        try {
+          mpData = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          mpData = { message: rawText };
+        }
+        
+        retried = true;
+      }
+
       if (mpResponse.ok) {
         init_point = mpData.init_point || mpData.sandbox_init_point;
+        
+        // Diagnostic: Get preference details for logging (without PII)
+        if (mpData.id) {
+          try {
+            const diagResponse = await fetch(`https://api.mercadopago.com/checkout/preferences/${mpData.id}`, {
+              headers: {
+                'Authorization': `Bearer ${mpAccessToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (diagResponse.ok) {
+              const diagData = await diagResponse.json();
+              logSafely('[Preference diagnostic]', {
+                id: diagData.id,
+                site_id: diagData.site_id,
+                payment_methods: {
+                  excluded_payment_types: diagData.payment_methods?.excluded_payment_types || [],
+                  excluded_payment_methods: diagData.payment_methods?.excluded_payment_methods || [],
+                  installments: diagData.payment_methods?.installments
+                }
+              });
+            }
+          } catch (diagError) {
+            logSafely('[Preference diagnostic failed]', { error: diagError.message });
+          }
+        }
+
         record = {
           user_id: authenticatedUserId,
           plan: 'annual',
@@ -342,7 +405,8 @@ serve(async (req) => {
           mp_preference_id: mpData.id,
           init_point,
           status: 'pending',
-          raw_response: mpData
+          raw_response: mpData,
+          retried
         };
       }
     }
@@ -404,7 +468,8 @@ serve(async (req) => {
       saved: !dbErr,
       save_error: dbErr?.message,
       external_reference,
-      kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
+      kind: plan_code === 'mensal' ? 'preapproval' : 'preference',
+      retried: record?.retried || false
     }), {
       status: 200,
       headers: { ...corsStrict, 'Content-Type': 'application/json' },

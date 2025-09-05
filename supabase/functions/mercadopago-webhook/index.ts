@@ -322,21 +322,47 @@ async function handlePaymentEvent(supabaseClient: any, payload: any): Promise<bo
     });
 
     if (externalReference) {
-      // Find subscription by external_reference in mp_subscriptions
-      const { data: subscription, error: findError } = await supabaseClient
+      // Find subscription by external_reference or mp_preference_id in mp_subscriptions
+      let subscription = null;
+      let findError = null;
+
+      // First try to find by external_reference
+      const { data: subByRef, error: refError } = await supabaseClient
         .from('mp_subscriptions')
         .select('*')
         .eq('external_reference', externalReference)
         .single();
 
-      if (subscription && !findError) {
+      if (subByRef && !refError) {
+        subscription = subByRef;
+      } else {
+        // If payment has preference_id, try to find by mp_preference_id  
+        if (paymentData.additional_info?.preference_id || paymentData.preference_id) {
+          const preferenceId = paymentData.additional_info?.preference_id || paymentData.preference_id;
+          const { data: subByPref, error: prefError } = await supabaseClient
+            .from('mp_subscriptions')
+            .select('*')
+            .eq('mp_preference_id', preferenceId)
+            .single();
+          
+          if (subByPref && !prefError) {
+            subscription = subByPref;
+          } else {
+            findError = prefError;
+          }
+        } else {
+          findError = refError;
+        }
+      }
+
+      if (subscription) {
         let newStatus = subscription.status;
         
         // Update status based on payment status (for checkout preferences)
         if (paymentData.status === 'approved') {
           newStatus = 'active';
         } else if (paymentData.status === 'cancelled' || paymentData.status === 'rejected') {
-          newStatus = 'error';
+          newStatus = 'cancelled';
         } else if (paymentData.status === 'pending') {
           newStatus = 'pending';
         }
@@ -357,12 +383,17 @@ async function handlePaymentEvent(supabaseClient: any, payload: any): Promise<bo
               subscriptionId: subscription.id,
               oldStatus: subscription.status,
               newStatus,
-              paymentStatus: paymentData.status
+              paymentStatus: paymentData.status,
+              searchBy: subByRef ? 'external_reference' : 'mp_preference_id'
             });
           }
         }
       } else {
-        logStep('Payment subscription not found', { externalReference, error: findError?.message });
+        logStep('Payment subscription not found', { 
+          externalReference, 
+          preferenceId: paymentData.additional_info?.preference_id || paymentData.preference_id,
+          error: findError?.message 
+        });
       }
     }
 
