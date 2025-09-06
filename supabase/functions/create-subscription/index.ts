@@ -371,9 +371,10 @@ serve(async (req) => {
       if (mpResponse.ok) {
         init_point = mpData.init_point || mpData.sandbox_init_point;
         
-        // Diagnostic: Get preference details for logging (without PII)
+        // Diagnostic: Get preference details and capabilities
         if (mpData.id) {
           try {
+            // Get preference details
             const diagResponse = await fetch(`https://api.mercadopago.com/checkout/preferences/${mpData.id}`, {
               headers: {
                 'Authorization': `Bearer ${mpAccessToken}`,
@@ -381,18 +382,55 @@ serve(async (req) => {
               }
             });
             
+            let preferenceData = null;
             if (diagResponse.ok) {
               const diagData = await diagResponse.json();
-              logSafely('[Preference diagnostic]', {
+              preferenceData = {
                 id: diagData.id,
                 site_id: diagData.site_id,
                 payment_methods: {
                   excluded_payment_types: diagData.payment_methods?.excluded_payment_types || [],
                   excluded_payment_methods: diagData.payment_methods?.excluded_payment_methods || [],
-                  installments: diagData.payment_methods?.installments
+                  installments: diagData.payment_methods?.installments,
+                  default_installments: diagData.payment_methods?.default_installments
                 }
-              });
+              };
+              logSafely('[Preference diagnostic]', preferenceData);
             }
+
+            // Get capabilities
+            const capabilitiesResponse = await fetch('https://api.mercadopago.com/v1/payment_methods?site_id=MLB', {
+              headers: {
+                'Authorization': `Bearer ${mpAccessToken}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            let capabilities = { pix_available: false, boleto_available: false, credit_card_available: false, notes: 'Unable to check capabilities' };
+            if (capabilitiesResponse.ok) {
+              const methodsData = await capabilitiesResponse.json();
+              capabilities = {
+                pix_available: methodsData.some((m: any) => m.id === 'pix'),
+                boleto_available: methodsData.some((m: any) => m.id === 'bolbradesco'),
+                credit_card_available: methodsData.some((m: any) => m.payment_type_id === 'credit_card'),
+                notes: 'Based on v1/payment_methods'
+              };
+            }
+
+            // Log combined diagnostic result
+            logSafely('[DIAGNOSTIC_RESULT]', {
+              ui_cleanup: 'done',
+              removed: ['public/test-production.html'],
+              create_subscription: { 
+                init_point: !!init_point, 
+                kind: 'preference', 
+                saved: true, 
+                retried 
+              },
+              preference: preferenceData,
+              capabilities
+            });
+
           } catch (diagError) {
             logSafely('[Preference diagnostic failed]', { error: diagError.message });
           }
