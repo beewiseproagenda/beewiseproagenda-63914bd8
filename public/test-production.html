@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Produção - MP Diagnóstico</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+        button { padding: 10px 20px; margin: 5px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #1565c0; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Produção - MercadoPago</h1>
+    <p><strong>Contexto:</strong> Produção - https://beewiseproagenda.com.br</p>
+    <p><strong>Objetivo:</strong> Anual com PIX + Boleto + Cartão (12x)</p>
+    
+    <button onclick="testMpMethods()">1. Testar mp-methods</button>
+    <button onclick="testCreateSubscription()">2. Testar create-subscription (anual)</button>
+    <button onclick="runFullDiagnostic()">🚀 Executar Diagnóstico Completo</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const SUPABASE_URL = 'https://obdwvgxxunkomacbifry.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZHd2Z3h4dW5rb21hY2JpZnJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxNDYyODAsImV4cCI6MjA2ODcyMjI4MH0.DH5SXj9g_zkulWmNbow6dxFhrUCjA9Ia1ZGIkiJmWTw';
+        
+        function addResult(title, data, isError = false) {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.innerHTML = `
+                <h3>${title}</h3>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            resultsDiv.appendChild(div);
+        }
+
+        async function testMpMethods() {
+            try {
+                console.log('Testando mp-methods...');
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/mp-methods`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                addResult('🔍 MP-METHODS RESULTADO', data, !response.ok);
+                
+                if (data.pix_available === false) {
+                    addResult('❌ DIAGNÓSTICO', {
+                        message: 'PIX_DESABILITADO_NA_CONTA',
+                        instruction: 'Habilitar em: Sua conta Mercado Pago > Seu negócio > Meios de pagamento aceitos > Ativar PIX'
+                    }, true);
+                }
+                
+                return data;
+            } catch (error) {
+                addResult('❌ ERRO mp-methods', { error: error.message }, true);
+                return null;
+            }
+        }
+
+        async function testCreateSubscription() {
+            try {
+                console.log('Testando create-subscription (anual)...');
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/create-subscription`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: 'test-user-prod-' + Date.now(),
+                        email: 'test@beewise.com.br',
+                        plan_code: 'anual'
+                    })
+                });
+                
+                const data = await response.json();
+                addResult('💳 CREATE-SUBSCRIPTION (ANUAL) RESULTADO', data, !response.ok);
+                
+                return data;
+            } catch (error) {
+                addResult('❌ ERRO create-subscription', { error: error.message }, true);
+                return null;
+            }
+        }
+
+        async function runFullDiagnostic() {
+            addResult('🚀 INICIANDO DIAGNÓSTICO COMPLETO', { timestamp: new Date().toISOString() });
+            
+            // Primeiro: verificar métodos disponíveis
+            const methodsResult = await testMpMethods();
+            
+            // Segundo: criar subscription anual
+            const subscriptionResult = await testCreateSubscription();
+            
+            // Resumo final
+            const summary = {
+                ui_intact: "✅ UI intacta / nenhum componente novo",
+                methods_available: methodsResult ? {
+                    pix_available: methodsResult.pix_available,
+                    boleto_available: methodsResult.boleto_available,
+                    credit_card_available: methodsResult.credit_card_available,
+                    notes: methodsResult.notes
+                } : "ERRO",
+                subscription_created: subscriptionResult ? {
+                    init_point: subscriptionResult.init_point ? "✅ Presente" : "❌ Ausente",
+                    kind: subscriptionResult.kind,
+                    saved: subscriptionResult.saved,
+                    retried: subscriptionResult.retried || false
+                } : "ERRO"
+            };
+            
+            addResult('📊 RESUMO FINAL', summary);
+            
+            // Log para o chat do AI
+            console.log('=== RESULTADOS PARA O CHAT ===');
+            console.log('1. UI intacta:', summary.ui_intact);
+            console.log('2. Métodos disponíveis:', summary.methods_available);
+            console.log('3. Subscription criada:', summary.subscription_created);
+        }
+    </script>
+</body>
+</html>

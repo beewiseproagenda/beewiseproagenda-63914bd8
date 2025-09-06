@@ -287,31 +287,31 @@ serve(async (req) => {
         external_reference
       });
 
-      let preferencePayload: any = {
+      const preferencePayload = {
         items: [
           {
-            title: 'BeeWise Pro - Anual',
+            title: "BeeWise Pro - Anual",
             quantity: 1,
             unit_price: 178.8,
-            currency_id: 'BRL'
+            currency_id: "BRL"
           }
         ],
         payer: { email: requestEmail || authenticatedUserEmail },
         external_reference,
         back_urls: {
-          success: 'https://beewiseproagenda.com.br/assinatura/retorno?status=success',
-          pending: 'https://beewiseproagenda.com.br/assinatura/retorno?status=pending',
-          failure: 'https://beewiseproagenda.com.br/assinatura/retorno?status=failure'
+          success: "https://beewiseproagenda.com.br/assinatura/retorno?status=success",
+          pending: "https://beewiseproagenda.com.br/assinatura/retorno?status=pending",
+          failure: "https://beewiseproagenda.com.br/assinatura/retorno?status=failure"
         },
-        auto_return: 'approved',
-        notification_url: 'https://beewiseproagenda.com.br/api/mercadopago/webhook',
+        auto_return: "approved",
+        notification_url: "https://beewiseproagenda.com.br/api/mercadopago/webhook",
         payment_methods: {
           excluded_payment_types: [],
           excluded_payment_methods: [],
           installments: 12,
           default_installments: 1
         },
-        statement_descriptor: 'BEEWISE PRO'
+        statement_descriptor: "BEEWISE PRO"
       };
 
       let retried = false;

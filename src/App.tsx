@@ -38,8 +38,6 @@ import { useInstallGuide } from "./hooks/useInstallGuide";
 import { PWAInstallPrompt, PWAStatus } from "./components/PWAInstallPrompt";
 import { InstallGuideModal } from "./components/InstallGuideModal";
 import { LoadingSpinner } from "./components/LoadingSpinner";
-import { MPDiagnostic } from "./components/MPDiagnostic";
-
 const queryClient = new QueryClient();
 
 // Componente para o layout protegido
@@ -290,12 +288,7 @@ const AppContent = () => {
 
   return (
     <>
-      <div className="fixed top-4 left-4 right-4 z-50 max-w-4xl mx-auto">
-        <MPDiagnostic />
-      </div>
-      <div className="pt-40">
-        <AppRoutes />
-      </div>
+      <AppRoutes />
       <PWAInstallPrompt />
       <PWAStatus />
       <InstallGuideModal
