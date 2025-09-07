@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.db-health]
 verify_jwt = false
+
+[functions.auth-ping]
+verify_jwt = false

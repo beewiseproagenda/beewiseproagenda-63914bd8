@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Check, Crown, Zap, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+const EDGE = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1';
 const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -117,6 +118,31 @@ const Subscribe = () => {
     }
   }, [searchParams, user, authLoading]);
 
+  const didAuthPing = useRef(false);
+
+  useEffect(() => {
+    if (authLoading || didAuthPing.current) return;
+    if (!session?.access_token) return;
+
+    didAuthPing.current = true;
+    (async () => {
+      try {
+        const resp = await fetch(`${EDGE}/auth-ping`, {
+          method: 'GET',
+          mode: 'cors',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        const json = await resp.json().catch(() => ({}));
+        console.log('[Subscribe] auth-ping result', { status: resp.status, json });
+      } catch (err) {
+        console.error('[Subscribe] auth-ping failed', err);
+      }
+    })();
+  }, [authLoading, session?.access_token]);
+
   const handleSubscribe = async () => {
     // Validação de sessão antes de fazer qualquer requisição
     if (!session?.access_token) {
@@ -180,10 +206,10 @@ const Subscribe = () => {
         console.error('No init_point in response:', json);
       }
       
-    } catch (e) {
+    } catch (e: any) {
       const errorDetails = {
         origin: window.location.origin,
-        edgeUrl: 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1',
+        edgeUrl: EDGE,
         message: e?.message || 'Unknown error'
       };
       alert(`NETWORK_ERROR ${JSON.stringify(errorDetails)}`);
