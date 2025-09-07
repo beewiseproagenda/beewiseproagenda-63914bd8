@@ -8,8 +8,10 @@ const getCorsHeaders = (req: Request) => {
   const allow = ALLOWED.includes(origin) ? origin : '';
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'GET,OPTIONS',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'authorization,content-type,supabase-client',
+    'Access-Control-Allow-Credentials': 'true',
+    'Vary': 'Origin',
   } as Record<string, string>;
 };
 
@@ -27,10 +29,18 @@ serve(async (req) => {
     });
   }
 
-  const origin = req.headers.get('Origin') || '';
-  const allowHeader = cors['Access-Control-Allow-Origin'];
+  const origin = req.headers.get('Origin') || null;
+  const appUrl = Deno.env.get('APP_URL')?.trim();
+  const previewUrl = Deno.env.get('APP_URL_PREVIEW')?.trim();
+  const allowedOrigins = [appUrl, previewUrl].filter(Boolean) as string[];
+  const allowedForThisRequest = origin ? allowedOrigins.includes(origin) : false;
 
-  return new Response(JSON.stringify({ ok: true, originRecebido: origin, allowHeader }), {
+  return new Response(JSON.stringify({ 
+    ok: true, 
+    received_origin: origin, 
+    allowed_origins: allowedOrigins,
+    allowed_for_this_request: allowedForThisRequest
+  }), {
     status: 200,
     headers: { ...cors, 'Content-Type': 'application/json' },
   });

@@ -20,7 +20,9 @@ serve(async (req) => {
     return {
       'Access-Control-Allow-Origin': allow,
       'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      'Access-Control-Allow-Headers': 'authorization,content-type,supabase-client',
+      'Access-Control-Allow-Credentials': 'true',
+      'Vary': 'Origin',
     } as Record<string, string>;
   };
 

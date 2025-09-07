@@ -10,8 +10,10 @@ const getCorsHeaders = (req: Request) => {
   const allow = ALLOWED.includes(origin) ? origin : "";
   return {
     "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Headers": "authorization, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "authorization,content-type,supabase-client",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Credentials": "true",
+    "Vary": "Origin",
   } as Record<string, string>;
 };
 
