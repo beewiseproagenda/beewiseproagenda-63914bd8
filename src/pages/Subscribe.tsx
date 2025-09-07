@@ -131,52 +131,25 @@ const Subscribe = () => {
       return;
     }
 
-  try {
+    try {
       setIsCreating(true);
       
-      // Convert selectedPlan to expected format
+      const EDGE = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1';
       const planValue = selectedPlan === 'mensal' ? 'monthly' : 'annual';
       
       console.log('[Subscribe] Making request with real session:', { 
         planValue, 
         userEmail: session.user.email,
-        hasAccessToken: !!session.access_token 
+        hasAccessToken: !!session.access_token,
+        edgeUrl: EDGE 
       });
       
-      const EDGE_URL = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription';
-      console.log('[Subscribe] Fetch config', { origin: window.location.origin, EDGE_URL });
-      
-      // Test db-health first
-      console.log('[Subscribe] Testing /db-health connectivity...');
-      try {
-        const healthResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/db-health', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const healthJson = await healthResp.json().catch(() => ({}));
-        console.log('[Subscribe] DB Health result:', healthJson);
-      } catch (healthErr) {
-        console.warn('[Subscribe] DB Health failed:', healthErr);
-      }
-
-      // Test ping connectivity
-      console.log('[Subscribe] Testing /ping connectivity...');
-      try {
-        const pingResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/ping', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const pingJson = await pingResp.json().catch(() => ({}));
-        console.log('[Subscribe] Ping result:', pingJson);
-      } catch (pingErr) {
-        console.warn('[Subscribe] Ping failed:', pingErr);
-      }
-      
-      const resp = await fetch(EDGE_URL, {
+      const resp = await fetch(`${EDGE}/create-subscription`, {
         method: 'POST',
+        mode: 'cors',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 
           plan: planValue, 
@@ -208,8 +181,13 @@ const Subscribe = () => {
       }
       
     } catch (e) {
-      alert('Sem conexão com a Edge (CORS/HTTPS/rota).');
-      console.error('NETWORK ERROR', e);
+      const errorDetails = {
+        origin: window.location.origin,
+        edgeUrl: 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1',
+        message: e?.message || 'Unknown error'
+      };
+      alert(`NETWORK_ERROR ${JSON.stringify(errorDetails)}`);
+      console.error('NETWORK ERROR', errorDetails);
     } finally {
       setIsCreating(false);
     }
