@@ -512,7 +512,7 @@ serve(async (req) => {
     // Always return 200 with init_point to not break checkout flow
     return new Response(JSON.stringify({
       ok: true,
-      status: 200,
+      status: mpResponse.status,
       preference_id: mpData?.id || record?.mp_preference_id || null,
       external_reference,
       init_point,
