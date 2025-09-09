@@ -30,5 +30,5 @@ verify_jwt = false
 [functions.db-health]
 verify_jwt = false
 
-[functions.auth-ping]
+[functions.test-prod-connection]
 verify_jwt = false

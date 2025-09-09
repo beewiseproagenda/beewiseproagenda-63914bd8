@@ -49,7 +49,7 @@ serve(async (req) => {
     const domain = email ? email.split('@')[1] || null : null;
 
     return new Response(
-      JSON.stringify({ ok: true, user_id: data.user.id, email_domain_only: domain }),
+      JSON.stringify({ ok: true, user_id: data.user.id }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
   } catch (err) {

@@ -451,37 +451,44 @@ serve(async (req) => {
       }
     }
 
-    // Always log MP response (safely)
-    console.log('MP status:', mpResponse.status, 'ref:', external_reference, 'code:', mpData?.error, 'message:', mpData?.message);
-    
-    logSafely('[MP Response]', {
-      status: mpResponse.status,
-      external_reference,
-      error_code: mpData?.error,
-      message: mpData?.message,
-      hasInitPoint: !!init_point,
-      kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
-    });
-
-    if (!mpResponse.ok) {
-      logSafely('[MP Error Response]', {
+      logSafely('[MP Response]', {
         status: mpResponse.status,
+        external_reference,
         error_code: mpData?.error,
         message: mpData?.message,
-        cause: mpData?.cause
+        hasInitPoint: !!init_point,
+        kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
       });
 
-      return new Response(JSON.stringify({
-        error: 'MP_ERROR',
-        status: mpResponse.status,
-        code: mpData?.error,
-        message: mpData?.message || 'Mercado Pago API error',
-        cause: mpData?.cause
-      }), {
-        status: 502,
-        headers: { ...corsStrict, 'Content-Type': 'application/json' },
-      });
-    }
+      if (!mpResponse.ok) {
+        return new Response(JSON.stringify({
+          ok: false,
+          status: mpResponse.status,
+          preference_id: mpData?.id || null,
+          external_reference,
+          init_point: null,
+          retried,
+          mp_error: { status: mpResponse.status, code: mpData?.error || 'MP_ERROR', message: mpData?.message || 'Mercado Pago API error', cause: mpData?.cause || [] }
+        }), {
+          status: 502,
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!init_point) {
+        return new Response(JSON.stringify({
+          ok: false,
+          status: mpResponse.status,
+          preference_id: mpData?.id || null,
+          external_reference,
+          init_point: null,
+          retried,
+          mp_error: { status: 200, code: 'NO_INIT_POINT', message: 'Missing init_point in MP response', cause: [] }
+        }), {
+          status: 502,
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
+        });
+      }
 
     logSafely('[Saving subscription to DB]');
 
@@ -504,12 +511,13 @@ serve(async (req) => {
 
     // Always return 200 with init_point to not break checkout flow
     return new Response(JSON.stringify({
-      init_point,
-      saved: !dbErr,
-      save_error: dbErr?.message,
+      ok: true,
+      status: 200,
+      preference_id: mpData?.id || record?.mp_preference_id || null,
       external_reference,
-      kind: plan_code === 'mensal' ? 'preapproval' : 'preference',
-      retried: record?.retried || false
+      init_point,
+      retried: record?.retried || retried || false,
+      mp_error: null
     }), {
       status: 200,
       headers: { ...corsStrict, 'Content-Type': 'application/json' },
