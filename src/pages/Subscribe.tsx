@@ -144,60 +144,66 @@ const Subscribe = () => {
   }, [authLoading, session?.access_token]);
 
   const handleSubscribe = async () => {
-    // Validação de sessão antes de fazer qualquer requisição
-    if (!session?.access_token) {
-      alert('Sessão expirou. Faça login novamente.');
-      navigate('/login');
-      return;
-    }
-
-    if (!session?.user?.email) {
-      alert('E-mail do usuário não encontrado. Faça login novamente.');
-      navigate('/login');
-      return;
-    }
-
     try {
       setIsCreating(true);
-      
-      const EDGE = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1';
+
+      // Obter sessão atual e tentar refresh para garantir token válido
+      let { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) {
+        await supabase.auth.refreshSession();
+        const refreshed = await supabase.auth.getSession();
+        currentSession = refreshed.data.session;
+      }
+
+      if (!currentSession?.access_token) {
+        alert('Faça login para assinar.');
+        navigate('/login');
+        return;
+      }
+
+      if (!currentSession.user?.email) {
+        alert('E-mail do usuário não encontrado. Faça login novamente.');
+        navigate('/login');
+        return;
+      }
+
       const planValue = selectedPlan === 'mensal' ? 'monthly' : 'annual';
-      
-      console.log('[Subscribe] Making request with real session:', { 
-        planValue, 
-        userEmail: session.user.email,
-        hasAccessToken: !!session.access_token,
-        edgeUrl: EDGE 
+
+      console.log('[Subscribe] Creating subscription with fresh token', {
+        planValue,
+        userEmail: currentSession.user.email,
+        hasAccessToken: !!currentSession.access_token,
+        edgeUrl: EDGE
       });
-      
+
       const resp = await fetch(`${EDGE}/create-subscription`, {
         method: 'POST',
         mode: 'cors',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${currentSession.access_token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          plan: planValue, 
-          userEmail: session.user.email 
+        body: JSON.stringify({
+          plan: planValue,
+          userEmail: currentSession.user.email
         })
       });
-      
+
       const json = await resp.json().catch(() => ({}));
-      
-      console.log('[Subscribe] Edge Function response:', { 
+
+      console.log('[Subscribe] Edge Function response:', {
         status: resp.status,
         ok: resp.ok,
         json
       });
-      
+
       if (!resp.ok) {
         const alertMsg = `Falha: status=${json.status || resp.status} code=${json.code || ''} msg=${json.message || json.detail || 'ver console'}`;
         alert(alertMsg);
         console.error('SUBSCRIBE ERROR', json);
         return;
       }
-      
+
       if (json?.init_point) {
         console.log('Redirecting to Mercado Pago:', json.init_point);
         window.location.href = json.init_point;
@@ -205,7 +211,7 @@ const Subscribe = () => {
         alert('Erro: Não foi possível obter o link de pagamento.');
         console.error('No init_point in response:', json);
       }
-      
+
     } catch (e: any) {
       const errorDetails = {
         origin: window.location.origin,
