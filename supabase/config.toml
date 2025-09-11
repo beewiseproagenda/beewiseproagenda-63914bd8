@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.test-prod-connection]
 verify_jwt = false
+
+[functions.whoami]
+verify_jwt = false
