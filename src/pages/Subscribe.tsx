@@ -147,21 +147,20 @@ const Subscribe = () => {
     try {
       setIsCreating(true);
 
-      // Obter sessão atual e tentar refresh para garantir token válido
-      let { data: { session: currentSession } } = await supabase.auth.getSession();
-      if (!currentSession) {
-        await supabase.auth.refreshSession();
-        const refreshed = await supabase.auth.getSession();
-        currentSession = refreshed.data.session;
-      }
+      // SEMPRE refresh da sessão para garantir token válido
+      console.log('[Subscribe] Fazendo refresh da sessão antes da chamada');
+      await supabase.auth.refreshSession();
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
 
       if (!currentSession?.access_token) {
-        alert('Faça login para assinar.');
+        console.error('[Subscribe] Nenhum access_token após refresh');
+        alert('Sua sessão expirou. Faça login novamente.');
         navigate('/login');
         return;
       }
 
       if (!currentSession.user?.email) {
+        console.error('[Subscribe] Email não encontrado na sessão');
         alert('E-mail do usuário não encontrado. Faça login novamente.');
         navigate('/login');
         return;

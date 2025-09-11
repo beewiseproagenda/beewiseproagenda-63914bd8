@@ -92,7 +92,7 @@ const Cadastro = () => {
     await supabase.auth.signOut();
 
     if (data.user) {
-      // Create onboarding token
+      // Create onboarding token - no auth needed for this endpoint
       try {
         const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-onboarding-token', {
           body: {

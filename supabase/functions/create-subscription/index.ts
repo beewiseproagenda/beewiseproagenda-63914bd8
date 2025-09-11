@@ -122,33 +122,43 @@ serve(async (req) => {
       
       logSafely('[Token validated]', { userId: '[USER_ID]' });
     } else {
-      // Standard auth flow
-      const authResult = await requireAuth(req);
-      if (!authResult) {
-        logSafely('[Auth failed]', { error_code: 'UNAUTHORIZED' });
-        
-        // Para debugging, verificar se é um teste
-        const authHeader = req.headers.get('Authorization');
-        if (authHeader?.includes('TEST_MODE')) {
-          // Modo de teste - simular usuário válido
-          authenticatedUserId = 'test-user-id';
-          authenticatedUserEmail = requestEmail || 'test@example.com';
-          logSafely('[Test mode activated]', { userId: '[TEST_USER]' });
-        } else {
-          return new Response(JSON.stringify({ 
-            error: 'UNAUTHORIZED', 
-            message: 'Authentication required' 
-          }), {
-            status: 401,
-            headers: { ...corsStrict, 'Content-Type': 'application/json' },
-          });
-        }
-      } else {
-        authenticatedUserId = authResult.userId;
-        authenticatedUserEmail = authResult.email;
-        
-        logSafely('[User authenticated]', { userId: '[USER_ID]' });
+      // Standard auth flow - validate JWT via Admin API
+      const authHeader = req.headers.get('Authorization') || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      
+      if (!token) {
+        logSafely('[Auth failed]', { error_code: 'MISSING_BEARER' });
+        return new Response(JSON.stringify({ 
+          ok: false,
+          status: 401,
+          error: 'MISSING_BEARER',
+          message: 'Authorization Bearer token required' 
+        }), {
+          status: 401,
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
+        });
       }
+
+      // Use Admin API to validate JWT
+      const { data: userData, error: authError } = await admin.auth.getUser(token);
+      
+      if (authError || !userData?.user) {
+        logSafely('[Auth failed]', { error_code: 'INVALID_JWT', message: authError?.message });
+        return new Response(JSON.stringify({ 
+          ok: false,
+          status: 401,
+          error: 'INVALID_JWT',
+          message: 'Token inválido ou expirado' 
+        }), {
+          status: 401,
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
+        });
+      }
+
+      authenticatedUserId = userData.user.id;
+      authenticatedUserEmail = userData.user.email || '';
+      
+      logSafely('[User authenticated via Admin API]', { userId: '[USER_ID]', email: '[EMAIL_REDACTED]' });
     }
 
     // Validate input

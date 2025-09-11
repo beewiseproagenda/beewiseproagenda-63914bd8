@@ -21,7 +21,7 @@ const EmailVerified = () => {
         const otToken = searchParams.get('ot');
         
         if (otToken) {
-          // Validate onboarding token
+          // Validate onboarding token - no auth needed for this endpoint
           const { data, error } = await supabase.functions.invoke('validate-onboarding-token', {
             body: { token: otToken }
           });
