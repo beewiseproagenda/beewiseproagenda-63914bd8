@@ -143,85 +143,55 @@ const Subscribe = () => {
     })();
   }, [authLoading, session?.access_token]);
 
-  const handleSubscribe = async () => {
+  async function callCreateSubscription(plan: 'monthly'|'annual') {
     try {
-      setIsCreating(true);
+      // garantir sessão válida
+      try { await supabase.auth.refreshSession(); } catch {}
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token;
+      const email = s?.session?.user?.email;
 
-      // SEMPRE refresh da sessão para garantir token válido
-      console.log('[Subscribe] Fazendo refresh da sessão antes da chamada');
-      await supabase.auth.refreshSession();
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-
-      if (!currentSession?.access_token) {
-        console.error('[Subscribe] Nenhum access_token após refresh');
-        alert('Sua sessão expirou. Faça login novamente.');
-        navigate('/login');
-        return;
+      if (!token || !email) {
+        alert('Faça login para assinar.');
+        // opcional: redirecionar para /login
+        return { ok:false, reason:'NO_SESSION' };
       }
 
-      if (!currentSession.user?.email) {
-        console.error('[Subscribe] Email não encontrado na sessão');
-        alert('E-mail do usuário não encontrado. Faça login novamente.');
-        navigate('/login');
-        return;
-      }
-
-      const planValue = selectedPlan === 'mensal' ? 'monthly' : 'annual';
-
-      console.log('[Subscribe] Creating subscription with fresh token', {
-        planValue,
-        userEmail: currentSession.user.email,
-        hasAccessToken: !!currentSession.access_token,
-        edgeUrl: EDGE
-      });
+      // log NÃO PII
+      console.log('[SUBSCRIBE] token_present=true, plan=', plan);
 
       const resp = await fetch(`${EDGE}/create-subscription`, {
         method: 'POST',
         mode: 'cors',
         headers: {
-          'Authorization': `Bearer ${currentSession.access_token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          plan: planValue,
-          userEmail: currentSession.user.email
-        })
+        body: JSON.stringify({ plan, userEmail: email })
       });
 
       const json = await resp.json().catch(() => ({}));
-
-      console.log('[Subscribe] Edge Function response:', {
-        status: resp.status,
-        ok: resp.ok,
-        json
-      });
-
       if (!resp.ok) {
-        const alertMsg = `Falha: status=${json.status || resp.status} code=${json.code || ''} msg=${json.message || json.detail || 'ver console'}`;
-        alert(alertMsg);
-        console.error('SUBSCRIBE ERROR', json);
-        return;
-      }
-
-      if (json?.init_point) {
-        console.log('Redirecting to Mercado Pago:', json.init_point);
+        alert(`Falha: status=${resp.status} code=${json?.code||''} msg=${json?.message||json?.detail||'ver console'}`);
+      } else if (json?.init_point) {
         window.location.href = json.init_point;
       } else {
-        alert('Erro: Não foi possível obter o link de pagamento.');
-        console.error('No init_point in response:', json);
+        alert('Falha: resposta sem init_point');
       }
-
-    } catch (e: any) {
-      const errorDetails = {
-        origin: window.location.origin,
-        edgeUrl: EDGE,
-        message: e?.message || 'Unknown error'
-      };
-      alert(`NETWORK_ERROR ${JSON.stringify(errorDetails)}`);
-      console.error('NETWORK ERROR', errorDetails);
-    } finally {
-      setIsCreating(false);
+      return { ok: resp.ok, status: resp.status, json };
+    } catch (e:any) {
+      console.error('[SUBSCRIBE ERROR]', e);
+      alert(`Erro de rede: ${e?.message||e}`);
+      return { ok:false, reason:'NETWORK', message: e?.message||String(e) };
     }
+  }
+
+  const handleSubscribe = async () => {
+    setIsCreating(true);
+    const planValue = selectedPlan === 'mensal' ? 'monthly' : 'annual';
+    const result = await callCreateSubscription(planValue);
+    setIsCreating(false);
+    return result;
   };
 
   const handleResendEmail = () => {

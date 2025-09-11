@@ -110,15 +110,44 @@ export const useSubscription = () => {
     if (!user) throw new Error('User not authenticated');
 
     try {
-      console.log('[createSubscription] Starting request:', { planCode, userId: user.id });
+      // garantir sessão válida
+      try { await supabase.auth.refreshSession(); } catch {}
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token;
+      const email = s?.session?.user?.email;
+
+      if (!token || !email) {
+        throw new Error('Faça login para assinar');
+      }
+
+      console.log('[createSubscription] token_present=true, plan=', planCode);
       
-      const response = await supabase.functions.invoke('create-subscription', {
-        body: {
-          user_id: user.id,
-          email: user.email,
-          plan_code: planCode,
+      const planValue = planCode === 'mensal' ? 'monthly' : 'annual';
+      const EDGE = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1';
+
+      const resp = await fetch(`${EDGE}/create-subscription`, {
+        method: 'POST',
+        mode: 'cors',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
+        body: JSON.stringify({ plan: planValue, userEmail: email })
       });
+
+      const response = {
+        data: null,
+        error: null
+      };
+
+      if (!resp.ok) {
+        const json = await resp.json().catch(() => ({}));
+        response.error = {
+          message: `Falha: status=${resp.status} code=${json?.code||''} msg=${json?.message||json?.detail||'erro desconhecido'}`
+        };
+      } else {
+        response.data = await resp.json().catch(() => ({}));
+      }
 
       console.log('[createSubscription] Response received:', { 
         hasError: !!response.error,
