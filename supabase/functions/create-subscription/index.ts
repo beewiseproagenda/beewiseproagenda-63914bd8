@@ -12,16 +12,14 @@ interface CreateSubscriptionRequest {
 serve(async (req) => {
   // Dynamic CORS whitelist from APP_URL and APP_URL_PREVIEW
   const getCorsHeaders = (req: Request) => {
-    const appUrl = Deno.env.get('APP_URL')?.trim();
-    const previewUrl = Deno.env.get('APP_URL_PREVIEW')?.trim();
-    const ALLOWED = [appUrl, previewUrl].filter(Boolean) as string[];
+    const ALLOWED = ["https://beewiseproagenda.com.br","https://preview--beewiseproagenda.lovable.app"];
     const origin = req.headers.get('Origin') || '';
     const allow = ALLOWED.includes(origin) ? origin : '';
     return {
       'Access-Control-Allow-Origin': allow,
       'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-      'Access-Control-Allow-Headers': 'authorization,content-type,supabase-client',
-      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'Authorization, Content-Type, Accept, X-Requested-With',
+      'Access-Control-Max-Age': '86400',
       'Vary': 'Origin',
     } as Record<string, string>;
   };
