@@ -127,16 +127,10 @@ const Subscribe = () => {
     didAuthPing.current = true;
     (async () => {
       try {
-        const resp = await fetch(`${EDGE}/auth-ping`, {
-          method: 'GET',
-          mode: 'cors',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          }
+        const { data, error } = await supabase.functions.invoke('auth-ping', {
+          headers: { 'x-origin': window.location.origin }
         });
-        const json = await resp.json().catch(() => ({}));
-        console.log('[Subscribe] auth-ping result', { status: resp.status, json });
+        console.log('[Subscribe] auth-ping result', { data, error });
       } catch (err) {
         console.error('[Subscribe] auth-ping failed', err);
       }
@@ -148,37 +142,29 @@ const Subscribe = () => {
       // garantir sessão válida
       try { await supabase.auth.refreshSession(); } catch {}
       const { data: s } = await supabase.auth.getSession();
-      const token = s?.session?.access_token;
-      const email = s?.session?.user?.email;
-
-      if (!token || !email) {
-        alert('Faça login para assinar.');
-        // opcional: redirecionar para /login
-        return { ok:false, reason:'NO_SESSION' };
+      if (!s?.session?.access_token) { 
+        alert('Faça login para assinar.'); 
+        return { ok:false, reason:'NO_SESSION' }; 
       }
 
       // log NÃO PII
       console.log('[SUBSCRIBE] token_present=true, plan=', plan);
 
-      const resp = await fetch(`${EDGE}/create-subscription`, {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ plan, userEmail: email })
+      const { data, error } = await supabase.functions.invoke('create-subscription', {
+        body: { plan, userEmail: s.session.user.email },
+        headers: { 'x-origin': window.location.origin }
       });
 
-      const json = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        alert(`Falha: status=${resp.status} code=${json?.code||''} msg=${json?.message||json?.detail||'ver console'}`);
-      } else if (json?.init_point) {
-        window.location.href = json.init_point;
+      if (error) {
+        alert(`Falha: ${error.message}`);
+        return { ok: false, reason: 'ERROR', error };
+      } else if (data?.init_point) {
+        window.location.href = data.init_point;
+        return { ok: true, data };
       } else {
-        alert('Falha: resposta sem init_point');
+        alert(`Falha: resposta sem init_point (${JSON.stringify(data)})`);
+        return { ok: false, reason: 'NO_INIT_POINT', data };
       }
-      return { ok: resp.ok, status: resp.status, json };
     } catch (e:any) {
       console.error('[SUBSCRIBE ERROR]', e);
       alert(`Erro de rede: ${e?.message||e}`);

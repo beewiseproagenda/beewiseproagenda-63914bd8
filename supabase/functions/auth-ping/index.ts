@@ -22,10 +22,15 @@ serve(async (req) => {
   }
 
   try {
+    const gotAuth = !!(req.headers.get('Authorization') || req.headers.get('authorization'));
     const authHeader = req.headers.get('Authorization') || '';
     const token = authHeader.replace('Bearer ', '').trim();
     if (!token) {
-      return new Response(JSON.stringify({ ok: false, error: 'INVALID_JWT' }), {
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        error: 'MISSING_BEARER',
+        gotAuth
+      }), {
         status: 401,
         headers: { ...cors, 'Content-Type': 'application/json' },
       });
@@ -37,7 +42,11 @@ serve(async (req) => {
 
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data?.user) {
-      return new Response(JSON.stringify({ ok: false, error: 'INVALID_JWT' }), {
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        error: 'INVALID_JWT',
+        gotAuth
+      }), {
         status: 401,
         headers: { ...cors, 'Content-Type': 'application/json' },
       });
@@ -47,11 +56,19 @@ serve(async (req) => {
     const domain = email ? email.split('@')[1] || null : null;
 
     return new Response(
-      JSON.stringify({ ok: true, user_id: data.user.id }),
+      JSON.stringify({ 
+        ok: true, 
+        user_id: data.user.id,
+        gotAuth
+      }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
   } catch (err) {
-    return new Response(JSON.stringify({ ok: false, error: 'UNKNOWN_ERROR' }), {
+    return new Response(JSON.stringify({ 
+      ok: false, 
+      error: 'UNKNOWN_ERROR',
+      gotAuth: false
+    }), {
       status: 500,
       headers: { ...getCorsHeaders(req), 'Content-Type': 'application/json' },
     });

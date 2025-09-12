@@ -33,9 +33,11 @@ serve(async (req) => {
   logSafely('[Request received]', { method: req.method });
 
   try {
+    const gotAuth = !!(req.headers.get('Authorization') || req.headers.get('authorization'));
+    
     // Only allow POST method
     if (req.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      return new Response(JSON.stringify({ error: 'Method not allowed', gotAuth }), {
         status: 405,
         headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
@@ -476,6 +478,7 @@ serve(async (req) => {
           external_reference,
           init_point: null,
           retried,
+          gotAuth,
           mp_error: { status: mpResponse.status, code: mpData?.error || 'MP_ERROR', message: mpData?.message || 'Mercado Pago API error', cause: mpData?.cause || [] }
         }), {
           status: 502,
@@ -491,6 +494,7 @@ serve(async (req) => {
           external_reference,
           init_point: null,
           retried,
+          gotAuth,
           mp_error: { status: 200, code: 'NO_INIT_POINT', message: 'Missing init_point in MP response', cause: [] }
         }), {
           status: 502,
@@ -525,6 +529,7 @@ serve(async (req) => {
       external_reference,
       init_point,
       retried: record?.retried || retried || false,
+      gotAuth,
       mp_error: null
     }), {
       status: 200,
@@ -541,7 +546,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       error: 'EDGE_INTERNAL_ERROR',
       detail: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      gotAuth: false
     }), {
       status: 500,
       headers: { ...corsStrict, 'Content-Type': 'application/json' },

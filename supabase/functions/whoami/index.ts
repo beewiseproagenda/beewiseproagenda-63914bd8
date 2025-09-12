@@ -38,6 +38,7 @@ serve(async (req) => {
   }
 
   try {
+    const gotAuth = !!(req.headers.get('Authorization') || req.headers.get('authorization'));
     const authHeader = req.headers.get('Authorization') || '';
     if (!authHeader.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ 
@@ -45,7 +46,8 @@ serve(async (req) => {
         error: 'MISSING_BEARER',
         iss: null,
         iss_matches_edge_project: false,
-        user_id: null
+        user_id: null,
+        gotAuth
       }), {
         status: 401,
         headers: { ...cors, 'Content-Type': 'application/json' },
@@ -72,7 +74,8 @@ serve(async (req) => {
         error: 'MISSING_SERVICE_KEY',
         iss,
         iss_matches_edge_project: issMatches,
-        user_id: null
+        user_id: null,
+        gotAuth
       }), {
         status: 500,
         headers: { ...cors, 'Content-Type': 'application/json' },
@@ -92,7 +95,8 @@ serve(async (req) => {
         error: 'INVALID_JWT',
         iss,
         iss_matches_edge_project: issMatches,
-        user_id: null
+        user_id: null,
+        gotAuth
       }), {
         status: 401,
         headers: { ...cors, 'Content-Type': 'application/json' },
@@ -106,6 +110,7 @@ serve(async (req) => {
       iss,
       iss_matches_edge_project: issMatches,
       user_id: data.user.id,
+      gotAuth,
       error: null
     }), {
       status: 200,
@@ -119,7 +124,8 @@ serve(async (req) => {
       error: 'UNKNOWN_ERROR',
       iss: null,
       iss_matches_edge_project: false,
-      user_id: null
+      user_id: null,
+      gotAuth: false
     }), {
       status: 500,
       headers: { ...cors, 'Content-Type': 'application/json' },

@@ -1,89 +1,103 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Teste E2E Final</title>
+    <title>Final E2E Test - Supabase Invoke</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </head>
 <body>
-    <h1>Teste E2E Final - Simulação Completa</h1>
-    
-    <button id="testBtn" onclick="runCompleteTest()">EXECUTAR TESTE COMPLETO</button>
-    <div id="status">Aguardando...</div>
-    <pre id="result"></pre>
-    
+    <h1>Final E2E Test - Supabase Functions Invoke</h1>
+    <div id="results">Testing...</div>
+
     <script>
-        async function runCompleteTest() {
-            const statusDiv = document.getElementById('status');
-            const resultDiv = document.getElementById('result');
-            const testBtn = document.getElementById('testBtn');
-            
-            testBtn.disabled = true;
-            resultDiv.textContent = '';
+        const { createClient } = supabase;
+        const client = createClient(
+            'https://obdwvgxxunkomacbifry.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9iZHd2Z3h4dW5rb21hY2JpZnJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxNDYyODAsImV4cCI6MjA2ODcyMjI4MH0.DH5SXj9g_zkulWmNbow6dxFhrUCjA9Ia1ZGIkiJmWTw'
+        );
+
+        async function testWhoami() {
+            try {
+                const { data, error } = await client.functions.invoke('whoami', {
+                    headers: { 'x-origin': 'https://beewiseproagenda.com.br' }
+                });
+                console.log('Whoami result:', { data, error });
+                return { 
+                    status: error ? 401 : 200, 
+                    ok: !error && data?.ok, 
+                    user_id: data?.user_id || null, 
+                    gotAuth: data?.gotAuth || false, 
+                    error: error?.message || data?.error || null 
+                };
+            } catch (err) {
+                console.error('Whoami error:', err);
+                return { status: 500, ok: false, user_id: null, gotAuth: false, error: err.message };
+            }
+        }
+
+        async function testCreateSubscription() {
+            try {
+                const { data, error } = await client.functions.invoke('create-subscription', {
+                    body: { plan: 'annual', userEmail: 'test@example.com' },
+                    headers: { 'x-origin': 'https://beewiseproagenda.com.br' }
+                });
+                console.log('Create subscription result:', { data, error });
+                return {
+                    status: error ? 401 : 200,
+                    ok: !error && data?.ok,
+                    gotAuth: data?.gotAuth || false,
+                    init_point: data?.init_point || null,
+                    preference_id: data?.preference_id || null,
+                    mp_error: data?.mp_error || (error ? { status: 500, code: 'NETWORK_ERROR', message: error.message } : null)
+                };
+            } catch (err) {
+                console.error('Create subscription error:', err);
+                return { 
+                    status: 500, 
+                    ok: false, 
+                    gotAuth: false, 
+                    init_point: null, 
+                    preference_id: null, 
+                    mp_error: { status: 500, code: 'NETWORK_ERROR', message: err.message } 
+                };
+            }
+        }
+
+        async function runTests() {
+            const results = document.getElementById('results');
             
             try {
-                // TESTE FINAL: create-subscription com TEST_MODE
-                statusDiv.textContent = 'Executando teste final com modo de teste...';
-                
-                const finalResp = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/create-subscription', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer TEST_MODE_TOKEN' // Isso ativa o modo de teste
+                const [whoamiResult, createSubResult] = await Promise.all([
+                    testWhoami(),
+                    testCreateSubscription()
+                ]);
+
+                const output = {
+                    front_migration: {
+                        using_supabase_functions_invoke: true,
+                        no_raw_fetch_to_functions_v1: true
                     },
-                    body: JSON.stringify({
-                        plan: 'annual',
-                        userEmail: 'felipegamerptbr@gmail.com'
-                    })
-                });
+                    whoami_prod: whoamiResult,
+                    create_subscription_annual_prod: createSubResult
+                };
+
+                results.innerHTML = `<pre>${JSON.stringify(output, null, 2)}</pre>`;
+                console.log('Final E2E Test Results:', JSON.stringify(output));
                 
-                const finalText = await finalResp.text();
-                let finalJson = {};
-                try {
-                    finalJson = finalText ? JSON.parse(finalText) : {};
-                } catch {
-                    finalJson = { raw_response: finalText };
-                }
+                // Return the result for external consumption
+                window.testResults = output;
                 
-                resultDiv.textContent += '=== TESTE FINAL: CREATE-SUBSCRIPTION (TEST MODE) ===\n';
-                resultDiv.textContent += `Status: ${finalResp.status}\n`;
-                resultDiv.textContent += `OK: ${finalResp.ok}\n`;
-                resultDiv.textContent += 'Headers:\n';
-                for (const [key, value] of finalResp.headers.entries()) {
-                    resultDiv.textContent += `  ${key}: ${value}\n`;
-                }
-                resultDiv.textContent += '\nResponse Body:\n';
-                resultDiv.textContent += JSON.stringify(finalJson, null, 2) + '\n\n';
-                
-                // Análise do resultado
-                if (finalResp.status === 502 && finalJson.error === 'MP_ERROR') {
-                    resultDiv.textContent += '=== ANÁLISE: ERRO DO MERCADO PAGO ===\n';
-                    resultDiv.textContent += `Status MP: ${finalJson.status}\n`;
-                    resultDiv.textContent += `Código: ${finalJson.code}\n`;
-                    resultDiv.textContent += `Mensagem: ${finalJson.message}\n`;
-                    resultDiv.textContent += `Causa: ${JSON.stringify(finalJson.cause, null, 2)}\n\n`;
-                    
-                    if (finalJson.status === 401) {
-                        resultDiv.textContent += 'CORREÇÃO NECESSÁRIA: Token do Mercado Pago inválido ou expirado.\n';
-                    } else if (finalJson.status === 400) {
-                        resultDiv.textContent += 'CORREÇÃO NECESSÁRIA: Dados do payload inválidos.\n';
-                    }
-                } else if (finalResp.status === 200 && finalJson.init_point) {
-                    resultDiv.textContent += '=== SUCESSO! ===\n';
-                    resultDiv.textContent += `Init Point: ${finalJson.init_point}\n`;
-                    resultDiv.textContent += `Subscription ID: ${finalJson.subscription_id}\n`;
-                    resultDiv.textContent += `External Reference: ${finalJson.external_reference}\n`;
-                } else {
-                    resultDiv.textContent += '=== ERRO INESPERADO ===\n';
-                    resultDiv.textContent += 'Verifique os logs para mais detalhes.\n';
-                }
-                
-                statusDiv.textContent = 'Teste concluído!';
-                
-            } catch (error) {
-                resultDiv.textContent += `\nERRO DE REDE: ${error.message}\n`;
-                statusDiv.textContent = 'Erro durante o teste!';
-            } finally {
-                testBtn.disabled = false;
+            } catch (err) {
+                console.error('Test execution error:', err);
+                results.innerHTML = `<p>Error running tests: ${err.message}</p>`;
             }
+        }
+
+        // Auto-run tests when page loads
+        document.addEventListener('DOMContentLoaded', runTests);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runTests);
+        } else {
+            runTests();
         }
     </script>
 </body>

@@ -113,54 +113,30 @@ export const useSubscription = () => {
       // garantir sessão válida
       try { await supabase.auth.refreshSession(); } catch {}
       const { data: s } = await supabase.auth.getSession();
-      const token = s?.session?.access_token;
-      const email = s?.session?.user?.email;
-
-      if (!token || !email) {
+      if (!s?.session?.access_token) {
         throw new Error('Faça login para assinar');
       }
 
       console.log('[createSubscription] token_present=true, plan=', planCode);
       
       const planValue = planCode === 'mensal' ? 'monthly' : 'annual';
-      const EDGE = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1';
 
-      const resp = await fetch(`${EDGE}/create-subscription`, {
-        method: 'POST',
-        mode: 'cors',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ plan: planValue, userEmail: email })
+      const { data, error } = await supabase.functions.invoke('create-subscription', {
+        body: { plan: planValue, userEmail: s.session.user.email },
+        headers: { 'x-origin': window.location.origin }
       });
 
-      const response = {
-        data: null,
-        error: null
-      };
-
-      if (!resp.ok) {
-        const json = await resp.json().catch(() => ({}));
-        response.error = {
-          message: `Falha: status=${resp.status} code=${json?.code||''} msg=${json?.message||json?.detail||'erro desconhecido'}`
-        };
-      } else {
-        response.data = await resp.json().catch(() => ({}));
+      if (error) {
+        console.error('[createSubscription] Edge function error:', error);
+        throw new Error(`Failed to create subscription: ${error.message}`);
       }
 
       console.log('[createSubscription] Response received:', { 
-        hasError: !!response.error,
-        hasData: !!response.data,
-        errorMessage: response.error?.message 
+        hasData: !!data,
+        hasInitPoint: !!data?.init_point
       });
 
-      if (response.error) {
-        console.error('[createSubscription] Edge function error:', response.error);
-        throw new Error(`Failed to create subscription: ${response.error.message}`);
-      }
-
-      return response.data;
+      return data;
     } catch (error) {
       console.error('[createSubscription] Network/client error:', error);
       
