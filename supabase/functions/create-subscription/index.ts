@@ -123,8 +123,8 @@ serve(async (req) => {
       logSafely('[Token validated]', { userId: '[USER_ID]' });
     } else {
       // Standard auth flow - validate JWT via Admin API
-      const authHeader = req.headers.get('Authorization') || '';
-      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      const raw = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+      const token = raw.startsWith('Bearer ') ? raw.slice(7) : null;
       
       if (!token) {
         logSafely('[Auth failed]', { error_code: 'MISSING_BEARER' });

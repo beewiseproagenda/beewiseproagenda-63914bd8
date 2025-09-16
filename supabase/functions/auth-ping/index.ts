@@ -23,8 +23,8 @@ serve(async (req) => {
 
   try {
     const gotAuth = !!(req.headers.get('Authorization') || req.headers.get('authorization'));
-    const authHeader = req.headers.get('Authorization') || '';
-    const token = authHeader.replace('Bearer ', '').trim();
+    const raw = (req.headers.get('authorization') || req.headers.get('Authorization') || '').toString();
+    const token = raw.replace('Bearer ', '').trim();
     if (!token) {
       return new Response(JSON.stringify({ 
         ok: false, 

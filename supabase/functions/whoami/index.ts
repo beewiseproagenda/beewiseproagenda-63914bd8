@@ -39,8 +39,8 @@ serve(async (req) => {
 
   try {
     const gotAuth = !!(req.headers.get('Authorization') || req.headers.get('authorization'));
-    const authHeader = req.headers.get('Authorization') || '';
-    if (!authHeader.startsWith('Bearer ')) {
+    const raw = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    if (!raw.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ 
         ok: false, 
         error: 'MISSING_BEARER',
@@ -54,7 +54,7 @@ serve(async (req) => {
       });
     }
 
-    const token = authHeader.slice(7);
+    const token = raw.slice(7);
     
     // Decode JWT to extract issuer (iss) claim
     const payload = decodeJwtPayload(token);

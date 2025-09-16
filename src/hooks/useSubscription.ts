@@ -123,7 +123,11 @@ export const useSubscription = () => {
 
       const { data, error } = await supabase.functions.invoke('create-subscription', {
         body: { plan: planValue, userEmail: s.session.user.email },
-        headers: { 'x-origin': window.location.origin }
+        headers: {
+          'authorization': `Bearer ${s.session.access_token}`,
+          'Authorization': `Bearer ${s.session.access_token}`,
+          'x-origin': window.location.origin
+        }
       });
 
       if (error) {

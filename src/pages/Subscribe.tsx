@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Check, Crown, Zap, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
-const EDGE = 'https://obdwvgxxunkomacbifry.supabase.co/functions/v1';
+
 const Subscribe = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -128,7 +128,11 @@ const Subscribe = () => {
     (async () => {
       try {
         const { data, error } = await supabase.functions.invoke('auth-ping', {
-          headers: { 'x-origin': window.location.origin }
+          headers: {
+            'authorization': `Bearer ${session?.access_token}`,
+            'Authorization': `Bearer ${session?.access_token}`,
+            'x-origin': window.location.origin
+          }
         });
         console.log('[Subscribe] auth-ping result', { data, error });
       } catch (err) {
@@ -152,7 +156,11 @@ const Subscribe = () => {
 
       const { data, error } = await supabase.functions.invoke('create-subscription', {
         body: { plan, userEmail: s.session.user.email },
-        headers: { 'x-origin': window.location.origin }
+        headers: {
+          'authorization': `Bearer ${s.session.access_token}`,
+          'Authorization': `Bearer ${s.session.access_token}`,
+          'x-origin': window.location.origin
+        }
       });
 
       if (error) {
