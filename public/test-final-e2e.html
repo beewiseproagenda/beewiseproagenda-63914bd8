@@ -42,22 +42,24 @@
                 });
                 console.log('Create subscription result:', { data, error });
                 return {
-                    status: error ? 401 : 200,
                     ok: !error && data?.ok,
-                    gotAuth: data?.gotAuth || false,
-                    init_point: data?.init_point || null,
+                    status: error ? (error.status || 401) : (data?.status || 200),
+                    retried: data?.retried || false,
                     preference_id: data?.preference_id || null,
-                    mp_error: data?.mp_error || (error ? { status: 500, code: 'NETWORK_ERROR', message: error.message } : null)
+                    external_reference: data?.external_reference || null,
+                    init_point: data?.init_point || null,
+                    mp_error: data?.mp_error || (error ? { status: error.status || 500, code: 'NETWORK_ERROR', message: error.message, cause: [] } : null)
                 };
             } catch (err) {
                 console.error('Create subscription error:', err);
                 return { 
+                    ok: false,
                     status: 500, 
-                    ok: false, 
-                    gotAuth: false, 
+                    retried: false,
+                    preference_id: null,
+                    external_reference: null,
                     init_point: null, 
-                    preference_id: null, 
-                    mp_error: { status: 500, code: 'NETWORK_ERROR', message: err.message } 
+                    mp_error: { status: 500, code: 'NETWORK_ERROR', message: err.message, cause: [] }
                 };
             }
         }

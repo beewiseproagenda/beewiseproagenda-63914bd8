@@ -235,9 +235,17 @@ serve(async (req) => {
     const planConfig = planConfigs[plan_code];
     const external_reference = `${authenticatedUserId}:${plan_code}`;
 
+    // Initialize all variables used in final JSON
+    let retried = false;
+    let ok = false;
+    let status = 0;
+    let preferenceId: string | null = null;
+    let initPoint: string | null = null;
+    let externalRef = external_reference;
+    let mpError: any = null;
+
     let mpResponse: Response;
     let mpData: any = {};
-    let init_point: string;
     let record: any;
 
     if (plan_code === 'mensal') {
@@ -327,8 +335,6 @@ serve(async (req) => {
         statement_descriptor: "BEEWISE PRO"
       };
 
-      let retried = false;
-
       // First attempt with payment_methods configuration
       mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
@@ -341,6 +347,7 @@ serve(async (req) => {
 
       // Parse response
       let rawText = await mpResponse.text();
+      let mpData: any = {};
       try {
         mpData = rawText ? JSON.parse(rawText) : {};
       } catch {
@@ -348,7 +355,7 @@ serve(async (req) => {
       }
 
       // Check if we need to retry without payment_methods
-      if (!mpResponse.ok && 
+      if (mpResponse.status === 400 && 
           (mpData?.message?.includes('default_payment_method_id') || 
            mpData?.message?.includes('default_payment_type_id') ||
            mpData?.message?.includes('payment_methods'))) {
@@ -381,174 +388,186 @@ serve(async (req) => {
         retried = true;
       }
 
-      if (mpResponse.ok) {
-        init_point = mpData.init_point || mpData.sandbox_init_point;
-        
-        // Diagnostic: Get preference details and capabilities
-        if (mpData.id) {
-          try {
-            // Get preference details
-            const diagResponse = await fetch(`https://api.mercadopago.com/checkout/preferences/${mpData.id}`, {
-              headers: {
-                'Authorization': `Bearer ${mpAccessToken}`,
-                'Content-Type': 'application/json'
-              }
-            });
-            
-            let preferenceData = null;
-            if (diagResponse.ok) {
-              const diagData = await diagResponse.json();
-              preferenceData = {
-                id: diagData.id,
-                site_id: diagData.site_id,
-                payment_methods: {
-                  excluded_payment_types: diagData.payment_methods?.excluded_payment_types || [],
-                  excluded_payment_methods: diagData.payment_methods?.excluded_payment_methods || [],
-                  installments: diagData.payment_methods?.installments,
-                  default_installments: diagData.payment_methods?.default_installments
-                }
-              };
-              logSafely('[Preference diagnostic]', preferenceData);
+      // Fill response variables
+      status = mpResponse.status;
+      ok = mpResponse.ok;
+      if (ok) {
+        preferenceId = mpData?.id ?? null;
+        initPoint = mpData?.init_point ?? mpData?.sandbox_init_point ?? null;
+        mpError = null;
+      } else {
+        mpError = {
+          status,
+          code: mpData?.code || mpData?.error || 'MP_ERROR',
+          message: mpData?.message || mpData?.error || 'Mercado Pago error',
+          cause: mpData?.cause || []
+        };
+      }
+
+      if (ok && mpData.id) {
+        try {
+          // Get preference details
+          const diagResponse = await fetch(`https://api.mercadopago.com/checkout/preferences/${mpData.id}`, {
+            headers: {
+              'Authorization': `Bearer ${mpAccessToken}`,
+              'Content-Type': 'application/json'
             }
-
-            // Get capabilities
-            const capabilitiesResponse = await fetch('https://api.mercadopago.com/v1/payment_methods?site_id=MLB', {
-              headers: {
-                'Authorization': `Bearer ${mpAccessToken}`,
-                'Content-Type': 'application/json'
+          });
+          
+          let preferenceData = null;
+          if (diagResponse.ok) {
+            const diagData = await diagResponse.json();
+            preferenceData = {
+              id: diagData.id,
+              site_id: diagData.site_id,
+              payment_methods: {
+                excluded_payment_types: diagData.payment_methods?.excluded_payment_types || [],
+                excluded_payment_methods: diagData.payment_methods?.excluded_payment_methods || [],
+                installments: diagData.payment_methods?.installments,
+                default_installments: diagData.payment_methods?.default_installments
               }
-            });
-
-            let capabilities = { pix_available: false, boleto_available: false, credit_card_available: false, notes: 'Unable to check capabilities' };
-            if (capabilitiesResponse.ok) {
-              const methodsData = await capabilitiesResponse.json();
-              capabilities = {
-                pix_available: methodsData.some((m: any) => m.id === 'pix'),
-                boleto_available: methodsData.some((m: any) => m.id === 'bolbradesco'),
-                credit_card_available: methodsData.some((m: any) => m.payment_type_id === 'credit_card'),
-                notes: 'Based on v1/payment_methods'
-              };
-            }
-
-            // Log combined diagnostic result
-            logSafely('[DIAGNOSTIC_RESULT]', {
-              ui_cleanup: 'done',
-              removed: ['public/test-production.html'],
-              create_subscription: { 
-                init_point: !!init_point, 
-                kind: 'preference', 
-                saved: true, 
-                retried 
-              },
-              preference: preferenceData,
-              capabilities
-            });
-
-          } catch (diagError) {
-            logSafely('[Preference diagnostic failed]', { error: diagError.message });
+            };
+            logSafely('[Preference diagnostic]', preferenceData);
           }
+
+          // Get capabilities
+          const capabilitiesResponse = await fetch('https://api.mercadopago.com/v1/payment_methods?site_id=MLB', {
+            headers: {
+              'Authorization': `Bearer ${mpAccessToken}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          let capabilities = { pix_available: false, boleto_available: false, credit_card_available: false, notes: 'Unable to check capabilities' };
+          if (capabilitiesResponse.ok) {
+            const methodsData = await capabilitiesResponse.json();
+            capabilities = {
+              pix_available: methodsData.some((m: any) => m.id === 'pix'),
+              boleto_available: methodsData.some((m: any) => m.id === 'bolbradesco'),
+              credit_card_available: methodsData.some((m: any) => m.payment_type_id === 'credit_card'),
+              notes: 'Based on v1/payment_methods'
+            };
+          }
+
+          // Log combined diagnostic result
+          logSafely('[DIAGNOSTIC_RESULT]', {
+            ui_cleanup: 'done',
+            removed: ['public/test-production.html'],
+            create_subscription: { 
+              init_point: !!initPoint, 
+              kind: 'preference', 
+              saved: true, 
+              retried 
+            },
+            preference: preferenceData,
+            capabilities
+          });
+
+        } catch (diagError) {
+          logSafely('[Preference diagnostic failed]', { error: diagError.message });
         }
 
         record = {
           user_id: authenticatedUserId,
           plan: 'annual',
           external_reference,
-          mp_preference_id: mpData.id,
-          init_point,
+          mp_preference_id: preferenceId,
+          init_point: initPoint,
           status: 'pending',
-          raw_response: mpData,
-          retried
+          raw_response: mpData
         };
       }
     }
 
-      logSafely('[MP Response]', {
-        status: mpResponse.status,
-        external_reference,
-        error_code: mpData?.error,
-        message: mpData?.message,
-        hasInitPoint: !!init_point,
-        kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
-      });
-
-      if (!mpResponse.ok) {
-        return new Response(JSON.stringify({
-          ok: false,
-          status: mpResponse.status,
-          preference_id: mpData?.id || null,
+    if (plan_code === 'mensal') {
+      // For monthly plan, keep existing logic but update final variables
+      if (mpResponse.ok) {
+        status = mpResponse.status;
+        ok = true;
+        preferenceId = mpData.id;
+        initPoint = mpData.init_point || mpData.sandbox_init_point;
+        mpError = null;
+        
+        record = {
+          user_id: authenticatedUserId,
+          plan: 'monthly',
           external_reference,
-          init_point: null,
-          retried,
-          gotAuth,
-          mp_error: { status: mpResponse.status, code: mpData?.error || 'MP_ERROR', message: mpData?.message || 'Mercado Pago API error', cause: mpData?.cause || [] }
-        }), {
-          status: 502,
-          headers: { ...corsStrict, 'Content-Type': 'application/json' },
-        });
+          mp_preapproval_id: mpData.id,
+          init_point: initPoint,
+          status: 'pending',
+          raw_response: mpData
+        };
+      } else {
+        status = mpResponse.status;
+        ok = false;
+        mpError = {
+          status,
+          code: mpData?.error || 'MP_ERROR',
+          message: mpData?.message || 'Mercado Pago API error',
+          cause: mpData?.cause || []
+        };
       }
-
-      if (!init_point) {
-        return new Response(JSON.stringify({
-          ok: false,
-          status: mpResponse.status,
-          preference_id: mpData?.id || null,
-          external_reference,
-          init_point: null,
-          retried,
-          gotAuth,
-          mp_error: { status: 200, code: 'NO_INIT_POINT', message: 'Missing init_point in MP response', cause: [] }
-        }), {
-          status: 502,
-          headers: { ...corsStrict, 'Content-Type': 'application/json' },
-        });
-      }
-
-    logSafely('[Saving subscription to DB]');
-
-    // Use admin client for database operations
-    const { error: dbErr } = await admin
-      .from('mp_subscriptions')
-      .upsert(record, { onConflict: 'external_reference' });
-
-    if (dbErr) {
-      console.error("DB_SAVE_ERROR", dbErr.message, dbErr.code);
-      logSafely('[DB Save Error]', { error: dbErr.message });
     }
 
-    logSafely('[Success]', {
-      subscriptionSaved: !dbErr,
-      externalReference: external_reference,
-      initPoint: !!init_point,
+    logSafely('[MP Response]', {
+      status,
+      external_reference: externalRef,
+      error_code: mpError?.code,
+      message: mpError?.message,
+      hasInitPoint: !!initPoint,
       kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
     });
 
-    // Always return 200 with init_point to not break checkout flow
+    // Save to database if successful
+    if (ok && record) {
+      logSafely('[Saving subscription to DB]');
+      
+      const { error: dbErr } = await admin
+        .from('mp_subscriptions')
+        .upsert(record, { onConflict: 'external_reference' });
+
+      if (dbErr) {
+        console.error("DB_SAVE_ERROR", dbErr.message, dbErr.code);
+        logSafely('[DB Save Error]', { error: dbErr.message });
+      }
+
+      logSafely('[Success]', {
+        subscriptionSaved: !dbErr,
+        externalReference: externalRef,
+        initPoint: !!initPoint,
+        kind: plan_code === 'mensal' ? 'preapproval' : 'preference'
+      });
+    }
+
+    // Always return standardized response
     return new Response(JSON.stringify({
-      ok: true,
-      status: mpResponse.status,
-      preference_id: mpData?.id || record?.mp_preference_id || null,
-      external_reference,
-      init_point,
-      retried: record?.retried || retried || false,
-      gotAuth,
-      mp_error: null
+      ok,
+      status,
+      retried,
+      preference_id: preferenceId,
+      external_reference: externalRef,
+      init_point: initPoint,
+      mp_error: mpError
     }), {
-      status: 200,
+      status: ok ? 200 : status,
       headers: { ...corsStrict, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (e) {
     logSafely('[Error in create-subscription]', {
       error_code: 'EDGE_INTERNAL_ERROR',
-      message: error.message,
-      stack: error.stack
+      message: String(e),
+      stack: e.stack
     });
 
     return new Response(JSON.stringify({
-      error: 'EDGE_INTERNAL_ERROR',
-      detail: error.message,
-      timestamp: new Date().toISOString(),
-      gotAuth: false
+      ok: false,
+      status: 500,
+      retried: retried || false,
+      preference_id: preferenceId || null,
+      external_reference: externalRef || `${authenticatedUserId || 'unknown'}:${plan_code}`,
+      init_point: initPoint || null,
+      mp_error: { status: 500, code: 'EDGE_INTERNAL_ERROR', message: String(e), cause: [] }
     }), {
       status: 500,
       headers: { ...corsStrict, 'Content-Type': 'application/json' },
