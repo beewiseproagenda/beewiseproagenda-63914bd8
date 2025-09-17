@@ -34,11 +34,9 @@ serve(async (req) => {
   logSafely('[Request received]', { method: req.method });
 
   try {
-    const gotAuth = !!(req.headers.get('Authorization') || req.headers.get('authorization'));
-    
     // Only allow POST method
     if (req.method !== 'POST') {
-      return new Response(JSON.stringify({ error: 'Method not allowed', gotAuth }), {
+      return new Response(JSON.stringify({ error: 'Method not allowed' }), {
         status: 405,
         headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
@@ -48,21 +46,12 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const mpAccessTokenRaw = Deno.env.get('MERCADOPAGO_ACCESS_TOKEN') || '';
     const mpAccessToken = mpAccessTokenRaw.trim();
-    const appUrl = Deno.env.get('APP_URL');
 
     logSafely('[Environment check]', {
       mpAccessToken: !!mpAccessToken,
-      appUrl: !!appUrl,
       supabaseUrl: !!supabaseUrl,
       supabaseServiceKey: !!supabaseServiceKey
     });
-
-    // Create admin Supabase client for database operations
-    const admin = createClient(
-      supabaseUrl!,
-      supabaseServiceKey!,
-      { auth: { persistSession: false } }
-    );
 
     if (!mpAccessToken) {
       logSafely('[Error]', { error_code: 'MISSING_MERCADOPAGO_ACCESS_TOKEN' });
@@ -74,27 +63,22 @@ serve(async (req) => {
       });
     }
 
-    // Create Supabase client
-    const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
+    // Create admin Supabase client for database operations
+    const admin = createClient(
+      supabaseUrl!,
+      supabaseServiceKey!,
+      { auth: { persistSession: false } }
+    );
 
-    // Parse request body (support new and legacy shapes)
+    // Parse request body
     const rawBody: any = await req.json();
-    const { plan, userEmail, plan_code: legacyPlanCode, email: legacyEmail, user_id, onboarding_token } = rawBody || {};
-    const incomingPlanCode = plan
-      ? (plan === 'monthly' ? 'mensal' : plan === 'annual' ? 'anual' : null)
-      : legacyPlanCode;
-
+    const { plan, userEmail, onboarding_token } = rawBody || {};
+    
     logSafely('[Request body parsed]', {
-      hasUserId: !!user_id,
-      hasEmail: !!(legacyEmail || userEmail),
+      hasEmail: !!userEmail,
       plan: plan || null,
-      legacyPlanCode: legacyPlanCode || null,
-      resolvedPlanCode: incomingPlanCode,
       hasOnboardingToken: !!onboarding_token
     });
-
-    const plan_code = incomingPlanCode as 'mensal' | 'anual';
-    const requestEmail = (userEmail || legacyEmail) as string | undefined;
 
     let authenticatedUserId: string;
     let authenticatedUserEmail: string;
@@ -103,7 +87,7 @@ serve(async (req) => {
     if (onboarding_token) {
       logSafely('[Validating onboarding token]');
       
-      const { data: tokenData, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
+      const { data: tokenData, error: tokenError } = await admin.functions.invoke('validate-onboarding-token', {
         body: { token: onboarding_token }
       });
 
@@ -124,14 +108,14 @@ serve(async (req) => {
       logSafely('[Token validated]', { userId: '[USER_ID]' });
     } else {
       // Standard auth flow - validate JWT via Admin API
-      const raw = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+      const h = req.headers;
+      const raw = h.get('authorization') || h.get('Authorization') || '';
       const token = raw.startsWith('Bearer ') ? raw.slice(7) : null;
       
       if (!token) {
         logSafely('[Auth failed]', { error_code: 'MISSING_BEARER' });
         return new Response(JSON.stringify({ 
           ok: false,
-          status: 401,
           error: 'MISSING_BEARER',
           message: 'Authorization Bearer token required' 
         }), {
@@ -147,7 +131,6 @@ serve(async (req) => {
         logSafely('[Auth failed]', { error_code: 'INVALID_JWT', message: authError?.message });
         return new Response(JSON.stringify({ 
           ok: false,
-          status: 401,
           error: 'INVALID_JWT',
           message: 'Token inválido ou expirado' 
         }), {
@@ -157,25 +140,26 @@ serve(async (req) => {
       }
 
       authenticatedUserId = userData.user.id;
-      authenticatedUserEmail = userData.user.email || '';
+      authenticatedUserEmail = userData.user.email || userEmail || '';
       
       logSafely('[User authenticated via Admin API]', { userId: '[USER_ID]', email: '[EMAIL_REDACTED]' });
     }
 
     // Validate input
+    const plan_code = plan === 'monthly' ? 'mensal' : plan === 'annual' ? 'anual' : null;
     if (!plan_code || !['mensal', 'anual'].includes(plan_code)) {
       logSafely('[Invalid plan]', { planCode: plan_code, receivedPlan: plan });
       return new Response(JSON.stringify({ 
         error: 'INVALID_PLAN', 
-        message: `Plan must be "mensal" or "anual", received: ${plan_code}` 
+        message: `Plan must be "monthly" or "annual", received: ${plan}` 
       }), {
         status: 400,
         headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
     }
 
-    if (!requestEmail && !authenticatedUserEmail) {
-      logSafely('[Invalid email]', { hasRequestEmail: !!requestEmail, hasAuthEmail: !!authenticatedUserEmail });
+    if (!authenticatedUserEmail) {
+      logSafely('[Invalid email]', { hasAuthEmail: !!authenticatedUserEmail });
       return new Response(JSON.stringify({ 
         error: 'INVALID_EMAIL', 
         message: 'User email is required' 
@@ -187,7 +171,7 @@ serve(async (req) => {
 
     // Check for existing active subscription
     logSafely('[Checking existing subscriptions]');
-    const { data: existingSubscriptions, error: subError } = await supabase
+    const { data: existingSubscriptions, error: subError } = await admin
       .from('subscriptions')
       .select('id, status')
       .eq('user_id', authenticatedUserId)
@@ -216,6 +200,15 @@ serve(async (req) => {
       });
     }
 
+    // Initialize all variables used in final JSON
+    let retried = false;
+    let ok = false;
+    let status = 0;
+    let preferenceId: string | null = null;
+    let initPoint: string | null = null;
+    const externalRef = `${authenticatedUserId}:${plan_code}`;
+    let mpError: any = null;
+
     // Define plan configurations
     const planConfigs = {
       mensal: {
@@ -233,19 +226,6 @@ serve(async (req) => {
     };
 
     const planConfig = planConfigs[plan_code];
-    const external_reference = `${authenticatedUserId}:${plan_code}`;
-
-    // Initialize all variables used in final JSON
-    let retried = false;
-    let ok = false;
-    let status = 0;
-    let preferenceId: string | null = null;
-    let initPoint: string | null = null;
-    let externalRef = external_reference;
-    let mpError: any = null;
-
-    let mpResponse: Response;
-    let mpData: any = {};
     let record: any;
 
     if (plan_code === 'mensal') {
@@ -257,7 +237,7 @@ serve(async (req) => {
       });
 
       const preapprovalPayload = {
-        payer_email: requestEmail || authenticatedUserEmail,
+        payer_email: authenticatedUserEmail,
         reason: planConfig.reason,
         back_url: `https://beewiseproagenda.com.br/assinatura/retorno`,
         auto_recurring: {
@@ -266,11 +246,11 @@ serve(async (req) => {
           transaction_amount: planConfig.amount,
           currency_id: 'BRL'
         },
-        external_reference,
+        external_reference: externalRef,
         notification_url: `https://beewiseproagenda.com.br/api/mercadopago/webhook`
       };
 
-      mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
+      const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${mpAccessToken}`,
@@ -281,22 +261,34 @@ serve(async (req) => {
 
       // Parse response
       const rawText = await mpResponse.text();
+      let mpData: any = {};
       try {
         mpData = rawText ? JSON.parse(rawText) : {};
       } catch {
         mpData = { message: rawText };
       }
 
-      if (mpResponse.ok) {
-        init_point = mpData.init_point || mpData.sandbox_init_point;
+      status = mpResponse.status;
+      ok = mpResponse.ok;
+      if (ok) {
+        preferenceId = mpData.id;
+        initPoint = mpData.init_point || mpData.sandbox_init_point;
+        mpError = null;
         record = {
           user_id: authenticatedUserId,
           plan: 'monthly',
-          external_reference,
+          external_reference: externalRef,
           mp_preapproval_id: mpData.id,
-          init_point,
+          init_point: initPoint,
           status: 'pending',
           raw_response: mpData
+        };
+      } else {
+        mpError = {
+          status,
+          code: mpData?.error || 'MP_ERROR',
+          message: mpData?.message || 'Mercado Pago API error',
+          cause: mpData?.cause || []
         };
       }
 
@@ -305,10 +297,10 @@ serve(async (req) => {
       logSafely('[Creating MP checkout preference]', {
         planCode: plan_code,
         amount: planConfig.amount,
-        external_reference
+        external_reference: externalRef
       });
 
-      const preferencePayload = {
+      const payload = {
         items: [
           {
             title: "BeeWise Pro - Anual",
@@ -317,8 +309,8 @@ serve(async (req) => {
             currency_id: "BRL"
           }
         ],
-        payer: { email: requestEmail || authenticatedUserEmail },
-        external_reference,
+        payer: { email: authenticatedUserEmail },
+        external_reference: externalRef,
         back_urls: {
           success: "https://beewiseproagenda.com.br/assinatura/retorno?status=success",
           pending: "https://beewiseproagenda.com.br/assinatura/retorno?status=pending",
@@ -336,175 +328,66 @@ serve(async (req) => {
       };
 
       // First attempt with payment_methods configuration
-      mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      const pref1 = await fetch('https://api.mercadopago.com/checkout/preferences', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${mpAccessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(preferencePayload)
+        body: JSON.stringify(payload)
       });
 
-      // Parse response
-      let rawText = await mpResponse.text();
-      let mpData: any = {};
-      try {
-        mpData = rawText ? JSON.parse(rawText) : {};
-      } catch {
-        mpData = { message: rawText };
-      }
-
-      // Check if we need to retry without payment_methods
-      if (mpResponse.status === 400 && 
-          (mpData?.message?.includes('default_payment_method_id') || 
-           mpData?.message?.includes('default_payment_type_id') ||
-           mpData?.message?.includes('payment_methods'))) {
+      status = pref1.status;
+      let body = await pref1.json().catch(() => ({}));
+      
+      if (!pref1.ok && status === 400) {
+        // retry without payment_methods
+        retried = true;
+        const { payment_methods, ...payloadNoPM } = payload as any;
         
         logSafely('[PREFERENCE_RETRY_WITHOUT_PAYMENT_METHODS]', {
-          original_error: mpData?.message,
-          status: mpResponse.status
+          original_error: body?.message,
+          status
         });
-
-        // Retry without payment_methods block
-        const retryPayload = { ...preferencePayload };
-        delete retryPayload.payment_methods;
         
-        mpResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+        const pref2 = await fetch('https://api.mercadopago.com/checkout/preferences', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${mpAccessToken}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(retryPayload)
+          body: JSON.stringify(payloadNoPM)
         });
-
-        rawText = await mpResponse.text();
-        try {
-          mpData = rawText ? JSON.parse(rawText) : {};
-        } catch {
-          mpData = { message: rawText };
-        }
         
-        retried = true;
+        status = pref2.status;
+        body = await pref2.json().catch(() => ({}));
+        ok = pref2.ok;
+      } else {
+        ok = pref1.ok;
       }
 
-      // Fill response variables
-      status = mpResponse.status;
-      ok = mpResponse.ok;
       if (ok) {
-        preferenceId = mpData?.id ?? null;
-        initPoint = mpData?.init_point ?? mpData?.sandbox_init_point ?? null;
+        preferenceId = body?.id ?? null;
+        initPoint = body?.init_point ?? null;
         mpError = null;
       } else {
         mpError = {
           status,
-          code: mpData?.code || mpData?.error || 'MP_ERROR',
-          message: mpData?.message || mpData?.error || 'Mercado Pago error',
-          cause: mpData?.cause || []
+          code: body?.code || body?.error || 'MP_ERROR',
+          message: body?.message || body?.error || 'Mercado Pago error',
+          cause: body?.cause || []
         };
       }
 
-      if (ok && mpData.id) {
-        try {
-          // Get preference details
-          const diagResponse = await fetch(`https://api.mercadopago.com/checkout/preferences/${mpData.id}`, {
-            headers: {
-              'Authorization': `Bearer ${mpAccessToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          let preferenceData = null;
-          if (diagResponse.ok) {
-            const diagData = await diagResponse.json();
-            preferenceData = {
-              id: diagData.id,
-              site_id: diagData.site_id,
-              payment_methods: {
-                excluded_payment_types: diagData.payment_methods?.excluded_payment_types || [],
-                excluded_payment_methods: diagData.payment_methods?.excluded_payment_methods || [],
-                installments: diagData.payment_methods?.installments,
-                default_installments: diagData.payment_methods?.default_installments
-              }
-            };
-            logSafely('[Preference diagnostic]', preferenceData);
-          }
-
-          // Get capabilities
-          const capabilitiesResponse = await fetch('https://api.mercadopago.com/v1/payment_methods?site_id=MLB', {
-            headers: {
-              'Authorization': `Bearer ${mpAccessToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-
-          let capabilities = { pix_available: false, boleto_available: false, credit_card_available: false, notes: 'Unable to check capabilities' };
-          if (capabilitiesResponse.ok) {
-            const methodsData = await capabilitiesResponse.json();
-            capabilities = {
-              pix_available: methodsData.some((m: any) => m.id === 'pix'),
-              boleto_available: methodsData.some((m: any) => m.id === 'bolbradesco'),
-              credit_card_available: methodsData.some((m: any) => m.payment_type_id === 'credit_card'),
-              notes: 'Based on v1/payment_methods'
-            };
-          }
-
-          // Log combined diagnostic result
-          logSafely('[DIAGNOSTIC_RESULT]', {
-            ui_cleanup: 'done',
-            removed: ['public/test-production.html'],
-            create_subscription: { 
-              init_point: !!initPoint, 
-              kind: 'preference', 
-              saved: true, 
-              retried 
-            },
-            preference: preferenceData,
-            capabilities
-          });
-
-        } catch (diagError) {
-          logSafely('[Preference diagnostic failed]', { error: diagError.message });
-        }
-
+      if (ok && preferenceId) {
         record = {
           user_id: authenticatedUserId,
           plan: 'annual',
-          external_reference,
+          external_reference: externalRef,
           mp_preference_id: preferenceId,
           init_point: initPoint,
           status: 'pending',
-          raw_response: mpData
-        };
-      }
-    }
-
-    if (plan_code === 'mensal') {
-      // For monthly plan, keep existing logic but update final variables
-      if (mpResponse.ok) {
-        status = mpResponse.status;
-        ok = true;
-        preferenceId = mpData.id;
-        initPoint = mpData.init_point || mpData.sandbox_init_point;
-        mpError = null;
-        
-        record = {
-          user_id: authenticatedUserId,
-          plan: 'monthly',
-          external_reference,
-          mp_preapproval_id: mpData.id,
-          init_point: initPoint,
-          status: 'pending',
-          raw_response: mpData
-        };
-      } else {
-        status = mpResponse.status;
-        ok = false;
-        mpError = {
-          status,
-          code: mpData?.error || 'MP_ERROR',
-          message: mpData?.message || 'Mercado Pago API error',
-          cause: mpData?.cause || []
+          raw_response: body
         };
       }
     }
@@ -563,10 +446,10 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       ok: false,
       status: 500,
-      retried: retried || false,
-      preference_id: preferenceId || null,
-      external_reference: externalRef || `${authenticatedUserId || 'unknown'}:${plan_code}`,
-      init_point: initPoint || null,
+      retried: false,
+      preference_id: null,
+      external_reference: `unknown:${plan_code || 'unknown'}`,
+      init_point: null,
       mp_error: { status: 500, code: 'EDGE_INTERNAL_ERROR', message: String(e), cause: [] }
     }), {
       status: 500,
