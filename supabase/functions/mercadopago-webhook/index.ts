@@ -9,7 +9,8 @@ const getCorsHeaders = (req: Request) => {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Authorization, Content-Type, Accept, X-Requested-With",
+    "Access-Control-Allow-Headers": "authorization, content-type, accept, x-requested-with, x-client-info, apikey, x-supabase-authorization, x-origin",
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   } as Record<string, string>;
