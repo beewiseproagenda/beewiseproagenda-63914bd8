@@ -206,7 +206,8 @@ serve(async (req) => {
     let status = 0;
     let preferenceId: string | null = null;
     let initPoint: string | null = null;
-    const externalRef = `${authenticatedUserId}:${plan_code}`;
+    // Fix external_reference for monthly vs annual
+    const externalRef = plan_code === 'mensal' ? `${authenticatedUserId}:monthly` : `${authenticatedUserId}:annual`;
     let mpError: any = null;
 
     // Define plan configurations
@@ -233,21 +234,20 @@ serve(async (req) => {
       logSafely('[Creating MP preapproval]', {
         planCode: plan_code,
         amount: planConfig.amount,
-        external_reference
+        external_reference: externalRef
       });
 
       const preapprovalPayload = {
-        payer_email: authenticatedUserEmail,
-        reason: planConfig.reason,
-        back_url: `https://beewiseproagenda.com.br/assinatura/retorno`,
-        auto_recurring: {
-          frequency: planConfig.frequency,
-          frequency_type: planConfig.frequency_type,
-          transaction_amount: planConfig.amount,
-          currency_id: 'BRL'
-        },
+        reason: "BeeWise Pro - Mensal",
         external_reference: externalRef,
-        notification_url: `https://beewiseproagenda.com.br/api/mercadopago/webhook`
+        back_url: "https://beewiseproagenda.com.br/assinatura/retorno?status=success",
+        payer_email: authenticatedUserEmail,
+        auto_recurring: {
+          frequency: 1,
+          frequency_type: "months",
+          transaction_amount: 19.90,
+          currency_id: "BRL"
+        }
       };
 
       const mpResponse = await fetch('https://api.mercadopago.com/preapproval', {
@@ -259,7 +259,7 @@ serve(async (req) => {
         body: JSON.stringify(preapprovalPayload)
       });
 
-      // Parse response
+      status = mpResponse.status;
       const rawText = await mpResponse.text();
       let mpData: any = {};
       try {
@@ -268,17 +268,16 @@ serve(async (req) => {
         mpData = { message: rawText };
       }
 
-      status = mpResponse.status;
       ok = mpResponse.ok;
       if (ok) {
-        preferenceId = mpData.id;
-        initPoint = mpData.init_point || mpData.sandbox_init_point;
+        preferenceId = mpData?.id ?? null;
+        initPoint = mpData?.init_point ?? null;
         mpError = null;
         record = {
           user_id: authenticatedUserId,
           plan: 'monthly',
           external_reference: externalRef,
-          mp_preapproval_id: mpData.id,
+          mp_preapproval_id: mpData?.id,
           init_point: initPoint,
           status: 'pending',
           raw_response: mpData
@@ -286,8 +285,8 @@ serve(async (req) => {
       } else {
         mpError = {
           status,
-          code: mpData?.error || 'MP_ERROR',
-          message: mpData?.message || 'Mercado Pago API error',
+          code: mpData?.code || mpData?.error || 'MP_ERROR',
+          message: mpData?.message || 'Mercado Pago error',
           cause: mpData?.cause || []
         };
       }
@@ -422,19 +421,59 @@ serve(async (req) => {
       });
     }
 
-    // Always return standardized response
-    return new Response(JSON.stringify({
-      ok,
-      status,
-      retried,
-      preference_id: preferenceId,
-      external_reference: externalRef,
-      init_point: initPoint,
-      mp_error: mpError
-    }), {
-      status: ok ? 200 : status,
-      headers: { ...corsStrict, 'Content-Type': 'application/json' },
-    });
+    // Always return standardized response based on plan type
+    if (plan_code === 'mensal') {
+      // Monthly preapproval response
+      if (ok) {
+        return new Response(JSON.stringify({
+          ok: true,
+          status,
+          kind: "preapproval",
+          preapproval_id: preferenceId,
+          external_reference: externalRef,
+          init_point: initPoint
+        }), {
+          status: 201,
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
+        });
+      } else if (mpError) {
+        return new Response(JSON.stringify({
+          ok: false,
+          status,
+          error: "MP_ERROR",
+          code: mpError.code,
+          message: mpError.message,
+          cause: mpError.cause
+        }), {
+          status,
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
+        });
+      } else {
+        return new Response(JSON.stringify({
+          ok: false,
+          status: 500,
+          error: "EDGE_INTERNAL_ERROR",
+          detail: "Unexpected response from Mercado Pago"
+        }), {
+          status: 500,
+          headers: { ...corsStrict, 'Content-Type': 'application/json' },
+        });
+      }
+    } else {
+      // Annual preference response (existing format)
+      return new Response(JSON.stringify({
+        ok,
+        status,
+        retried,
+        preference_id: preferenceId,
+        external_reference: externalRef,
+        init_point: initPoint,
+        mp_error: mpError
+      }), {
+        status: ok ? 200 : status,
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
+      });
+    }
 
   } catch (e) {
     logSafely('[Error in create-subscription]', {
@@ -446,11 +485,8 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       ok: false,
       status: 500,
-      retried: false,
-      preference_id: null,
-      external_reference: `unknown:${plan_code || 'unknown'}`,
-      init_point: null,
-      mp_error: { status: 500, code: 'EDGE_INTERNAL_ERROR', message: String(e), cause: [] }
+      error: "EDGE_INTERNAL_ERROR",
+      detail: String(e)
     }), {
       status: 500,
       headers: { ...corsStrict, 'Content-Type': 'application/json' },
