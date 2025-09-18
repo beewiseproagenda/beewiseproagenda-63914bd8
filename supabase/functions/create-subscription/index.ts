@@ -63,13 +63,6 @@ serve(async (req) => {
       });
     }
 
-    // Create admin Supabase client for database operations
-    const admin = createClient(
-      supabaseUrl!,
-      supabaseServiceKey!,
-      { auth: { persistSession: false } }
-    );
-
     // Parse request body
     const rawBody: any = await req.json();
     const { plan, userEmail, onboarding_token } = rawBody || {};
@@ -80,70 +73,41 @@ serve(async (req) => {
       hasOnboardingToken: !!onboarding_token
     });
 
-    let authenticatedUserId: string;
-    let authenticatedUserEmail: string;
-
-    // Handle onboarding token flow
-    if (onboarding_token) {
-      logSafely('[Validating onboarding token]');
-      
-      const { data: tokenData, error: tokenError } = await admin.functions.invoke('validate-onboarding-token', {
-        body: { token: onboarding_token }
+    // UNIFIED AUTH - validate JWT for both monthly and annual plans
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    if (!token) {
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        status: 401, 
+        error: 'MISSING_BEARER' 
+      }), {
+        status: 401,
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
       });
-
-      if (tokenError || !tokenData?.valid) {
-        logSafely('[Token validation failed]', { error: tokenError?.message });
-        return new Response(JSON.stringify({ 
-          error: 'INVALID_TOKEN', 
-          message: 'Invalid or expired onboarding token' 
-        }), {
-          status: 401,
-          headers: { ...corsStrict, 'Content-Type': 'application/json' },
-        });
-      }
-
-      authenticatedUserId = tokenData.userId;
-      authenticatedUserEmail = tokenData.email;
-      
-      logSafely('[Token validated]', { userId: '[USER_ID]' });
-    } else {
-      // Standard auth flow - validate JWT via Admin API
-      const h = req.headers;
-      const raw = h.get('authorization') || h.get('Authorization') || '';
-      const token = raw.startsWith('Bearer ') ? raw.slice(7) : null;
-      
-      if (!token) {
-        logSafely('[Auth failed]', { error_code: 'MISSING_BEARER' });
-        return new Response(JSON.stringify({ 
-          ok: false,
-          error: 'MISSING_BEARER',
-          message: 'Authorization Bearer token required' 
-        }), {
-          status: 401,
-          headers: { ...corsStrict, 'Content-Type': 'application/json' },
-        });
-      }
-
-      // Use Admin API to validate JWT
-      const { data: userData, error: authError } = await admin.auth.getUser(token);
-      
-      if (authError || !userData?.user) {
-        logSafely('[Auth failed]', { error_code: 'INVALID_JWT', message: authError?.message });
-        return new Response(JSON.stringify({ 
-          ok: false,
-          error: 'INVALID_JWT',
-          message: 'Token inválido ou expirado' 
-        }), {
-          status: 401,
-          headers: { ...corsStrict, 'Content-Type': 'application/json' },
-        });
-      }
-
-      authenticatedUserId = userData.user.id;
-      authenticatedUserEmail = userData.user.email || userEmail || '';
-      
-      logSafely('[User authenticated via Admin API]', { userId: '[USER_ID]', email: '[EMAIL_REDACTED]' });
     }
+
+    const admin = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      { auth: { persistSession: false } }
+    );
+    
+    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        status: 401, 
+        error: 'INVALID_JWT' 
+      }), {
+        status: 401,
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const user = userData.user;
+    const payerEmail = user.email as string;
 
     // Validate input
     const plan_code = plan === 'monthly' ? 'mensal' : plan === 'annual' ? 'anual' : null;
@@ -158,8 +122,8 @@ serve(async (req) => {
       });
     }
 
-    if (!authenticatedUserEmail) {
-      logSafely('[Invalid email]', { hasAuthEmail: !!authenticatedUserEmail });
+    if (!payerEmail) {
+      logSafely('[Invalid email]', { hasPayerEmail: !!payerEmail });
       return new Response(JSON.stringify({ 
         error: 'INVALID_EMAIL', 
         message: 'User email is required' 
@@ -174,7 +138,7 @@ serve(async (req) => {
     const { data: existingSubscriptions, error: subError } = await admin
       .from('subscriptions')
       .select('id, status')
-      .eq('user_id', authenticatedUserId)
+      .eq('user_id', user.id)
       .in('status', ['pending', 'authorized'])
       .limit(1);
 
@@ -207,7 +171,7 @@ serve(async (req) => {
     let preferenceId: string | null = null;
     let initPoint: string | null = null;
     // Fix external_reference for monthly vs annual
-    const externalRef = plan_code === 'mensal' ? `${authenticatedUserId}:monthly` : `${authenticatedUserId}:annual`;
+    const externalRef = plan_code === 'mensal' ? `${user.id}:monthly` : `${user.id}:annual`;
     let mpError: any = null;
 
     // Define plan configurations
@@ -241,7 +205,7 @@ serve(async (req) => {
         reason: "BeeWise Pro - Mensal",
         external_reference: externalRef,
         back_url: "https://beewiseproagenda.com.br/assinatura/retorno?status=success",
-        payer_email: authenticatedUserEmail,
+        payer_email: payerEmail,
         auto_recurring: {
           frequency: 1,
           frequency_type: "months",
@@ -274,7 +238,7 @@ serve(async (req) => {
         initPoint = mpData?.init_point ?? null;
         mpError = null;
         record = {
-          user_id: authenticatedUserId,
+          user_id: user.id,
           plan: 'monthly',
           external_reference: externalRef,
           mp_preapproval_id: mpData?.id,
@@ -308,7 +272,7 @@ serve(async (req) => {
             currency_id: "BRL"
           }
         ],
-        payer: { email: authenticatedUserEmail },
+        payer: { email: payerEmail },
         external_reference: externalRef,
         back_urls: {
           success: "https://beewiseproagenda.com.br/assinatura/retorno?status=success",
@@ -380,7 +344,7 @@ serve(async (req) => {
 
       if (ok && preferenceId) {
         record = {
-          user_id: authenticatedUserId,
+          user_id: user.id,
           plan: 'annual',
           external_reference: externalRef,
           mp_preference_id: preferenceId,
