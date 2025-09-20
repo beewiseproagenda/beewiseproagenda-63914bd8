@@ -217,7 +217,7 @@ export default function Financeiro() {
 
   const chartData = dadosFinanceiros.historicoMensal.map(item => ({
     ...item,
-    lucro: (item.realizado || item.faturamento) - item.despesas
+    lucro: (item.realizado || 0) - item.despesas // Remove linha azul, só dados confirmados
   }));
 
   // Dados de projeção separados dos dados históricos
@@ -234,6 +234,21 @@ export default function Financeiro() {
           <p className="text-muted-foreground">
             Controle suas receitas e despesas
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="month-filter">Mês:</Label>
+          <Select defaultValue={new Date().getMonth().toString()}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from({length: 12}, (_, i) => (
+                <SelectItem key={i} value={i.toString()}>
+                  {new Date(2024, i, 1).toLocaleDateString('pt-BR', { month: 'long' })}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -527,7 +542,7 @@ export default function Financeiro() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => console.log('Remover receita:', receita.id)}
+                          onClick={() => removerReceita(receita.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -828,7 +843,7 @@ export default function Financeiro() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => console.log('Remover despesa:', despesa.id)}
+                          onClick={() => removerDespesa(despesa.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -890,31 +905,33 @@ export default function Financeiro() {
         </Card>
       </div>
 
-      {/* Gráfico de Evolução */}
+      {/* Gráfico de Evolução - Apenas dados confirmados dos últimos 4 meses */}
       <Card className="bg-card border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5" />
-            Evolução Financeira
+            Evolução Financeira (Últimos 4 Meses)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <FinancialChart data={chartData} type="line" />
+          <FinancialChart data={chartData.slice(-4)} type="line" />
         </CardContent>
       </Card>
 
-      {/* Gráfico de Projeções */}
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Projeções
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FinancialChart data={projecaoData} type="line" />
-        </CardContent>
-      </Card>
+      {/* Gráfico de Projeções - Próximos 4 meses incluindo atual */}
+      {projecaoData.length > 0 && (
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Projeções (Próximos 4 Meses)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FinancialChart data={projecaoData.slice(0, 4)} type="line" />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
