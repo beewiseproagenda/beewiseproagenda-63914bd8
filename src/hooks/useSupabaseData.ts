@@ -536,11 +536,13 @@ export const useSupabaseData = () => {
       const date = new Date(currentYear, currentMonth - i, 1);
       const month = date.getMonth();
       const year = date.getFullYear();
+      const isCurrentMonth = month === currentMonth && year === currentYear;
       
       const atendimentosRealizadosMes = atendimentos.filter(a => 
         a.status === 'realizado' &&
         new Date(a.data).getMonth() === month &&
-        new Date(a.data).getFullYear() === year
+        new Date(a.data).getFullYear() === year &&
+        (!isCurrentMonth || new Date(a.data) <= today)
       );
       
       // For past months, include all agendamentos. For current month, only up to today
@@ -548,13 +550,13 @@ export const useSupabaseData = () => {
         a.status === 'agendado' &&
         new Date(a.data).getMonth() === month &&
         new Date(a.data).getFullYear() === year &&
-        (month < currentMonth || year < currentYear || new Date(a.data) <= today)
+        (!isCurrentMonth || new Date(a.data) <= today)
       );
 
       const despesasMes = despesas.filter(d => 
         new Date(d.data).getMonth() === month &&
         new Date(d.data).getFullYear() === year &&
-        (month < currentMonth || year < currentYear || new Date(d.data) <= today)
+        (!isCurrentMonth || new Date(d.data) <= today)
       );
 
       // Add recurring expenses for this month (only if original date is before or in this month)
@@ -562,23 +564,18 @@ export const useSupabaseData = () => {
         .filter(d => d.recorrente && new Date(d.data) <= new Date(year, month + 1, 0))
         .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, month, year), 0);
 
+      const realizadoMes = atendimentosRealizadosMes.reduce((sum, a) => sum + Number(a.valor), 0);
+      const agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor), 0);
+      const despesasTotalMes = despesasMes.reduce((sum, d) => sum + Number(d.valor), 0) + despesasRecorrentesMes;
+
       historicoMensal.push({
         mes: date.toLocaleDateString('pt-BR', { month: 'short' }),
-        faturamento: atendimentosRealizadosMes.reduce((sum, a) => sum + Number(a.valor), 0),
-        realizado: atendimentosRealizadosMes.reduce((sum, a) => sum + Number(a.valor), 0),
-        agendado: atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor), 0),
-        despesas: despesasMes.reduce((sum, d) => sum + Number(d.valor), 0) + despesasRecorrentesMes
+        faturamento: realizadoMes,
+        realizado: realizadoMes,
+        agendado: agendadoMes,
+        despesas: despesasTotalMes
       });
     }
-
-    // Current month (only data up to today)
-    historicoMensal.push({
-      mes: today.toLocaleDateString('pt-BR', { month: 'short' }),
-      faturamento: faturamentoMesAtual,
-      realizado: faturamentoMesAtual,
-      agendado: projecaoMesAtual,
-      despesas: totalDespesasComRecorrencia
-    });
 
     // Calculate future projections (separate from historical data)
     const projecoesFuturas = [];

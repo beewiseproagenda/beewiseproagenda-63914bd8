@@ -227,18 +227,18 @@ export default function Financeiro() {
   })) || [];
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Financeiro</h1>
-          <p className="text-muted-foreground">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Financeiro</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Controle suas receitas e despesas
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Label htmlFor="month-filter">Mês:</Label>
+          <Label htmlFor="month-filter" className="text-sm">Mês:</Label>
           <Select defaultValue={new Date().getMonth().toString()}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[140px] sm:w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -253,7 +253,7 @@ export default function Financeiro() {
       </div>
 
       {/* Tabelas - Primeiro na página */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         {/* Receitas */}
         <Card className="bg-card border-border">
           <CardHeader>
@@ -504,15 +504,16 @@ export default function Financeiro() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Data</TableHead>
+                    <TableHead className="min-w-[200px]">Descrição</TableHead>
+                    <TableHead className="whitespace-nowrap">Valor</TableHead>
+                    <TableHead className="whitespace-nowrap">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {receitas.map((receita) => (
                   <TableRow key={receita.id}>
@@ -551,7 +552,8 @@ export default function Financeiro() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 
@@ -805,15 +807,16 @@ export default function Financeiro() {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Data</TableHead>
+                    <TableHead className="min-w-[200px]">Descrição</TableHead>
+                    <TableHead className="whitespace-nowrap">Valor</TableHead>
+                    <TableHead className="whitespace-nowrap">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
               <TableBody>
                 {despesas.map((despesa) => (
                   <TableRow key={despesa.id}>
@@ -852,20 +855,21 @@ export default function Financeiro() {
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Resumo Financeiro com variações */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Faturamento do Mês</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-lg sm:text-2xl font-bold text-foreground break-words">
               {formatCurrency(dadosFinanceiros.faturamentoMesAtual)}
             </div>
             <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoFaturamento >= 0 ? 'text-green-500' : 'text-red-500'}`}>
@@ -880,7 +884,7 @@ export default function Financeiro() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">
+            <div className="text-lg sm:text-2xl font-bold text-foreground break-words">
               {formatCurrency(dadosFinanceiros.totalDespesas)}
             </div>
             <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoDespesas >= 0 ? 'text-red-500' : 'text-green-500'}`}>
@@ -895,7 +899,7 @@ export default function Financeiro() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${dadosFinanceiros.lucroLiquido >= 0 ? 'text-foreground' : 'text-red-500'}`}>
+            <div className={`text-lg sm:text-2xl font-bold break-words ${dadosFinanceiros.lucroLiquido >= 0 ? 'text-foreground' : 'text-red-500'}`}>
               {formatCurrency(dadosFinanceiros.lucroLiquido)}
             </div>
             <p className={`text-xs mt-1 ${dadosFinanceiros.variacaoLucro >= 0 ? 'text-green-500' : 'text-red-500'}`}>

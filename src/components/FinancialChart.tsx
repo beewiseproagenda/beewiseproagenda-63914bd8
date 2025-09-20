@@ -36,10 +36,10 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
       };
 
       return (
-        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="text-foreground font-medium">{label}</p>
+        <div className="bg-card border border-border rounded-lg p-2 sm:p-3 shadow-lg max-w-xs">
+          <p className="text-foreground font-medium text-sm">{label}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
+            <p key={index} className="text-xs sm:text-sm break-words" style={{ color: entry.color }}>
               {getLabel(entry.dataKey)}: R$ {entry.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           ))}
@@ -52,19 +52,21 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
   if (type === 'bar') {
     return (
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data}>
+        <BarChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
           <XAxis 
             dataKey="mes" 
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+            interval={0}
           />
           <YAxis 
             axisLine={false}
             tickLine={false}
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-            tickFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+            tickFormatter={(value) => `${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+            width={60}
           />
           <Tooltip content={<CustomTooltip />} />
           <Bar dataKey="agendado" fill="hsl(var(--chart-agendado))" radius={[4, 4, 0, 0]} />
@@ -76,19 +78,21 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={data}>
+      <LineChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
         <XAxis 
           dataKey="mes" 
           axisLine={false}
           tickLine={false}
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+          interval={0}
         />
         <YAxis 
           axisLine={false}
           tickLine={false}
-          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
-          tickFormatter={(value) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+          tickFormatter={(value) => `${value.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+          width={60}
         />
         <Tooltip content={<CustomTooltip />} />
         <Line 

@@ -45,19 +45,19 @@ export function AppSidebar() {
   return (
     <Sidebar
       className={`border-r border-border transition-all duration-300 ${
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-16" : "w-48 sm:w-64"
       }`}
       collapsible="icon"
     >
       <SidebarContent className="bg-card">
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 flex items-center justify-center">
+        <div className="p-3 sm:p-4 border-b border-border">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
               <img src={beeWiseLogo} alt="BeeWise Logo" className="w-8 h-8 object-contain" />
             </div>
             {!collapsed && (
-              <div>
-                <h2 className="font-bold text-lg text-foreground">BeeWise</h2>
+              <div className="min-w-0">
+                <h2 className="font-bold text-base sm:text-lg text-foreground truncate">BeeWise</h2>
                 <p className="text-xs text-muted-foreground">ProAgenda</p>
               </div>
             )}
@@ -73,15 +73,15 @@ export function AppSidebar() {
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="w-full">
-                    <NavLink 
-                      to={item.url} 
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 ${getNavCls(item.url)}`}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      {!collapsed && (
-                        <span className="font-medium">{item.title}</span>
-                      )}
-                    </NavLink>
+                     <NavLink 
+                       to={item.url} 
+                       className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-lg transition-all duration-200 ${getNavCls(item.url)}`}
+                     >
+                       <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                       {!collapsed && (
+                         <span className="font-medium text-sm sm:text-base truncate">{item.title}</span>
+                       )}
+                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

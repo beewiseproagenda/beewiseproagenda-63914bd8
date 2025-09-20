@@ -130,17 +130,17 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="space-y-4 p-4 sm:p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0">
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Bem-vindo ao seu painel de controle
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">
+        <div className="text-left sm:text-right">
+          <p className="text-xs sm:text-sm text-muted-foreground">
             {new Date().toLocaleDateString('pt-BR', { 
               weekday: 'long', 
               year: 'numeric', 
@@ -243,24 +243,24 @@ export default function Dashboard() {
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 sm:gap-2">
             {weekDays.map((day, index) => {
               const agendamentosDoDia = getAgendamentosDoDia(day);
               const isToday = day.toDateString() === hoje.toDateString();
               const isPast = isDiaPassed(day) && !isToday;
               
               return (
-                <div
-                  key={day.toISOString()}
-                  className={`p-3 rounded-lg border min-h-[120px] cursor-pointer transition-all hover:shadow-sm ${
-                    isToday 
-                      ? 'bg-primary/10 border-primary/20' 
-                      : isPast
-                      ? 'calendar-day-box border-muted/30'
-                      : 'calendar-day-box border-border hover:bg-muted/20'
-                  }`}
-                  onClick={() => handleDayClick(day, agendamentosDoDia)}
-                >
+                 <div
+                   key={day.toISOString()}
+                   className={`p-2 sm:p-3 rounded-lg border min-h-[100px] sm:min-h-[120px] cursor-pointer transition-all hover:shadow-sm ${
+                     isToday 
+                       ? 'bg-primary/10 border-primary/20' 
+                       : isPast
+                       ? 'calendar-day-box border-muted/30'
+                       : 'calendar-day-box border-border hover:bg-muted/20'
+                   }`}
+                   onClick={() => handleDayClick(day, agendamentosDoDia)}
+                 >
                   <div className="text-center mb-2">
                     <p className="text-xs text-muted-foreground">{diasSemana[index]}</p>
                     <p className={`text-sm font-medium ${
@@ -302,7 +302,7 @@ export default function Dashboard() {
       </Card>
 
       {/* Cards de métricas - Primeira linha */}
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <DashboardCard
           title="Clientes Ativos"
           value={clientesAtivosNoMes.toString()}
@@ -326,7 +326,7 @@ export default function Dashboard() {
       </div>
 
       {/* Cards de métricas - Segunda linha - Layout do Financeiro */}
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Faturamento do Mês</CardTitle>

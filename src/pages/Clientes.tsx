@@ -243,7 +243,7 @@ export default function Clientes() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>Tipo de Pessoa</Label>
                   <RadioGroup
@@ -283,7 +283,7 @@ export default function Clientes() {
               <div className="border-t pt-4">
                 <h3 className="text-lg font-medium mb-4">Endereço</h3>
                 
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div>
                     <Label htmlFor="cep">CEP</Label>
                     <Input
@@ -538,7 +538,7 @@ export default function Clientes() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {clientesFiltrados.map((cliente) => (
             <Card key={cliente.id} className="hover:bg-card/80 transition-colors">
               <CardHeader className="pb-2">
@@ -604,7 +604,7 @@ export default function Clientes() {
       )}
 
       {/* Estatísticas dos Clientes */}
-      <div className="grid gap-4 md:grid-cols-2 mt-6">
+      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 mt-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Clientes sem Agendamento</CardTitle>
@@ -670,7 +670,7 @@ export default function Clientes() {
       </div>
 
       {/* Top 5 Clientes por Quantidade e Faturamento */}
-      <div className="grid gap-4 md:grid-cols-2 mt-6">
+      <div className="grid gap-4 sm:grid-cols-1 lg:grid-cols-2 mt-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Top 5 - Quantidade de Consultas</CardTitle>

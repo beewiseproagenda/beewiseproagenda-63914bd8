@@ -69,11 +69,11 @@ const ProtectedLayout = ({ children, title }: { children: React.ReactNode; title
         
         <div className="flex-1 flex flex-col">
           <header className="h-16 border-b border-border backdrop-blur flex items-center px-4 bg-amber-400">
-            <SidebarTrigger className="mr-4">
+            <SidebarTrigger className="mr-2 sm:mr-4">
               <Menu className="h-5 w-5" />
             </SidebarTrigger>
-            <div className="flex-1">
-              <h1 className="text-xl font-semibold text-foreground">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-xl font-semibold text-foreground truncate">
                 {profile ? `${title} de ${profile.first_name}` : title}
               </h1>
             </div>
@@ -81,10 +81,10 @@ const ProtectedLayout = ({ children, title }: { children: React.ReactNode; title
               variant="ghost"
               size="sm"
               onClick={handleSignOut}
-              className="text-foreground hover:bg-background/10"
+              className="text-foreground hover:bg-background/10 flex-shrink-0"
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
+              <LogOut className="h-4 w-4 mr-0 sm:mr-2" />
+              <span className="hidden sm:inline">Sair</span>
             </Button>
           </header>
           
