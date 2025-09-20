@@ -532,10 +532,31 @@ export const useSupabaseData = () => {
 
     // Historical data - ONLY past months and current month (no future data)
     const historicoMensal = [];
+    
+    // Get exactly 4 months: 3 past months + current month
+    const monthsToShow = [];
     for (let i = 3; i >= 0; i--) {
       const date = new Date(currentYear, currentMonth - i, 1);
-      const month = date.getMonth();
-      const year = date.getFullYear();
+      monthsToShow.push({
+        month: date.getMonth(),
+        year: date.getFullYear(),
+        date: date
+      });
+    }
+    
+    // Remove duplicates by creating a Set of unique month-year combinations
+    const uniqueMonths = [];
+    const seen = new Set();
+    
+    for (const monthData of monthsToShow) {
+      const key = `${monthData.year}-${monthData.month}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        uniqueMonths.push(monthData);
+      }
+    }
+    
+    for (const { month, year, date } of uniqueMonths) {
       const isCurrentMonth = month === currentMonth && year === currentYear;
       
       const atendimentosRealizadosMes = atendimentos.filter(a => 
@@ -576,6 +597,9 @@ export const useSupabaseData = () => {
         despesas: despesasTotalMes
       });
     }
+    
+    // Debug: log dos meses renderizados para validação
+    console.log('Meses renderizados no gráfico:', historicoMensal.map(h => h.mes));
 
     // Calculate future projections (separate from historical data)
     const projecoesFuturas = [];
