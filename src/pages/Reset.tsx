@@ -1,190 +1,69 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle } from "lucide-react";
 
-type Phase = "checking" | "form" | "done" | "error";
+function parseAuthFragmentOrQuery() {
+  // suporta hash (#access_token=...) e query (?code=...)
+  const hash = window.location.hash?.startsWith('#') ? window.location.hash.substring(1) : '';
+  const qs = window.location.search?.startsWith('?') ? window.location.search.substring(1) : '';
+  const params = new URLSearchParams(hash || qs);
+  return {
+    hasRecovery: params.get('type') === 'recovery' || !!params.get('access_token') || !!params.get('code'),
+    raw: hash ? `#${hash}` : `?${qs}`
+  };
+}
 
-export default function ResetPasswordPage() {
-  const [phase, setPhase] = useState<Phase>("checking");
-  const [error, setError] = useState<string | null>(null);
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export default function Reset() {
+  const [step, setStep] = useState<'exchanging'|'form'|'done'|'error'>('exchanging');
+  const [err, setErr] = useState<string | null>(null);
+  const [pw1, setPw1] = useState(''); 
+  const [pw2, setPw2] = useState('');
+
+  const frag = useMemo(parseAuthFragmentOrQuery, []);
 
   useEffect(() => {
-    let unsub: (() => void) | undefined;
-
     (async () => {
       try {
-        // 1) Troca o código do link por uma sessão (suporta magic/recovery)
-        if (typeof window !== "undefined" && window.location.hash) {
-          try {
-            await supabase.auth.exchangeCodeForSession(window.location.hash);
-          } catch {
-            // em alguns fluxos o evento PASSWORD_RECOVERY chega sem necessidade de exchange
-          }
+        if (!frag.hasRecovery) {
+          setErr('LINK_INVALIDO'); setStep('error'); return;
         }
-
-        // 2) Ouve mudanças de auth; quando for PASSWORD_RECOVERY, libera o form
-        const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-          if (event === "PASSWORD_RECOVERY") {
-            setPhase("form");
-          }
-        });
-        unsub = () => sub.subscription.unsubscribe();
-
-        // 3) Fallback: se já houver sessão válida, mostra o form
-        const { data } = await supabase.auth.getSession();
-        if (data?.session) setPhase("form");
-        else if (phase !== "form") setPhase("checking");
+        // troca token por sessão (suporta hash OU query)
+        await supabase.auth.exchangeCodeForSession(frag.raw);
+        setStep('form');
       } catch (e: any) {
-        setError(e?.message || "Erro ao preparar o reset de senha.");
-        setPhase("error");
+        setErr(e?.message || 'EXCHANGE_FALHOU');
+        setStep('error');
       }
     })();
-
-    return () => unsub?.();
   }, []);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
-
-    if (!password || password.length < 8) {
-      setError("A senha precisa ter ao menos 8 caracteres.");
-      setIsSubmitting(false);
-      return;
+    if (!pw1 || pw1 !== pw2) { setErr('SENHAS_DIVERGENTES'); return; }
+    try {
+      const { error } = await supabase.auth.updateUser({ password: pw1 });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      window.location.replace('/login?reset=success');
+    } catch (e: any) {
+      setErr(e?.message || 'RESET_FALHOU');
     }
-    
-    if (password !== confirmPassword) {
-      setError("As senhas não conferem.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      setError(error.message);
-      setPhase("error");
-      setIsSubmitting(false);
-      return;
-    }
-
-    setPhase("done");
-    setTimeout(() => {
-      // redireciona para login com flag de sucesso
-      window.location.assign("/login?reset=success");
-    }, 1200);
   }
 
-  if (phase === "checking") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <LoadingSpinner text="Verificando link de recuperação..." />
-      </div>
-    );
-  }
+  if (step === 'exchanging') return <div style={{padding:24}}>Validando link…</div>;
+  if (step === 'error') return <div style={{padding:24}}>Não foi possível validar o link. {err || ''}</div>;
+  if (step === 'done') return <div style={{padding:24}}>Senha atualizada. Redirecionando…</div>;
 
-  if (phase === "error") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-destructive">Erro no reset de senha</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-            <Button 
-              onClick={() => window.location.href = "/login"}
-              variant="outline"
-              className="w-full"
-            >
-              Voltar ao login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (phase === "done") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-primary flex items-center justify-center gap-2">
-              <CheckCircle className="h-8 w-8" />
-              Senha alterada com sucesso
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center">
-            <p className="text-muted-foreground">Redirecionando para o login...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // phase === "form"
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">Defina sua nova senha</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">Nova senha</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                placeholder="Digite sua nova senha"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirmar nova senha</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={8}
-                placeholder="Confirme sua nova senha"
-              />
-            </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Button 
-              type="submit" 
-              className="w-full"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Salvando..." : "Salvar nova senha"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+    <div style={{maxWidth:420, margin:'48px auto', padding:24}}>
+      <h1>Redefinir senha</h1>
+      <form onSubmit={onSubmit}>
+        <label>Nova senha</label>
+        <input type="password" value={pw1} onChange={e=>setPw1(e.target.value)} required minLength={6} />
+        <label>Confirmar nova senha</label>
+        <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} required minLength={6} />
+        <button type="submit">Salvar nova senha</button>
+      </form>
+      {err && <div style={{marginTop:12, color:'#b91c1c'}}>Erro: {String(err)}</div>}
     </div>
   );
 }
