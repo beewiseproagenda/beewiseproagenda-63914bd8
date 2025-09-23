@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 import { Tables } from '@/integrations/supabase/types';
+import { browserTz, toUTCFromLocal, DEFAULT_TZ, fmt, utcToViewer } from '@/utils/datetime';
 
 export type Cliente = Tables<'clientes'>;
 export type Atendimento = Tables<'atendimentos'>;
@@ -75,12 +76,29 @@ export const useSupabaseData = () => {
 
   const fetchAtendimentos = async () => {
     if (!user) return;
-    
+
+    try {
+      // Try using the timezone-aware edge function
+      const response = await supabase.functions.invoke('list-appointments', {
+        headers: {
+          'x-viewer-tz': browserTz()
+        }
+      });
+
+      if (response.data?.appointments) {
+        setAtendimentos(response.data.appointments);
+        return;
+      }
+    } catch (error) {
+      console.warn('Edge function not available, falling back to direct query:', error);
+    }
+
+    // Fallback to direct database query
     const { data, error } = await supabase
       .from('atendimentos')
       .select('*')
       .eq('user_id', user.id)
-      .order('data', { ascending: false });
+      .order('start_at_utc', { ascending: false });
 
     if (error) throw error;
     setAtendimentos(data || []);
@@ -206,25 +224,48 @@ export const useSupabaseData = () => {
     }
   };
 
-  // Atendimento functions
+  // Atendimento functions - now using timezone-aware edge functions
   const adicionarAtendimento = async (atendimentoData: Omit<Atendimento, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('atendimentos')
-      .insert([{ ...atendimentoData, user_id: user.id }])
-      .select()
-      .single();
+    try {
+      const response = await supabase.functions.invoke('create-appointment', {
+        body: atendimentoData,
+        headers: {
+          'x-viewer-tz': browserTz()
+        }
+      });
 
-    if (error) throw error;
-    
-    setAtendimentos(prev => [...prev, data]);
-    toast({
-      title: "Sucesso",
-      description: "Atendimento agendado com sucesso"
-    });
-    
-    return data;
+      if (response.error) throw response.error;
+
+      const newAtendimento = response.data.appointment;
+      setAtendimentos(prev => [...prev, newAtendimento]);
+      
+      toast({
+        title: "Sucesso",
+        description: "Atendimento agendado com sucesso"
+      });
+      
+      return newAtendimento;
+    } catch (error) {
+      console.error('Erro ao adicionar atendimento:', error);
+      // Fallback to direct database insert
+      const { data, error: dbError } = await supabase
+        .from('atendimentos')
+        .insert([{ ...atendimentoData, user_id: user.id }])
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+      
+      setAtendimentos(prev => [...prev, data]);
+      toast({
+        title: "Sucesso",
+        description: "Atendimento agendado com sucesso"
+      });
+      
+      return data;
+    }
   };
 
   const atualizarAtendimento = async (id: string, atendimentoData: Partial<Atendimento>) => {

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Atendimento, Cliente } from '@/hooks/useSupabaseData';
+import { utcToViewer, fmt, browserTz } from '@/utils/datetime';
 
 interface MonthlyCalendarProps {
   atendimentos: Atendimento[];
@@ -39,18 +40,40 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
   };
 
   const getAtendimentosForDay = (date: Date) => {
+    const userTz = browserTz();
+    
     return atendimentos.filter(a => {
-      const atendimentoDate = new Date(a.data + 'T00:00:00'); // Force local timezone
+      // If we have UTC timestamp, use it; otherwise fall back to legacy date field
+      let atendimentoDate: Date;
+      
+      if (a.start_at_utc) {
+        // Convert UTC to viewer timezone and compare dates
+        const utcDate = new Date(a.start_at_utc);
+        atendimentoDate = utcToViewer(utcDate, userTz);
+      } else {
+        // Legacy fallback - use date field
+        atendimentoDate = new Date(a.data + 'T00:00:00');
+      }
+      
       const compareDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const compareAtendimento = new Date(atendimentoDate.getFullYear(), atendimentoDate.getMonth(), atendimentoDate.getDate());
       return compareAtendimento.getTime() === compareDate.getTime();
     }).map(a => {
       const cliente = clientes.find(c => c.id === a.cliente_id);
+      
+      // Format time in viewer timezone if we have UTC data
+      let displayTime = a.hora;
+      if (a.start_at_utc) {
+        const utcDate = new Date(a.start_at_utc);
+        displayTime = fmt(utcDate, userTz, 'TIME');
+      }
+      
       return {
         ...a,
-        clienteNome: cliente?.nome || 'Cliente não encontrado'
+        clienteNome: cliente?.nome || 'Cliente não encontrado',
+        displayTime
       };
-    }).sort((a, b) => a.hora.localeCompare(b.hora));
+    }).sort((a, b) => (a.displayTime || a.hora).localeCompare(b.displayTime || b.hora));
   };
 
   const previousMonth = () => {
@@ -131,9 +154,9 @@ export function MonthlyCalendar({ atendimentos, clientes, onDayClick }: MonthlyC
                             ? 'bg-red-100 text-foreground'
                             : 'bg-secondary text-foreground'
                         }`}
-                        title={`${atendimento.hora.slice(0, 5)} - ${atendimento.clienteNome} - ${atendimento.servico}`}
+                        title={`${(atendimento.displayTime || atendimento.hora).slice(0, 5)} - ${atendimento.clienteNome} - ${atendimento.servico}`}
                       >
-                        <span className="font-medium text-foreground whitespace-nowrap">{atendimento.hora.slice(0, 5)}</span>
+                        <span className="font-medium text-foreground whitespace-nowrap">{(atendimento.displayTime || atendimento.hora).slice(0, 5)}</span>
                         <span className="text-foreground">-</span>
                         <span className="truncate text-foreground">{atendimento.clienteNome}</span>
                       </div>

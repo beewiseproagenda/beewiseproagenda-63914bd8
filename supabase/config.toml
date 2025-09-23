@@ -1,5 +1,11 @@
 project_id = "obdwvgxxunkomacbifry"
 
+[functions.create-appointment]
+verify_jwt = true
+
+[functions.list-appointments] 
+verify_jwt = true
+
 [functions.mercadopago-webhook]
 verify_jwt = false
 

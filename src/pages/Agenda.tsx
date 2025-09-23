@@ -21,6 +21,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toUTCFromLocal, browserTz } from "@/utils/datetime";
 
 const atendimentoSchema = z.object({
   data: z.date(),
@@ -67,8 +68,13 @@ export default function Agenda() {
     // Ajustar para fuso horário local
     const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
     
+    // Get timezone for conversion
+    const userTz = browserTz();
+    const dateStr = localDate.toISOString().split('T')[0];
+    const startAtUtc = toUTCFromLocal(dateStr, data.hora, userTz);
+    
     const atendimentoData = {
-      data: localDate.toISOString().split('T')[0], // Convert to YYYY-MM-DD
+      data: dateStr, // Convert to YYYY-MM-DD
       hora: data.hora,
       cliente_id: data.clienteId,
       servico: servicoSelecionado?.nome || "",
@@ -76,6 +82,8 @@ export default function Agenda() {
       forma_pagamento: data.formaPagamento,
       observacoes: data.observacoes || "",
       status: data.status,
+      start_at_utc: startAtUtc.toISOString(),
+      tz: userTz
     };
 
     if (editingAtendimento) {
