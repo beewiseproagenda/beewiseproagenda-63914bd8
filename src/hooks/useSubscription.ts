@@ -72,29 +72,75 @@ export const useSubscription = () => {
       setLoading(true);
       console.log('[useSubscription] Buscando assinatura para usuário:', user.id, user.email);
       
-      const { data, error } = await supabase
+      // Verificar na tabela subscriptions (nova estrutura)
+      const { data: subscriptionsData, error: subscriptionsError } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1);
 
-      if (error) {
-        console.error('[useSubscription] Erro ao buscar assinatura:', error);
-        throw error;
+      if (subscriptionsError) {
+        console.error('[useSubscription] Erro ao buscar subscriptions:', subscriptionsError);
       }
-      
-      const subscription = data?.[0] ? {
-        ...data[0],
-        plan_code: data[0].plan_code as 'mensal' | 'anual',
-        status: data[0].status as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected'
-      } : null;
+
+      // Verificar na tabela subscribers (estrutura legada)
+      const { data: subscribersData, error: subscribersError } = await supabase
+        .from('subscribers')
+        .select('*')
+        .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+        .eq('subscribed', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (subscribersError) {
+        console.error('[useSubscription] Erro ao buscar subscribers:', subscribersError);
+      }
+
+      // Priorizar subscription ativa da tabela subscriptions
+      let subscription = null;
+      if (subscriptionsData?.[0]?.status === 'authorized') {
+        subscription = {
+          ...subscriptionsData[0],
+          plan_code: subscriptionsData[0].plan_code as 'mensal' | 'anual',
+          status: subscriptionsData[0].status as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected'
+        };
+      }
+      // Se não encontrou ativa na subscriptions, verificar subscribers
+      else if (subscribersData?.[0]?.subscribed) {
+        // Mapear subscriber para formato subscription
+        const subscriber = subscribersData[0];
+        subscription = {
+          id: subscriber.id,
+          user_id: user.id,
+          plan_code: (subscriber.subscription_tier === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
+          mp_preapproval_id: subscriber.payment_id,
+          status: 'authorized' as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected',
+          next_charge_at: subscriber.subscription_end,
+          started_at: subscriber.created_at,
+          cancelled_at: null,
+          created_at: subscriber.created_at,
+          updated_at: subscriber.updated_at
+        };
+      }
+      // Se não encontrou ativa, pegar a mais recente da subscriptions para mostrar status
+      else if (subscriptionsData?.[0]) {
+        subscription = {
+          ...subscriptionsData[0],
+          plan_code: subscriptionsData[0].plan_code as 'mensal' | 'anual',
+          status: subscriptionsData[0].status as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected'
+        };
+      }
       
       console.log('[useSubscription] Resultado da busca:', {
         hasSubscription: !!subscription,
         status: subscription?.status,
         isActive: subscription?.status === 'authorized',
-        subscriptionData: subscription
+        subscriptionData: subscription,
+        checkedTables: {
+          subscriptions: !!subscriptionsData?.[0],
+          subscribers: !!subscribersData?.[0]
+        }
       });
       
       setCurrentSubscription(subscription);
@@ -108,6 +154,12 @@ export const useSubscription = () => {
 
   const createSubscription = async (planCode: 'mensal' | 'anual') => {
     if (!user) throw new Error('User not authenticated');
+
+    // Verificar se já tem assinatura ativa antes de criar nova
+    await fetchCurrentSubscription();
+    if (currentSubscription?.status === 'authorized') {
+      throw new Error('Você já possui uma assinatura ativa');
+    }
 
     try {
       // garantir sessão válida

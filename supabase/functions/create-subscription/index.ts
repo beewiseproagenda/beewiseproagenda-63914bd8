@@ -133,8 +133,10 @@ serve(async (req) => {
       });
     }
 
-    // Check for existing active subscription
+    // Check for existing active subscription in both tables
     logSafely('[Checking existing subscriptions]');
+    
+    // Check subscriptions table
     const { data: existingSubscriptions, error: subError } = await admin
       .from('subscriptions')
       .select('id, status')
@@ -142,8 +144,16 @@ serve(async (req) => {
       .in('status', ['pending', 'authorized'])
       .limit(1);
 
+    // Check subscribers table (legacy)
+    const { data: existingSubscribers, error: subscribersError } = await admin
+      .from('subscribers')
+      .select('id, subscribed')
+      .or(`user_id.eq.${user.id},email.eq.${payerEmail}`)
+      .eq('subscribed', true)
+      .limit(1);
+
     if (subError) {
-      logSafely('[Database error]', { error: subError.message });
+      logSafely('[Database error on subscriptions]', { error: subError.message });
       return new Response(JSON.stringify({ 
         error: 'DATABASE_ERROR', 
         message: 'Failed to check existing subscriptions' 
@@ -153,8 +163,26 @@ serve(async (req) => {
       });
     }
 
-    if (existingSubscriptions && existingSubscriptions.length > 0) {
-      logSafely('[Active subscription exists]', { status: existingSubscriptions[0].status });
+    if (subscribersError) {
+      logSafely('[Database error on subscribers]', { error: subscribersError.message });
+      return new Response(JSON.stringify({ 
+        error: 'DATABASE_ERROR', 
+        message: 'Failed to check existing subscribers' 
+      }), {
+        status: 500,
+        headers: { ...corsStrict, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const hasActiveSubscription = (existingSubscriptions && existingSubscriptions.length > 0);
+    const hasActiveSubscriber = (existingSubscribers && existingSubscribers.length > 0);
+
+    if (hasActiveSubscription || hasActiveSubscriber) {
+      logSafely('[Active subscription exists]', { 
+        inSubscriptions: hasActiveSubscription,
+        inSubscribers: hasActiveSubscriber,
+        subscriptionStatus: existingSubscriptions?.[0]?.status 
+      });
       return new Response(JSON.stringify({ 
         error: 'SUBSCRIPTION_EXISTS', 
         message: 'User already has an active subscription' 

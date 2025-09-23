@@ -55,18 +55,37 @@ const Subscribe = () => {
           console.log('[Subscribe] Token válido, definindo userInfo');
           setUserInfo({ userId: data.userId, email: data.email });
 
-          // Check if user already has active subscription
-          const { data: subscriptions, error: subError } = await supabase
-            .from('subscriptions')
-            .select('status')
-            .eq('user_id', data.userId)
-            .in('status', ['authorized', 'active'])
-            .limit(1);
+          // Check if user already has active subscription (verificar ambas as tabelas)
+          const [subscriptionsResult, subscribersResult] = await Promise.all([
+            supabase
+              .from('subscriptions')
+              .select('status')
+              .eq('user_id', data.userId)
+              .eq('status', 'authorized')
+              .limit(1),
+            supabase
+              .from('subscribers')
+              .select('subscribed')
+              .or(`user_id.eq.${data.userId},email.eq.${data.email}`)
+              .eq('subscribed', true)
+              .limit(1)
+          ]);
 
-          if (subError) {
-            console.error('[Subscribe] Erro ao verificar assinatura:', subError);
-          } else if (subscriptions && subscriptions.length > 0) {
-            console.log('[Subscribe] Assinatura ativa encontrada');
+          const hasActiveInSubscriptions = subscriptionsResult.data && subscriptionsResult.data.length > 0;
+          const hasActiveInSubscribers = subscribersResult.data && subscribersResult.data.length > 0;
+
+          if (subscriptionsResult.error) {
+            console.error('[Subscribe] Erro ao verificar subscriptions:', subscriptionsResult.error);
+          }
+          if (subscribersResult.error) {
+            console.error('[Subscribe] Erro ao verificar subscribers:', subscribersResult.error);
+          }
+
+          if (hasActiveInSubscriptions || hasActiveInSubscribers) {
+            console.log('[Subscribe] Assinatura ativa encontrada', {
+              inSubscriptions: hasActiveInSubscriptions,
+              inSubscribers: hasActiveInSubscribers
+            });
             setHasActiveSubscription(true);
           } else {
             console.log('[Subscribe] Nenhuma assinatura ativa encontrada');
@@ -77,18 +96,37 @@ const Subscribe = () => {
           console.log('[Subscribe] Usuário logado encontrado, sem token');
           setUserInfo({ userId: user.id, email: user.email || '' });
 
-          // Check if user already has active subscription
-          const { data: subscriptions, error: subError } = await supabase
-            .from('subscriptions')
-            .select('status')
-            .eq('user_id', user.id)
-            .in('status', ['authorized', 'active'])
-            .limit(1);
+          // Check if user already has active subscription (verificar ambas as tabelas)
+          const [subscriptionsResult, subscribersResult] = await Promise.all([
+            supabase
+              .from('subscriptions')
+              .select('status')
+              .eq('user_id', user.id)
+              .eq('status', 'authorized')
+              .limit(1),
+            supabase
+              .from('subscribers')
+              .select('subscribed')
+              .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+              .eq('subscribed', true)
+              .limit(1)
+          ]);
 
-          if (subError) {
-            console.error('[Subscribe] Erro ao verificar assinatura:', subError);
-          } else if (subscriptions && subscriptions.length > 0) {
-            console.log('[Subscribe] Assinatura ativa encontrada para usuário logado');
+          const hasActiveInSubscriptions = subscriptionsResult.data && subscriptionsResult.data.length > 0;
+          const hasActiveInSubscribers = subscribersResult.data && subscribersResult.data.length > 0;
+
+          if (subscriptionsResult.error) {
+            console.error('[Subscribe] Erro ao verificar subscriptions:', subscriptionsResult.error);
+          }
+          if (subscribersResult.error) {
+            console.error('[Subscribe] Erro ao verificar subscribers:', subscribersResult.error);
+          }
+
+          if (hasActiveInSubscriptions || hasActiveInSubscribers) {
+            console.log('[Subscribe] Assinatura ativa encontrada para usuário logado', {
+              inSubscriptions: hasActiveInSubscriptions,
+              inSubscribers: hasActiveInSubscribers
+            });
             setHasActiveSubscription(true);
           } else {
             console.log('[Subscribe] Nenhuma assinatura ativa encontrada para usuário logado');
@@ -181,6 +219,12 @@ const Subscribe = () => {
   }
 
   const handleSubscribe = async () => {
+    // Verificar novamente se já tem assinatura ativa antes de criar nova
+    if (hasActiveSubscription) {
+      alert('Você já possui uma assinatura ativa');
+      return { ok: false, reason: 'ALREADY_SUBSCRIBED' };
+    }
+
     setIsCreating(true);
     const planValue = selectedPlan === 'mensal' ? 'monthly' : 'annual';
     const result = await callCreateSubscription(planValue);

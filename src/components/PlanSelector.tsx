@@ -30,6 +30,16 @@ export const PlanSelector = () => {
       return;
     }
 
+    // Verificar novamente se já tem assinatura ativa
+    if (isActiveSubscription) {
+      toast({
+        title: 'Assinatura já ativa',
+        description: 'Você já possui uma assinatura ativa.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setIsCreating(true);
       console.log('Creating subscription:', { selectedPlan, userId: user?.id });
