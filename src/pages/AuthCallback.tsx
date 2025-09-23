@@ -21,8 +21,8 @@ const AuthCallback = () => {
 
         // Check if we have a valid session
         if (data.session?.user) {
-          // Redirect to dashboard on successful auth
-          navigate('/dashboard');
+          // Always redirect to dashboard - ProtectedRoute will handle subscription checks
+          navigate('/dashboard', { replace: true });
         } else {
           // No valid session, redirect to login
           navigate('/login?error=confirm');

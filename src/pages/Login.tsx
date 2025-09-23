@@ -22,18 +22,12 @@ const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect authenticated users based on subscription status
+  // Redirect if already logged in - let ProtectedRoute handle the logic
   useEffect(() => {
     if (user && !subscriptionLoading) {
-      const emailConfirmed = user.email_confirmed_at !== null;
-      
-      if (emailConfirmed && isActiveSubscription) {
-        navigate('/dashboard');
-      } else {
-        navigate('/assinar');
-      }
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, isActiveSubscription, subscriptionLoading, navigate]);
+  }, [user, subscriptionLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,9 +64,10 @@ const Login = () => {
     } else {
       toast({
         title: "Login realizado com sucesso!",
-        description: "Verificando seu acesso..."
+        description: "Redirecionando..."
       });
-      // O useEffect acima irá redirecionar baseado no status
+      // Always redirect to dashboard - ProtectedRoute will handle subscription checks
+      navigate('/dashboard', { replace: true });
     }
   };
 

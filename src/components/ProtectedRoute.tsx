@@ -1,6 +1,5 @@
-import { useAuth } from '@/hooks/useAuth';
-import { useSubscription } from '@/hooks/useSubscription';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuthAndSubscription } from '@/hooks/useAuthAndSubscription';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface ProtectedRouteProps {
@@ -8,28 +7,11 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
-  const { currentSubscription, loading: subscriptionLoading, isActiveSubscription } = useSubscription();
+  const { user, loading, subscription } = useAuthAndSubscription();
+  const location = useLocation();
 
-  // Aguardar TODOS os loadings terminarem antes de tomar qualquer decisão
-  const isLoading = loading || subscriptionLoading;
-  
-  console.log('[ProtectedRoute] Estado atual:', { 
-    authLoading: loading,
-    subscriptionLoading,
-    isLoading,
-    hasUser: !!user,
-    userEmail: user?.email,
-    emailConfirmed: user?.email_confirmed_at !== null,
-    subscriptionStatus: currentSubscription?.status,
-    isActiveSubscription,
-    currentPath: window.location.pathname,
-    timestamp: new Date().toISOString()
-  });
-
-  // Mostrar loading enquanto qualquer estado estiver carregando
-  if (isLoading) {
-    console.log('[ProtectedRoute] Ainda carregando, exibindo spinner');
+  // Enquanto carrega, não redireciona
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
@@ -37,29 +19,35 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  // Verificar autenticação básica
   if (!user) {
-    console.log('[ProtectedRoute] Usuário não autenticado, redirecionando para login');
     return <Navigate to="/login" replace />;
   }
 
   // Verificar email confirmado
   const emailConfirmed = user.email_confirmed_at !== null;
   if (!emailConfirmed) {
-    console.log('[ProtectedRoute] Email não confirmado, redirecionando para assinatura');
     return <Navigate to="/assinar" replace />;
   }
 
-  // Verificar assinatura ativa
-  if (!isActiveSubscription) {
-    console.log('[ProtectedRoute] Assinatura não ativa:', { 
-      currentSubscription: currentSubscription?.status,
-      isActiveSubscription 
-    });
+  const isSuccessPage = location.pathname.startsWith('/assinatura/sucesso');
+  const isDashboard = location.pathname.startsWith('/dashboard');
+
+  // Se ativo e está preso na página de "assinatura sucesso", manda para dashboard
+  if (subscription.active && isSuccessPage) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Se NÃO ativo e tentou abrir dashboard, manda para /assinar
+  if (!subscription.active && isDashboard) {
     return <Navigate to="/assinar" replace />;
   }
 
-  console.log('[ProtectedRoute] Todas as verificações passaram, permitindo acesso');
+  // Se não tem assinatura ativa, redirecionar para assinar (exceto páginas específicas)
+  if (!subscription.active && !isSuccessPage && !location.pathname.startsWith('/assinar') && 
+      !location.pathname.startsWith('/assinatura/retorno') && !location.pathname.startsWith('/payment/return')) {
+    return <Navigate to="/assinar" replace />;
+  }
+
   return <>{children}</>;
 };
 

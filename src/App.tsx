@@ -34,7 +34,8 @@ import Termos from './pages/Termos';
 import Privacidade from './pages/Privacidade';
 import { useAuth } from "./hooks/useAuth";
 import { useProfile } from "./hooks/useProfile";
-import { useSubscription } from "./hooks/useSubscription";
+import { useAuthAndSubscription } from "./hooks/useAuthAndSubscription";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { Button } from "./components/ui/button";
 import { useToast } from "./hooks/use-toast";
 import { usePWA } from "./hooks/usePWA";
@@ -103,19 +104,7 @@ const ProtectedLayout = ({ children, title }: { children: React.ReactNode; title
 
 // Componente principal de roteamento
 const AppRoutes = () => {
-  const { user, loading: authLoading } = useAuth();
-  const { currentSubscription, loading: subscriptionLoading, isActiveSubscription } = useSubscription();
-
-  console.log('[AppRoutes] Estado atual:', {
-    authLoading,
-    subscriptionLoading,
-    hasUser: !!user,
-    userEmail: user?.email,
-    emailConfirmed: user?.email_confirmed_at !== null,
-    subscriptionStatus: currentSubscription?.status,
-    isActiveSubscription,
-    currentPath: window.location.pathname
-  });
+  const { user, loading } = useAuthAndSubscription();
 
   // Verificar se é link de reset de senha
   const isPasswordResetLink = () => {
@@ -126,7 +115,7 @@ const AppRoutes = () => {
   };
 
   // Mostrar loading enquanto carrega
-  if (authLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner text="Carregando..." />
@@ -157,103 +146,106 @@ const AppRoutes = () => {
     );
   }
 
-  // Se usuário está logado, verificar assinatura
-  if (subscriptionLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner text="Verificando assinatura..." />
-      </div>
-    );
-  }
-
-  // Verificar se email foi confirmado
-  const emailConfirmed = user.email_confirmed_at !== null;
-  if (!emailConfirmed) {
-    return (
-      <Routes>
-        <Route path="/assinar" element={<Subscribe />} />
-        <Route path="*" element={<Navigate to="/assinar" replace />} />
-      </Routes>
-    );
-  }
-
-  // Verificar se tem assinatura ativa
-  if (!isActiveSubscription) {
-    return (
-      <Routes>
-        <Route path="/assinar" element={<Subscribe />} />
-        <Route path="/assinatura/retorno" element={<SubscriptionReturn />} />
-        <Route path="/payment/return" element={<PaymentReturn />} />
-        <Route path="*" element={<Navigate to="/assinar" replace />} />
-      </Routes>
-    );
-  }
-
-  // Rotas protegidas para usuários com assinatura ativa
+  // Para usuários logados, usar ProtectedRoute para todas as rotas
   return (
     <Routes>
       {/* Redirecionar root para dashboard */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       
-      {/* Rotas da aplicação */}
+      {/* Rotas da aplicação protegidas */}
       <Route path="/dashboard" element={
-        <ProtectedLayout title="Dashboard">
-          <Dashboard />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Dashboard">
+            <Dashboard />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
       
       <Route path="/agenda" element={
-        <ProtectedLayout title="Agenda">
-          <Agenda />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Agenda">
+            <Agenda />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
       
       <Route path="/clientes" element={
-        <ProtectedLayout title="Clientes">
-          <Clientes />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Clientes">
+            <Clientes />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
       
       <Route path="/pacotes-servicos" element={
-        <ProtectedLayout title="Pacotes e Serviços">
-          <PacotesServicos />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Pacotes e Serviços">
+            <PacotesServicos />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
       
       <Route path="/financeiro" element={
-        <ProtectedLayout title="Financeiro">
-          <Financeiro />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Financeiro">
+            <Financeiro />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
       
       <Route path="/relatorios" element={
-        <ProtectedLayout title="Relatórios">
-          <Relatorios />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Relatórios">
+            <Relatorios />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
       
       <Route path="/configuracoes" element={
-        <ProtectedLayout title="Configurações">
-          <Configuracoes />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Configurações">
+            <Configuracoes />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
       
       <Route path="/cadastros" element={
-        <ProtectedLayout title="Cadastros">
-          <Cadastros />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Cadastros">
+            <Cadastros />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
       
       <Route path="/minha-assinatura" element={
-        <ProtectedLayout title="Minha Assinatura">
-          <MySubscription />
-        </ProtectedLayout>
+        <ProtectedRoute>
+          <ProtectedLayout title="Minha Assinatura">
+            <MySubscription />
+          </ProtectedLayout>
+        </ProtectedRoute>
       } />
 
-      {/* Rotas especiais sempre acessíveis */}
-      <Route path="/assinar" element={<Subscribe />} />
-      <Route path="/assinatura/retorno" element={<SubscriptionReturn />} />
-      <Route path="/payment/return" element={<PaymentReturn />} />
+      {/* Rotas especiais que também passam pelo ProtectedRoute */}
+      <Route path="/assinar" element={
+        <ProtectedRoute>
+          <Subscribe />
+        </ProtectedRoute>
+      } />
+      <Route path="/assinatura/retorno" element={
+        <ProtectedRoute>
+          <SubscriptionReturn />
+        </ProtectedRoute>
+      } />
+      <Route path="/assinatura/sucesso" element={
+        <ProtectedRoute>
+          <SubscriptionSuccess />
+        </ProtectedRoute>
+      } />
+      <Route path="/payment/return" element={
+        <ProtectedRoute>
+          <PaymentReturn />
+        </ProtectedRoute>
+      } />
       
       {/* 404 */}
       <Route path="*" element={<NotFound />} />

@@ -3,21 +3,34 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useAuthAndSubscription } from '@/hooks/useAuthAndSubscription';
 import { useToast } from '@/hooks/use-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, Clock, Home } from 'lucide-react';
 
 export const SubscriptionSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { currentSubscription, refetch, getStatusText, isActiveSubscription } = useSubscription();
+  const { subscription } = useAuthAndSubscription();
+  const queryClient = useQueryClient();
   const [isPolling, setIsPolling] = useState(true);
   const [pollCount, setPollCount] = useState(0);
 
   const status = searchParams.get('status');
   const paymentId = searchParams.get('payment_id');
   const preapprovalId = searchParams.get('preapproval_id');
+
+  // Auto-redirect if subscription is already active
+  useEffect(() => {
+    if (subscription.active) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [subscription.active, navigate]);
+
+  const refetch = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['subscription'] });
+  };
 
   useEffect(() => {
     // Show toast based on URL parameters
@@ -42,11 +55,11 @@ export const SubscriptionSuccess = () => {
 
     // Initial fetch
     refetch();
-  }, [status, paymentId, preapprovalId, toast, refetch]);
+  }, [status, paymentId, preapprovalId, toast]);
 
   useEffect(() => {
     // Poll subscription status until authorized or max attempts reached
-    if (!isActiveSubscription && isPolling && pollCount < 30) {
+    if (!subscription.active && isPolling && pollCount < 30) {
       const interval = setInterval(() => {
         refetch();
         setPollCount(prev => prev + 1);
@@ -56,10 +69,12 @@ export const SubscriptionSuccess = () => {
     } else {
       setIsPolling(false);
     }
-  }, [isActiveSubscription, isPolling, pollCount, refetch]);
+  }, [subscription.active, isPolling, pollCount]);
 
-  const handleReturnToDashboard = () => {
-    navigate('/');
+  const handleGoToDashboard = async () => {
+    // Garante dados atualizados e navegação definitiva
+    await queryClient.invalidateQueries({ queryKey: ['subscription'] });
+    navigate('/dashboard', { replace: true });
   };
 
   const handleTryAgain = () => {
@@ -67,9 +82,9 @@ export const SubscriptionSuccess = () => {
   };
 
   const getStatusIcon = () => {
-    if (isActiveSubscription) {
+    if (subscription.active) {
       return <CheckCircle className="w-16 h-16 text-green-600" />;
-    } else if (currentSubscription?.status === 'pending') {
+    } else if (subscription.status === 'pending') {
       return <Clock className="w-16 h-16 text-orange-600" />;
     } else {
       return <Clock className="w-16 h-16 text-gray-600" />;
@@ -77,9 +92,9 @@ export const SubscriptionSuccess = () => {
   };
 
   const getStatusTitle = () => {
-    if (isActiveSubscription) {
+    if (subscription.active) {
       return 'Assinatura Ativada!';
-    } else if (currentSubscription?.status === 'pending') {
+    } else if (subscription.status === 'pending') {
       return 'Processando Pagamento';
     } else {
       return 'Pagamento Recebido';
@@ -87,12 +102,22 @@ export const SubscriptionSuccess = () => {
   };
 
   const getStatusDescription = () => {
-    if (isActiveSubscription) {
+    if (subscription.active) {
       return 'Sua assinatura BeeWise Pro foi ativada com sucesso. Aproveite todos os recursos!';
-    } else if (currentSubscription?.status === 'pending') {
+    } else if (subscription.status === 'pending') {
       return 'Seu pagamento foi recebido e está sendo processado. Aguarde a confirmação.';
     } else {
       return 'Pagamento recebido ou em processamento. Seu acesso será liberado em instantes.';
+    }
+  };
+
+  const getStatusText = (status?: string) => {
+    switch (status) {
+      case 'active': return 'Ativa';
+      case 'pending': return 'Pendente';
+      case 'cancelled': return 'Cancelada';
+      case 'rejected': return 'Rejeitada';
+      default: return 'Aguardando';
     }
   };
 
@@ -101,7 +126,7 @@ export const SubscriptionSuccess = () => {
       <Card className="w-full max-w-md text-center">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
-            {isPolling && !isActiveSubscription ? (
+            {isPolling && !subscription.active ? (
               <LoadingSpinner />
             ) : (
               getStatusIcon()
@@ -118,10 +143,10 @@ export const SubscriptionSuccess = () => {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {currentSubscription && (
+          {subscription.status && subscription.status !== 'none' && (
             <div className="p-4 bg-muted/50 rounded-lg">
               <p className="text-sm font-medium">
-                Status: {getStatusText(currentSubscription.status)}
+                Status: {getStatusText(subscription.status)}
               </p>
               {paymentId && (
                 <p className="text-xs text-muted-foreground mt-1">
@@ -136,7 +161,7 @@ export const SubscriptionSuccess = () => {
             </div>
           )}
 
-          {isActiveSubscription && (
+          {subscription.active && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-sm text-green-800 font-medium">
                 🎉 Bem-vindo ao BeeWise Pro!
@@ -147,7 +172,7 @@ export const SubscriptionSuccess = () => {
             </div>
           )}
 
-          {currentSubscription?.status === 'pending' && isPolling && (
+          {subscription.status === 'pending' && isPolling && (
             <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
               <p className="text-sm text-orange-800">
                 ⏳ Aguardando confirmação...
@@ -159,14 +184,14 @@ export const SubscriptionSuccess = () => {
           )}
 
           <div className="flex flex-col gap-2">
-            <Button onClick={() => navigate('/login')} className="w-full">
+            <Button onClick={handleGoToDashboard} className="w-full">
               <Home className="w-4 h-4 mr-2" />
-              Concluir Login
+              Ir para Dashboard
             </Button>
             
             {(status === 'rejected' || status === 'cancelled' || 
-              currentSubscription?.status === 'rejected' || 
-              currentSubscription?.status === 'cancelled') && (
+              subscription.status === 'rejected' || 
+              subscription.status === 'cancelled') && (
               <Button onClick={handleTryAgain} variant="outline" className="w-full">
                 Tentar novamente
               </Button>
