@@ -27,8 +27,11 @@ import ResetPassword from "./pages/ResetPassword";
 import Reset from "./pages/Reset";
 import PaymentReturn from "./pages/PaymentReturn";
 import EmailVerified from "./pages/EmailVerified";
-import SubscriptionReturn from "./pages/SubscriptionReturn";
 import Subscribe from "./pages/Subscribe";
+import SubscriptionReturn from "./pages/SubscriptionReturn";
+import AuthCallback from './pages/AuthCallback';
+import Termos from './pages/Termos';
+import Privacidade from './pages/Privacidade';
 import { useAuth } from "./hooks/useAuth";
 import { useProfile } from "./hooks/useProfile";
 import { useSubscription } from "./hooks/useSubscription";
@@ -140,9 +143,12 @@ const AppRoutes = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/verificado" element={<EmailVerified />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/assinar" element={<Subscribe />} />
         <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/reset" element={<Reset />} />
+        <Route path="/termos" element={<Termos />} />
+        <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/assinatura/retorno" element={<SubscriptionReturn />} />
         <Route path="/assinatura/sucesso" element={<SubscriptionSuccess />} />
         <Route path="/payment/return" element={<PaymentReturn />} />

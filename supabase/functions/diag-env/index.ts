@@ -22,7 +22,7 @@ serve(async (req) => {
 
   try {
     const mpPresent = !!(Deno.env.get('MERCADOPAGO_ACCESS_TOKEN')?.trim());
-    const envName = appUrl.includes('localhost') ? 'development' : 'production';
+    const envName = appUrl.includes('preview--beewiseproagenda.lovable.app') ? 'preview' : 'production';
     const edgeBase = supabaseUrl ? `${supabaseUrl}/functions/v1` : '';
 
     return new Response(JSON.stringify({

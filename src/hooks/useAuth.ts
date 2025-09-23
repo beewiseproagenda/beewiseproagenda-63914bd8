@@ -27,33 +27,19 @@ export const useAuth = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, userData: { first_name: string; last_name: string; phone: string }) => {
-    // Create onboarding token first
-    const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-onboarding-token', {
-      body: { userId: 'temp', email } // temp userId, will be replaced after user creation
-    });
-
-    if (tokenError) {
-      return { error: tokenError };
-    }
-
-    const redirectUrl = `${window.location.origin}/verificado?ot=${tokenData.token}`;
+  const signUp = async (email: string, password: string, userData: { first_name: string; last_name: string; phone: string; accepted_terms_at: string }) => {
+    const host = window.location.host.includes('preview--')
+      ? 'https://preview--beewiseproagenda.lovable.app'
+      : 'https://beewiseproagenda.com.br';
     
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: redirectUrl,
+        emailRedirectTo: `${host}/auth/callback`,
         data: userData
       }
     });
-
-    if (!error && data.user) {
-      // Update token with real userId
-      await supabase.functions.invoke('create-onboarding-token', {
-        body: { userId: data.user.id, email }
-      });
-    }
     
     return { data, error };
   };
@@ -72,12 +58,25 @@ export const useAuth = () => {
   };
 
   const resetPassword = async (email: string) => {
-    const origin = typeof window !== "undefined" && window.location.origin
-      ? window.location.origin
-      : "https://beewiseproagenda.com.br";
+    const host = window.location.host.includes('preview--')
+      ? 'https://preview--beewiseproagenda.lovable.app'
+      : 'https://beewiseproagenda.com.br';
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${origin}/reset`
+      redirectTo: `${host}/reset`
+    });
+    return { error };
+  };
+
+  const resendConfirmation = async (email: string) => {
+    const host = window.location.host.includes('preview--')
+      ? 'https://preview--beewiseproagenda.lovable.app'
+      : 'https://beewiseproagenda.com.br';
+    
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+      options: { emailRedirectTo: `${host}/auth/callback` }
     });
     return { error };
   };
@@ -89,6 +88,7 @@ export const useAuth = () => {
     signUp,
     signIn,
     signOut,
-    resetPassword
+    resetPassword,
+    resendConfirmation
   };
 };

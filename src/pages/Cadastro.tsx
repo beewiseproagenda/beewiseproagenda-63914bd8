@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,6 +34,7 @@ const Cadastro = () => {
     { text: '1 número (0-9)', met: false }
   ]);
   const [passwordsMatch, setPasswordsMatch] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const { signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -53,7 +55,7 @@ const Cadastro = () => {
     setPasswordsMatch(password === confirmPassword && password.length > 0);
   }, [password, confirmPassword]);
 
-  const allRequirementsMet = requirements.every(req => req.met) && passwordsMatch;
+  const allRequirementsMet = requirements.every(req => req.met) && passwordsMatch && acceptedTerms;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,9 +63,14 @@ const Cadastro = () => {
 
     // Validar todos os requisitos
     if (!allRequirementsMet) {
+      const missingRequirements = [];
+      if (!requirements.every(req => req.met)) missingRequirements.push("requisitos de senha");
+      if (!passwordsMatch) missingRequirements.push("confirmação de senha");
+      if (!acceptedTerms) missingRequirements.push("aceitar os termos de uso");
+      
       toast({
         title: "Erro na validação",
-        description: "Verifique se todos os requisitos foram atendidos",
+        description: `Verifique: ${missingRequirements.join(", ")}`,
         variant: "destructive"
       });
       setLoading(false);
@@ -73,7 +80,8 @@ const Cadastro = () => {
     const { data, error } = await signUp(email, password, {
       first_name: firstName,
       last_name: lastName,
-      phone: phone
+      phone: phone,
+      accepted_terms_at: new Date().toISOString()
     });
 
     if (error) {
@@ -88,38 +96,12 @@ const Cadastro = () => {
       return;
     }
 
-    // Force sign out to prevent auto-login
-    await supabase.auth.signOut();
-
-    if (data.user) {
-      // Create onboarding token - no auth needed for this endpoint
-      try {
-        const { data: tokenData, error: tokenError } = await supabase.functions.invoke('create-onboarding-token', {
-          body: {
-            userId: data.user.id,
-            email: data.user.email
-          }
-        });
-
-        if (tokenError) {
-          throw tokenError;
-        }
-
-        console.log('Onboarding token created, step should change to email-sent');
-        setStep('email-sent');
-        
-        toast({
-          title: "Cadastro realizado com sucesso!",
-          description: "Enviamos um e-mail para confirmação. Verifique sua caixa de entrada."
-        });
-      } catch (tokenError) {
-        console.error('Error creating onboarding token:', tokenError);
-        toast({
-          title: "Erro no cadastro",
-          description: "Erro ao criar token de verificação. Tente novamente.",
-          variant: "destructive"
-        });
-      }
+    if (!error && data.user) {
+      setStep('email-sent');
+      toast({
+        title: "Cadastro realizado com sucesso!",
+        description: "Enviamos um e-mail de confirmação. Verifique sua caixa de entrada (e spam)."
+      });
     }
 
     setLoading(false);
@@ -129,10 +111,14 @@ const Cadastro = () => {
     setResendLoading(true);
     
     try {
-      // Trigger password reset to resend email verification
+      const host = window.location.host.includes('preview--')
+        ? 'https://preview--beewiseproagenda.lovable.app'
+        : 'https://beewiseproagenda.com.br';
+      
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: email
+        email: email,
+        options: { emailRedirectTo: `${host}/auth/callback` }
       });
 
       if (error) {
@@ -170,7 +156,7 @@ const Cadastro = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-center text-sm text-muted-foreground">
-              <p>Clique no link do e-mail para continuar com a escolha do seu plano.</p>
+              <p>Clique no link do e-mail para ativar sua conta e continuar.</p>
             </div>
             
             <Button 
@@ -345,12 +331,31 @@ const Cadastro = () => {
               )}
             </div>
 
+            {/* Checkbox de termos */}
+            <div className="flex items-start space-x-2">
+              <Checkbox 
+                id="terms" 
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+              />
+              <Label htmlFor="terms" className="text-sm leading-tight">
+                Li e aceito os{' '}
+                <Link to="/termos" className="text-primary hover:underline" target="_blank">
+                  Termos de Uso
+                </Link>
+                {' '}e a{' '}
+                <Link to="/privacidade" className="text-primary hover:underline" target="_blank">
+                  Política de Privacidade (LGPD)
+                </Link>
+              </Label>
+            </div>
+
             <Button 
               type="submit" 
               className="w-full" 
               disabled={loading || !allRequirementsMet}
             >
-              {loading ? "Cadastrando..." : "Continuar para validação do e-mail"}
+              {loading ? "Cadastrando..." : "Criar Conta"}
             </Button>
           </form>
 

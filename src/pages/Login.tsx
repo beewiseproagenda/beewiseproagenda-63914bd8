@@ -17,7 +17,7 @@ const Login = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const { signIn, resetPassword, user } = useAuth();
+  const { signIn, resetPassword, resendConfirmation, user } = useAuth();
   const { isActiveSubscription, loading: subscriptionLoading } = useSubscription();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ const Login = () => {
       const emailConfirmed = user.email_confirmed_at !== null;
       
       if (emailConfirmed && isActiveSubscription) {
-        navigate('/');
+        navigate('/dashboard');
       } else {
         navigate('/assinar');
       }
@@ -42,13 +42,30 @@ const Login = () => {
     const { error } = await signIn(email, password);
 
     if (error) {
-      toast({
-        title: "Erro no login",
-        description: error.message === 'Invalid login credentials' 
-          ? "Email ou senha incorretos" 
-          : error.message,
-        variant: "destructive"
-      });
+      if (error.message === 'Email not confirmed') {
+        toast({
+          title: "E-mail não confirmado",
+          description: "Confirme seu e-mail para continuar. Verifique sua caixa de entrada.",
+          variant: "destructive",
+          action: (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleResendConfirmation()}
+            >
+              Reenviar
+            </Button>
+          ),
+        });
+      } else {
+        toast({
+          title: "Erro no login",
+          description: error.message === 'Invalid login credentials' 
+            ? "Email ou senha incorretos" 
+            : error.message,
+          variant: "destructive"
+        });
+      }
       setLoading(false);
     } else {
       toast({
@@ -56,6 +73,32 @@ const Login = () => {
         description: "Verificando seu acesso..."
       });
       // O useEffect acima irá redirecionar baseado no status
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      toast({
+        title: "Digite seu e-mail",
+        description: "Informe seu e-mail para reenviar a confirmação.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const { error } = await resendConfirmation(email);
+    
+    if (error) {
+      toast({
+        title: "Erro ao reenviar",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "E-mail enviado!",
+        description: "Verifique sua caixa de entrada para confirmar seu e-mail."
+      });
     }
   };
 
