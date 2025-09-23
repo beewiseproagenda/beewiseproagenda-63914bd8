@@ -24,6 +24,7 @@ import { SubscriptionSuccess } from "./pages/SubscriptionSuccess";
 import { MySubscription } from "./pages/MySubscription";
 import Landing from "./pages/Landing";
 import ResetPassword from "./pages/ResetPassword";
+import Reset from "./pages/Reset";
 import PaymentReturn from "./pages/PaymentReturn";
 import EmailVerified from "./pages/EmailVerified";
 import SubscriptionReturn from "./pages/SubscriptionReturn";
@@ -117,6 +118,7 @@ const AppRoutes = () => {
   const isPasswordResetLink = () => {
     const urlParams = new URLSearchParams(window.location.search);
     return window.location.pathname === '/redefinir-senha' || 
+           window.location.pathname === '/reset' ||
            (urlParams.get('type') === 'recovery' && urlParams.get('access_token'));
   };
 
@@ -140,6 +142,7 @@ const AppRoutes = () => {
         <Route path="/verificado" element={<EmailVerified />} />
         <Route path="/assinar" element={<Subscribe />} />
         <Route path="/redefinir-senha" element={<ResetPassword />} />
+        <Route path="/reset" element={<Reset />} />
         <Route path="/assinatura/retorno" element={<SubscriptionReturn />} />
         <Route path="/assinatura/sucesso" element={<SubscriptionSuccess />} />
         <Route path="/payment/return" element={<PaymentReturn />} />

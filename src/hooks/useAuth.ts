@@ -72,10 +72,12 @@ export const useAuth = () => {
   };
 
   const resetPassword = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/redefinir-senha`;
+    const origin = typeof window !== "undefined" && window.location.origin
+      ? window.location.origin
+      : "https://beewiseproagenda.com.br";
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl
+      redirectTo: `${origin}/reset`
     });
     return { error };
   };
