@@ -19,9 +19,9 @@ export const SubscriptionSuccess = () => {
 
   const status = searchParams.get('status');
   const paymentId = searchParams.get('payment_id');
-  const preapprovalId = searchParams.get('preapproval_id');
+  const preapprovalId = searchParams.get('preApproval_id');
 
-  // Auto-forward se já está tudo pronto
+  // Auto-redirect quando tem assinatura ativa - não renderizar nada
   useEffect(() => {
     if (authStatus === 'ready' && hasActive) {
       navigate('/dashboard', { replace: true });
@@ -130,6 +130,24 @@ export const SubscriptionSuccess = () => {
     }
   };
 
+  // Se já tem assinatura ativa, mostrar apenas spinner e redirecionar
+  if (authStatus === 'ready' && hasActive) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // Se ainda carregando status, mostrar spinner
+  if (authStatus === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 p-4">
       <Card className="w-full max-w-md text-center">
@@ -170,17 +188,6 @@ export const SubscriptionSuccess = () => {
             </div>
           )}
 
-          {hasActive && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-800 font-medium">
-                🎉 Bem-vindo ao BeeWise Pro!
-              </p>
-              <p className="text-xs text-green-700 mt-1">
-                Agora você tem acesso completo a todos os recursos.
-              </p>
-            </div>
-          )}
-
           {subscription.status === 'pending' && isPolling && (
             <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
               <p className="text-sm text-orange-800">
@@ -193,19 +200,6 @@ export const SubscriptionSuccess = () => {
           )}
 
           <div className="flex flex-col gap-2">
-            <Link
-              to="/dashboard"
-              replace
-              onClick={(e) => {
-                e.preventDefault(); // garante nosso handler
-                handleGoToDashboard();
-              }}
-              className="w-full inline-flex items-center justify-center rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-            >
-              <Home className="w-4 h-4 mr-2" />
-              Ir para Dashboard
-            </Link>
-            
             {(status === 'rejected' || status === 'cancelled' || 
               subscription.status === 'rejected' || 
               subscription.status === 'cancelled') && (
