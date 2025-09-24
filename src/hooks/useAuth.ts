@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+
+console.log('[AUTH] useAuth hook loading - NEW VERSION');
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 

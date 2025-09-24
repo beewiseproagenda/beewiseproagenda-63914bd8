@@ -15,11 +15,21 @@ export default defineConfig(({ mode }) => ({
     componentTagger(),
   ].filter(Boolean),
   optimizeDeps: {
-    include: ['react', 'react-dom', '@tanstack/react-query']
+    include: ['react', 'react-dom', '@tanstack/react-query'],
+    force: true  // Force rebuild to clear cache
+  },
+  build: {
+    rollupOptions: {
+      external: [],
+      output: {
+        manualChunks: undefined
+      }
+    }
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ['react', 'react-dom'] // Prevent duplicate React instances
   },
 }));

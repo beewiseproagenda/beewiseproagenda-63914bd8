@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 import { ThemeContext, Theme } from '@/hooks/useTheme';
 
+console.log('[THEME] ThemeProvider loading - NEW VERSION');
+
 export default function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light');
+
+  console.log('[THEME] ThemeProvider rendered with theme:', theme);
 
   // Load saved theme
   useEffect(() => {
