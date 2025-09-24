@@ -41,3 +41,27 @@ verify_jwt = false
 
 [functions.whoami]
 verify_jwt = false
+
+[functions.reconcile-subscriptions]
+verify_jwt = false
+
+[functions.auth-ping]
+verify_jwt = true
+
+[functions.create-onboarding-token]
+verify_jwt = false
+
+[functions.diagnostic-reset]
+verify_jwt = false
+
+[functions.mp-methods]
+verify_jwt = false
+
+[functions.test-mercadopago]
+verify_jwt = false
+
+[functions.test-reset-flow]
+verify_jwt = false
+
+[functions.validate-onboarding-token]
+verify_jwt = false

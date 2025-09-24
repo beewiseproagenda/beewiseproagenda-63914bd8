@@ -23,16 +23,41 @@ export function useAuthAndSubscription() {
     queryKey: ['subscription', user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      // First check new subscriptions table
-      const { data: newSub } = await supabase
-        .from('subscriptions')
-        .select('status, plan_code, cancelled_at, next_charge_at')
+      // First check profile subscription_active flag for fast response
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('subscription_active')
         .eq('user_id', user!.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
         .maybeSingle();
 
-      if (newSub) {
+      if (profile?.subscription_active) {
+        return { 
+          active: true, 
+          plan: 'mensal' as 'mensal' | 'anual',
+          status: 'active' 
+        };
+      }
+
+      // Fallback to detailed subscription check
+      const [subscriptionsResult, subscribersResult] = await Promise.all([
+        supabase
+          .from('subscriptions')
+          .select('status, plan_code, cancelled_at, next_charge_at')
+          .eq('user_id', user!.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('subscribers')
+          .select('subscribed, subscription_tier, subscription_end')
+          .or(`user_id.eq.${user!.id},email.eq.${user!.email}`)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      ]);
+
+      if (subscriptionsResult.data) {
+        const newSub = subscriptionsResult.data;
         const isActive = newSub.status === 'active' && 
                         !newSub.cancelled_at &&
                         (!newSub.next_charge_at || new Date(newSub.next_charge_at) > new Date());
@@ -44,16 +69,8 @@ export function useAuthAndSubscription() {
         };
       }
 
-      // Fallback to legacy subscribers table
-      const { data: legacySub } = await supabase
-        .from('subscribers')
-        .select('subscribed, subscription_tier, subscription_end')
-        .or(`user_id.eq.${user!.id},email.eq.${user!.email}`)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (legacySub) {
+      if (subscribersResult.data) {
+        const legacySub = subscribersResult.data;
         const isActive = legacySub.subscribed &&
                         (!legacySub.subscription_end || new Date(legacySub.subscription_end) > new Date());
         

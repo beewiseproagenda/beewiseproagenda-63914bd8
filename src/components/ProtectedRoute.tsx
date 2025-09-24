@@ -27,6 +27,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     if (path === '/assinar' || 
         path.startsWith('/assinatura-') || 
         path.startsWith('/assinatura/') ||
+        path.startsWith('/subscription/') ||
         path === '/payment/return') {
       return <Navigate to="/dashboard" replace />;
     }
