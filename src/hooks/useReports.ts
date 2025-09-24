@@ -120,6 +120,11 @@ export function useReports() {
     setIsGenerating(true);
     try {
       const dadosFinanceiros = calcularDadosFinanceiros();
+      
+      if (!dadosFinanceiros?.historicoMensal) {
+        throw new Error('Dados financeiros não disponíveis');
+      }
+      
       const mesesData = dadosFinanceiros.historicoMensal.map(item => ({
         mes: item.mes,
         receitas: item.realizado || item.faturamento || 0,

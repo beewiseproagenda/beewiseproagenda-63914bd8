@@ -48,7 +48,7 @@ All colors MUST be HSL.
     --sidebar-border: 48 100% 90%;
     --sidebar-ring: 48 100% 50%;
 
-    /* Calendar day box color - darker than background */
+    /* Calendar day box color - lighter than background */
     --calendar-day-bg: 0 0% 86%;
 
     /* Financial chart colors */
@@ -219,4 +219,26 @@ All colors MUST be HSL.
   .text-chart-despesas {
     color: hsl(var(--chart-despesas));
   }
+
+  /* Responsive utilities and mobile improvements */
+  @media (max-width: 640px) {
+    .grid-cols-7 > * {
+      min-height: 80px;
+      font-size: 0.75rem;
+    }
+    
+    .dashboard-card {
+      padding: 0.75rem;
+    }
+    
+    .financial-chart-container {
+      overflow-x: auto;
+    }
+  }
+}
+
+/* Calendar day box hover effects */
+.calendar-day-box:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }

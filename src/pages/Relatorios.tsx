@@ -12,7 +12,20 @@ import { useReports } from "@/hooks/useReports";
 import { toast } from "sonner";
 
 export default function Relatorios() {
-  const { isGenerating, generateExtratoCompleto, generateLucroMensal, generateAnaliticoCategorias, generateRelatorioContador } = useReports();
+  const reportsHook = useReports();
+  
+  if (!reportsHook) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-lg font-medium text-foreground mb-2">Carregando relatórios...</h2>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
+  
+  const { isGenerating, generateExtratoCompleto, generateLucroMensal, generateAnaliticoCategorias, generateRelatorioContador } = reportsHook;
   
   // Filtros de período
   const [startDate, setStartDate] = useState<Date>(new Date(new Date().getFullYear(), new Date().getMonth(), 1));

@@ -302,7 +302,7 @@ export default function Dashboard() {
       </Card>
 
       {/* Cards de métricas - Primeira linha */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <DashboardCard
           title="Clientes Ativos"
           value={clientesAtivosNoMes.toString()}
@@ -326,7 +326,7 @@ export default function Dashboard() {
       </div>
 
       {/* Cards de métricas - Segunda linha - Layout do Financeiro */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Faturamento do Mês</CardTitle>
@@ -383,7 +383,9 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <FinancialChart data={chartData} type="line" />
+            <div className="financial-chart-container">
+              <FinancialChart data={chartData} type="line" />
+            </div>
           </CardContent>
         </Card>
       </div>
