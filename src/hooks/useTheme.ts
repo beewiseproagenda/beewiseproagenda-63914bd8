@@ -1,89 +1,20 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
-import { useLocalStorage } from './useLocalStorage';
+import { createContext, useContext, useEffect, useState } from 'react';
 
-export const useTheme = () => {
-  const { user } = useAuth();
-  const [localTheme, setLocalTheme] = useLocalStorage<'light' | 'dark'>('theme', 'light');
-  const [theme, setTheme] = useState<'light' | 'dark'>(localTheme);
-  const [loading, setLoading] = useState(true);
+export type Theme = 'light' | 'dark';
 
-  // Load theme from database for authenticated users
-  useEffect(() => {
-    if (user) {
-      loadUserTheme();
-    } else {
-      // For unauthenticated users, use localStorage only
-      setTheme(localTheme);
-      setLoading(false);
-    }
-  }, [user, localTheme]);
+type ThemeCtx = { theme: Theme; setTheme: (t: Theme) => void };
 
-  // Apply theme class to document
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(theme);
-  }, [theme]);
+// Central ThemeContext with safe default of null
+const ThemeContext = createContext<ThemeCtx | null>(null);
 
-  const loadUserTheme = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('dark_mode_enabled')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        const userTheme = data.dark_mode_enabled ? 'dark' : 'light';
-        setTheme(userTheme);
-        setLocalTheme(userTheme); // Sync with localStorage
-      } else {
-        // No profile found, use localStorage theme
-        setTheme(localTheme);
-      }
-    } catch (error) {
-      console.error('Error loading user theme:', error);
-      // Fallback to localStorage theme
-      setTheme(localTheme);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateTheme = async (newTheme: 'light' | 'dark') => {
-    setTheme(newTheme);
-    setLocalTheme(newTheme);
-
-    // Update database for authenticated users
-    if (user) {
-      try {
-        const { error } = await supabase
-          .from('profiles')
-          .update({ dark_mode_enabled: newTheme === 'dark' })
-          .eq('user_id', user.id);
-
-        if (error) throw error;
-      } catch (error) {
-        console.error('Error updating user theme:', error);
-      }
-    }
-  };
-
-  const toggleTheme = () => {
-    updateTheme(theme === 'light' ? 'dark' : 'light');
-  };
-
-  return {
-    theme,
-    setTheme: updateTheme,
-    toggleTheme,
-    loading,
-    isDark: theme === 'dark'
-  };
+// Hook to consume theme with safe fallback to avoid crashes
+export const useTheme = (): ThemeCtx => {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) {
+    // Safe fallback to prevent runtime crashes when provider isn't mounted yet
+    return { theme: 'light', setTheme: () => {} };
+  }
+  return ctx;
 };
+
+export { ThemeContext };

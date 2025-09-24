@@ -1,34 +1,26 @@
-import React, { createContext, useContext } from 'react';
-import { useTheme } from '@/hooks/useTheme';
+import { useEffect, useState } from 'react';
+import { ThemeContext, Theme } from '@/hooks/useTheme';
 
-interface ThemeContextType {
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
-  toggleTheme: () => void;
-  loading: boolean;
-  isDark: boolean;
-}
+export default function AppThemeProvider({ children }: { children: React.ReactNode }) {
+  const [theme, setTheme] = useState<Theme>('light');
 
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+  // Load saved theme
+  useEffect(() => {
+    const saved = (typeof window !== 'undefined' && localStorage.getItem('bw_theme')) as Theme | null;
+    if (saved) setTheme(saved);
+  }, []);
 
-export const useThemeContext = () => {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useThemeContext must be used within a ThemeProvider');
-  }
-  return context;
-};
-
-interface ThemeProviderProps {
-  children: React.ReactNode;
-}
-
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
-  const themeHook = useTheme();
+  // Persist and apply theme class
+  useEffect(() => {
+    if (typeof window !== 'undefined') localStorage.setItem('bw_theme', theme);
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+  }, [theme]);
 
   return (
-    <ThemeContext.Provider value={themeHook}>
+    <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
-};
+}

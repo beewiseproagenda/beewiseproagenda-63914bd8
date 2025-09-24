@@ -20,7 +20,7 @@ import { useInstallGuide } from '@/hooks/useInstallGuide';
 import { usePWA } from '@/hooks/usePWA';
 import { InstallGuideModal } from '@/components/InstallGuideModal';
 import { useToast } from '@/hooks/use-toast';
-import { useThemeContext } from '@/components/ThemeProvider';
+import { useTheme } from '@/hooks/useTheme';
 
 function Configuracoes() {
   const { 
@@ -36,7 +36,9 @@ function Configuracoes() {
   } = useInstallGuide();
   const { isInstalled, checkForUpdates } = usePWA();
   const { toast } = useToast();
-  const { theme, toggleTheme, isDark } = useThemeContext();
+  const { theme, setTheme } = useTheme();
+  const isDark = theme === 'dark';
+  const toggleTheme = () => setTheme(isDark ? 'light' : 'dark');
 
   const handleShowInstallGuide = () => {
     showGuide();
