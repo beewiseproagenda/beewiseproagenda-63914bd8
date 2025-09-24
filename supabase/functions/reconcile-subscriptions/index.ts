@@ -116,6 +116,8 @@ serve(async (req) => {
                                 (!sub.subscription_end || new Date(sub.subscription_end) > new Date());
         }
 
+        console.log(`[RECONCILE] Updated ${profile.user_id}: ${hasActiveSubscription ? 'ACTIVE' : 'INACTIVE'}`);
+
         // Check MP subscriptions table for active statuses
         if (!hasActiveSubscription && mpSubsResult.data?.length > 0) {
           const sub = mpSubsResult.data[0];

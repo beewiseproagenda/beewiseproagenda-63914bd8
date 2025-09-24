@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Check, Crown, Zap, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { redirectToDashboard } from '@/lib/forceRedirect';
 
 
 const Subscribe = () => {
@@ -83,7 +84,7 @@ const Subscribe = () => {
 
           if (hasActiveInSubscriptions || hasActiveInSubscribers) {
             console.log('[Subscribe] Assinatura ativa encontrada - redirecionando para dashboard');
-            navigate('/dashboard', { replace: true });
+            redirectToDashboard();
             return;
           } else {
             console.log('[Subscribe] Nenhuma assinatura ativa encontrada');
@@ -122,7 +123,7 @@ const Subscribe = () => {
 
           if (hasActiveInSubscriptions || hasActiveInSubscribers) {
             console.log('[Subscribe] Assinatura ativa encontrada para usuário logado - redirecionando para dashboard');
-            navigate('/dashboard', { replace: true });
+            redirectToDashboard();
             return;
           } else {
             console.log('[Subscribe] Nenhuma assinatura ativa encontrada para usuário logado');
@@ -265,12 +266,8 @@ const Subscribe = () => {
 
   if (hasActiveSubscription) {
     // Redirecionar imediatamente para dashboard ao invés de mostrar a página
-    navigate('/dashboard', { replace: true });
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <LoadingSpinner />
-      </div>
-    );
+    redirectToDashboard();
+    return null;
   }
 
   return (

@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthAndSubscription } from '@/hooks/useAuthAndSubscription';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { redirectToDashboard } from '@/lib/forceRedirect';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -29,7 +30,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         path.startsWith('/assinatura/') ||
         path.startsWith('/subscription/') ||
         path === '/payment/return') {
-      return <Navigate to="/dashboard" replace />;
+      redirectToDashboard();
+      return null;
     }
     // Permitir acesso a todas as áreas protegidas
     return <>{children}</>;

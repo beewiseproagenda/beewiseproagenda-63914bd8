@@ -7,6 +7,7 @@ import { useAuthAndSubscription } from '@/hooks/useAuthAndSubscription';
 import { useToast } from '@/hooks/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import { CheckCircle, Clock, Home } from 'lucide-react';
+import { redirectToDashboard } from '@/lib/forceRedirect';
 
 export const SubscriptionSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -24,9 +25,9 @@ export const SubscriptionSuccess = () => {
   // Auto-redirect quando tem assinatura ativa - não renderizar nada
   useEffect(() => {
     if (authStatus === 'ready' && hasActive) {
-      navigate('/dashboard', { replace: true });
+      redirectToDashboard();
     }
-  }, [authStatus, hasActive, navigate]);
+  }, [authStatus, hasActive]);
 
   const refetch = async () => {
     await queryClient.invalidateQueries({ queryKey: ['subscription'] });
@@ -72,19 +73,8 @@ export const SubscriptionSuccess = () => {
   }, [hasActive, isPolling, pollCount]);
 
   const handleGoToDashboard = useCallback(() => {
-    try {
-      // 1) SPA replace (evita voltar para esta página)
-      navigate('/dashboard', { replace: true });
-      // 2) Fallback para iOS/Safari caso um guard tente bloquear no mesmo tick
-      setTimeout(() => {
-        if (window.location.pathname !== '/dashboard') {
-          window.location.assign('/dashboard');
-        }
-      }, 120);
-    } catch {
-      window.location.assign('/dashboard');
-    }
-  }, [navigate]);
+    redirectToDashboard();
+  }, []);
 
   const handleTryAgain = () => {
     navigate('/assinar');
@@ -200,7 +190,12 @@ export const SubscriptionSuccess = () => {
           )}
 
           <div className="flex flex-col gap-2">
-            {(status === 'rejected' || status === 'cancelled' || 
+            {hasActive ? (
+              <Button onClick={handleGoToDashboard} className="w-full">
+                <Home className="w-4 h-4 mr-2" />
+                Ir para Dashboard
+              </Button>
+            ) : (status === 'rejected' || status === 'cancelled' || 
               subscription.status === 'rejected' || 
               subscription.status === 'cancelled') && (
               <Button onClick={handleTryAgain} variant="outline" className="w-full">
