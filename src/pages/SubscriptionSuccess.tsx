@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -12,7 +12,7 @@ export const SubscriptionSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { subscription } = useAuthAndSubscription();
+  const { status: authStatus, hasActive, subscription } = useAuthAndSubscription();
   const queryClient = useQueryClient();
   const [isPolling, setIsPolling] = useState(true);
   const [pollCount, setPollCount] = useState(0);
@@ -21,12 +21,12 @@ export const SubscriptionSuccess = () => {
   const paymentId = searchParams.get('payment_id');
   const preapprovalId = searchParams.get('preapproval_id');
 
-  // Auto-redirect if subscription is already active
+  // Auto-forward se já está tudo pronto
   useEffect(() => {
-    if (subscription.active) {
+    if (authStatus === 'ready' && hasActive) {
       navigate('/dashboard', { replace: true });
     }
-  }, [subscription.active, navigate]);
+  }, [authStatus, hasActive, navigate]);
 
   const refetch = async () => {
     await queryClient.invalidateQueries({ queryKey: ['subscription'] });
@@ -59,7 +59,7 @@ export const SubscriptionSuccess = () => {
 
   useEffect(() => {
     // Poll subscription status until authorized or max attempts reached
-    if (!subscription.active && isPolling && pollCount < 30) {
+    if (!hasActive && isPolling && pollCount < 30) {
       const interval = setInterval(() => {
         refetch();
         setPollCount(prev => prev + 1);
@@ -69,20 +69,29 @@ export const SubscriptionSuccess = () => {
     } else {
       setIsPolling(false);
     }
-  }, [subscription.active, isPolling, pollCount]);
+  }, [hasActive, isPolling, pollCount]);
 
-  const handleGoToDashboard = async () => {
-    // Garante dados atualizados e navegação definitiva
-    await queryClient.invalidateQueries({ queryKey: ['subscription'] });
-    navigate('/dashboard', { replace: true });
-  };
+  const handleGoToDashboard = useCallback(() => {
+    try {
+      // 1) SPA replace (evita voltar para esta página)
+      navigate('/dashboard', { replace: true });
+      // 2) Fallback para iOS/Safari caso um guard tente bloquear no mesmo tick
+      setTimeout(() => {
+        if (window.location.pathname !== '/dashboard') {
+          window.location.assign('/dashboard');
+        }
+      }, 120);
+    } catch {
+      window.location.assign('/dashboard');
+    }
+  }, [navigate]);
 
   const handleTryAgain = () => {
     navigate('/assinar');
   };
 
   const getStatusIcon = () => {
-    if (subscription.active) {
+    if (hasActive) {
       return <CheckCircle className="w-16 h-16 text-green-600" />;
     } else if (subscription.status === 'pending') {
       return <Clock className="w-16 h-16 text-orange-600" />;
@@ -92,7 +101,7 @@ export const SubscriptionSuccess = () => {
   };
 
   const getStatusTitle = () => {
-    if (subscription.active) {
+    if (hasActive) {
       return 'Assinatura Ativada!';
     } else if (subscription.status === 'pending') {
       return 'Processando Pagamento';
@@ -102,7 +111,7 @@ export const SubscriptionSuccess = () => {
   };
 
   const getStatusDescription = () => {
-    if (subscription.active) {
+    if (hasActive) {
       return 'Sua assinatura BeeWise Pro foi ativada com sucesso. Aproveite todos os recursos!';
     } else if (subscription.status === 'pending') {
       return 'Seu pagamento foi recebido e está sendo processado. Aguarde a confirmação.';
@@ -126,7 +135,7 @@ export const SubscriptionSuccess = () => {
       <Card className="w-full max-w-md text-center">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
-            {isPolling && !subscription.active ? (
+            {isPolling && !hasActive ? (
               <LoadingSpinner />
             ) : (
               getStatusIcon()
@@ -161,7 +170,7 @@ export const SubscriptionSuccess = () => {
             </div>
           )}
 
-          {subscription.active && (
+          {hasActive && (
             <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-sm text-green-800 font-medium">
                 🎉 Bem-vindo ao BeeWise Pro!
@@ -184,10 +193,18 @@ export const SubscriptionSuccess = () => {
           )}
 
           <div className="flex flex-col gap-2">
-            <Button onClick={handleGoToDashboard} className="w-full">
+            <Link
+              to="/dashboard"
+              replace
+              onClick={(e) => {
+                e.preventDefault(); // garante nosso handler
+                handleGoToDashboard();
+              }}
+              className="w-full inline-flex items-center justify-center rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            >
               <Home className="w-4 h-4 mr-2" />
               Ir para Dashboard
-            </Button>
+            </Link>
             
             {(status === 'rejected' || status === 'cancelled' || 
               subscription.status === 'rejected' || 

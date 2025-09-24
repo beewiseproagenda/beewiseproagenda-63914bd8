@@ -84,12 +84,16 @@ export function useAuthAndSubscription() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Tri-state loading: only loading if we have user but subscription is loading
-  const loading = sessionLoading || (!!user && subLoading);
+  // Tri-state: loading while fetching session OR (authenticated + fetching subscription)
+  const isLoading = sessionLoading || (!!user && subLoading);
+  const status = isLoading ? 'loading' : 'ready';
 
   return useMemo(() => ({ 
+    status,
+    isAuthenticated: !!user,
+    hasActive: sub?.active ?? false,
     user, 
-    loading, 
+    loading: isLoading, 
     subscription: sub ?? { active: false, plan: null, status: 'none' }
-  }), [user, loading, sub]);
+  }), [status, user, sub, isLoading]);
 }

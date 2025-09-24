@@ -7,11 +7,12 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading, subscription } = useAuthAndSubscription();
+  const { status, isAuthenticated, hasActive, user } = useAuthAndSubscription();
   const location = useLocation();
+  const path = location.pathname;
 
-  // Enquanto carrega, não redireciona
-  if (loading) {
+  // Enquanto carrega NADA de redirecionar (evita loop)
+  if (status !== 'ready') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
@@ -19,32 +20,31 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  // Não autenticado → login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: path }} />;
   }
 
   // Verificar email confirmado
-  const emailConfirmed = user.email_confirmed_at !== null;
+  const emailConfirmed = user?.email_confirmed_at !== null;
   if (!emailConfirmed) {
     return <Navigate to="/assinar" replace />;
   }
 
-  const isSuccessPage = location.pathname.startsWith('/assinatura/sucesso');
-  const isDashboard = location.pathname.startsWith('/dashboard');
-
-  // Se ativo e está preso na página de "assinatura sucesso", manda para dashboard
-  if (subscription.active && isSuccessPage) {
+  // Já tem assinatura e veio para "Assinatura Ativa" → vá ao dashboard
+  if (hasActive && (path === '/assinatura-ativa' || path.startsWith('/assinatura/sucesso'))) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Se NÃO ativo e tentou abrir dashboard, manda para /assinar
-  if (!subscription.active && isDashboard) {
-    return <Navigate to="/assinar" replace />;
-  }
-
-  // Se não tem assinatura ativa, redirecionar para assinar (exceto páginas específicas)
-  if (!subscription.active && !isSuccessPage && !location.pathname.startsWith('/assinar') && 
-      !location.pathname.startsWith('/assinatura/retorno') && !location.pathname.startsWith('/payment/return')) {
+  // Não tem assinatura e quer usar área protegida → vá para assinar
+  const needsSub = path.startsWith('/dashboard') || 
+                   path.startsWith('/clientes') || 
+                   path.startsWith('/financeiro') ||
+                   path.startsWith('/agenda') ||
+                   path.startsWith('/relatorios') ||
+                   path.startsWith('/cadastros');
+                   
+  if (!hasActive && needsSub) {
     return <Navigate to="/assinar" replace />;
   }
 
