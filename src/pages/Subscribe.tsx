@@ -61,7 +61,7 @@ const Subscribe = () => {
               .from('subscriptions')
               .select('status')
               .eq('user_id', data.userId)
-              .eq('status', 'authorized')
+              .eq('status', 'active')
               .limit(1),
             supabase
               .from('subscribers')
@@ -82,11 +82,9 @@ const Subscribe = () => {
           }
 
           if (hasActiveInSubscriptions || hasActiveInSubscribers) {
-            console.log('[Subscribe] Assinatura ativa encontrada', {
-              inSubscriptions: hasActiveInSubscriptions,
-              inSubscribers: hasActiveInSubscribers
-            });
-            setHasActiveSubscription(true);
+            console.log('[Subscribe] Assinatura ativa encontrada - redirecionando para dashboard');
+            navigate('/dashboard', { replace: true });
+            return;
           } else {
             console.log('[Subscribe] Nenhuma assinatura ativa encontrada');
           }
@@ -102,7 +100,7 @@ const Subscribe = () => {
               .from('subscriptions')
               .select('status')
               .eq('user_id', user.id)
-              .eq('status', 'authorized')
+              .eq('status', 'active')
               .limit(1),
             supabase
               .from('subscribers')
@@ -123,11 +121,9 @@ const Subscribe = () => {
           }
 
           if (hasActiveInSubscriptions || hasActiveInSubscribers) {
-            console.log('[Subscribe] Assinatura ativa encontrada para usuário logado', {
-              inSubscriptions: hasActiveInSubscriptions,
-              inSubscribers: hasActiveInSubscribers
-            });
-            setHasActiveSubscription(true);
+            console.log('[Subscribe] Assinatura ativa encontrada para usuário logado - redirecionando para dashboard');
+            navigate('/dashboard', { replace: true });
+            return;
           } else {
             console.log('[Subscribe] Nenhuma assinatura ativa encontrada para usuário logado');
           }
@@ -154,7 +150,7 @@ const Subscribe = () => {
     } else {
       console.log('[Subscribe] Auth ainda carregando, aguardando...');
     }
-  }, [searchParams, user, authLoading]);
+  }, [searchParams, user, authLoading, navigate]);
 
   const didAuthPing = useRef(false);
 
@@ -268,24 +264,11 @@ const Subscribe = () => {
   }
 
   if (hasActiveSubscription) {
+    // Redirecionar imediatamente para dashboard ao invés de mostrar a página
+    navigate('/dashboard', { replace: true });
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-              <Crown className="w-6 h-6 text-primary" />
-            </div>
-            <CardTitle className="text-lg">Assinatura Ativa ✅</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <p className="text-muted-foreground">
-              Você já tem uma assinatura ativa do BeeWise Pro.
-            </p>
-            <Button onClick={handleGoToDashboard} className="w-full">
-              Ir para Dashboard
-            </Button>
-          </CardContent>
-        </Card>
+        <LoadingSpinner />
       </div>
     );
   }

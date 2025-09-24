@@ -23,8 +23,11 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   // Se tem assinatura ativa, sempre permitir acesso (mesmo sem email confirmado)
   if (hasActive) {
-    // Se está na página de assinar, redirecionar para dashboard
-    if (path === '/assinar' || path.startsWith('/assinatura-')) {
+    // Se está em qualquer página de assinatura, redirecionar para dashboard
+    if (path === '/assinar' || 
+        path.startsWith('/assinatura-') || 
+        path.startsWith('/assinatura/') ||
+        path === '/payment/return') {
       return <Navigate to="/dashboard" replace />;
     }
     // Permitir acesso a todas as áreas protegidas
