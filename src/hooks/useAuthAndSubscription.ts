@@ -9,6 +9,13 @@ type SubStatus = {
   status?: string;
 };
 
+type TrialInfo = {
+  startedAt: string | null;
+  expiresAt: string | null;
+  daysLeft: number;
+  expired: boolean;
+};
+
 export function useAuthAndSubscription() {
   const { data: sessionData, isLoading: sessionLoading } = useQuery({
     queryKey: ['session'],
@@ -19,26 +26,55 @@ export function useAuthAndSubscription() {
 
   const user = sessionData?.data?.session?.user ?? null;
 
-  const { data: sub, isLoading: subLoading } = useQuery<SubStatus>({
-    queryKey: ['subscription', user?.id],
+  const { data: profileData, isLoading: profileLoading } = useQuery<{sub: SubStatus, trial: TrialInfo, subscriptionStatus: string}>({
+    queryKey: ['profile-full', user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
-      // First check profile subscription_active flag for fast response
+      // Get profile with trial and subscription data
       const { data: profile } = await supabase
         .from('profiles')
-        .select('subscription_active')
+        .select('subscription_active, subscription_status, trial_started_at, trial_expires_at, trial_days')
         .eq('user_id', user!.id)
         .maybeSingle();
 
-      if (profile?.subscription_active) {
+      // Calculate trial information
+      const now = new Date();
+      const trialStarted = profile?.trial_started_at ? new Date(profile.trial_started_at) : null;
+      const trialExpires = profile?.trial_expires_at ? new Date(profile.trial_expires_at) : null;
+      const trialDays = profile?.trial_days || 7;
+      
+      let daysLeft = 0;
+      let expired = true;
+      
+      if (trialExpires) {
+        const diffMs = trialExpires.getTime() - now.getTime();
+        daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        expired = diffMs <= 0;
+      }
+
+      const trial: TrialInfo = {
+        startedAt: trialStarted?.toISOString() || null,
+        expiresAt: trialExpires?.toISOString() || null,
+        daysLeft: daysLeft,
+        expired: expired
+      };
+
+      const subscriptionStatus = profile?.subscription_status || 'none';
+      
+      // Check if subscription is active
+      if (profile?.subscription_active || subscriptionStatus === 'active') {
         return { 
-          active: true, 
-          plan: 'mensal' as 'mensal' | 'anual',
-          status: 'active' 
+          sub: { 
+            active: true, 
+            plan: 'mensal' as 'mensal' | 'anual',
+            status: 'active' 
+          },
+          trial,
+          subscriptionStatus: 'active'
         };
       }
 
-      // Fallback to detailed subscription check
+      // Fallback to detailed subscription check for legacy data
       const [subscriptionsResult, subscribersResult] = await Promise.all([
         supabase
           .from('subscriptions')
@@ -63,9 +99,13 @@ export function useAuthAndSubscription() {
                         (!newSub.next_charge_at || new Date(newSub.next_charge_at) > new Date());
         
         return { 
-          active: isActive, 
-          plan: newSub.plan_code as 'mensal' | 'anual',
-          status: newSub.status 
+          sub: { 
+            active: isActive, 
+            plan: newSub.plan_code as 'mensal' | 'anual',
+            status: newSub.status 
+          },
+          trial,
+          subscriptionStatus: isActive ? 'active' : newSub.status
         };
       }
 
@@ -75,13 +115,21 @@ export function useAuthAndSubscription() {
                         (!legacySub.subscription_end || new Date(legacySub.subscription_end) > new Date());
         
         return { 
-          active: isActive, 
-          plan: legacySub.subscription_tier as 'mensal' | 'anual',
-          status: legacySub.subscribed ? 'active' : 'inactive'
+          sub: { 
+            active: isActive, 
+            plan: legacySub.subscription_tier as 'mensal' | 'anual',
+            status: legacySub.subscribed ? 'active' : 'inactive'
+          },
+          trial,
+          subscriptionStatus: isActive ? 'active' : 'none'
         };
       }
 
-      return { active: false, plan: null, status: 'none' };
+      return { 
+        sub: { active: false, plan: null, status: 'none' },
+        trial,
+        subscriptionStatus: 'none'
+      };
     },
     staleTime: 30_000,
     refetchOnWindowFocus: false,
@@ -102,13 +150,17 @@ export function useAuthAndSubscription() {
   }, []);
 
   // Tri-state: loading or ready
-  const status = sessionLoading || (!!user && subLoading) ? 'loading' : 'ready';
+  const status = sessionLoading || (!!user && profileLoading) ? 'loading' : 'ready';
 
   return useMemo(() => ({ 
+    loading: status === 'loading',
+    user,
+    subscriptionStatus: profileData?.subscriptionStatus || 'none',
+    trial: profileData?.trial || { startedAt: null, expiresAt: null, daysLeft: 0, expired: true },
+    // Legacy compatibility
     status,
     isAuthenticated: !!user,
-    hasActive: sub?.active ?? false,
-    user, 
-    subscription: sub ?? { active: false, plan: null, status: 'none' }
-  }), [status, user, sub, sessionLoading, subLoading]);
+    hasActive: profileData?.sub?.active ?? false,
+    subscription: profileData?.sub ?? { active: false, plan: null, status: 'none' }
+  }), [status, user, profileData, sessionLoading, profileLoading]);
 }

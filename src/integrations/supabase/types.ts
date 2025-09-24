@@ -350,7 +350,11 @@ export type Database = {
           phone: string | null
           pwa_install_guide_disabled: boolean
           subscription_active: boolean | null
+          subscription_status: string
           subscription_updated_at: string | null
+          trial_days: number
+          trial_expires_at: string | null
+          trial_started_at: string | null
           tz: string
           updated_at: string
           user_id: string
@@ -364,7 +368,11 @@ export type Database = {
           phone?: string | null
           pwa_install_guide_disabled?: boolean
           subscription_active?: boolean | null
+          subscription_status?: string
           subscription_updated_at?: string | null
+          trial_days?: number
+          trial_expires_at?: string | null
+          trial_started_at?: string | null
           tz?: string
           updated_at?: string
           user_id: string
@@ -378,7 +386,11 @@ export type Database = {
           phone?: string | null
           pwa_install_guide_disabled?: boolean
           subscription_active?: boolean | null
+          subscription_status?: string
           subscription_updated_at?: string | null
+          trial_days?: number
+          trial_expires_at?: string | null
+          trial_started_at?: string | null
           tz?: string
           updated_at?: string
           user_id?: string

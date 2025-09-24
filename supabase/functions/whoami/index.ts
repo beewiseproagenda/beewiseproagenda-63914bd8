@@ -106,13 +106,49 @@ serve(async (req) => {
 
     console.log(`[whoami] Admin API validation SUCCESS for user`);
     
+    // Get profile with trial and subscription data
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('trial_started_at, trial_expires_at, trial_days, subscription_status')
+      .eq('user_id', data.user.id)
+      .maybeSingle();
+
+    // Calculate trial information
+    const now = new Date();
+    const trialStarted = profile?.trial_started_at ? new Date(profile.trial_started_at) : null;
+    const trialExpires = profile?.trial_expires_at ? new Date(profile.trial_expires_at) : null;
+    const trialDays = profile?.trial_days || 7;
+    
+    let daysLeft = 0;
+    let expired = true;
+    
+    if (trialExpires) {
+      const diffMs = trialExpires.getTime() - now.getTime();
+      daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+      expired = diffMs <= 0;
+    }
+
+    const trial = {
+      started_at: trialStarted?.toISOString() || null,
+      expires_at: trialExpires?.toISOString() || null,
+      days_total: trialDays,
+      days_left: daysLeft,
+      expired: expired
+    };
+
+    const subscription = {
+      status: profile?.subscription_status || 'none'
+    };
+    
     return new Response(JSON.stringify({
       ok: true,
       iss,
       iss_matches_edge_project: issMatches,
       user_id: data.user.id,
       gotAuth,
-      error: null
+      error: null,
+      trial,
+      subscription
     }), {
       status: 200,
       headers: { ...cors, 'Content-Type': 'application/json' },

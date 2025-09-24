@@ -8,10 +8,9 @@ const corsHeaders = {
 
 interface ReconcileResult {
   total_users: number;
-  active_marked: number;
-  inactive_marked: number;
+  updated: number;
   unchanged: number;
-  errors: number;
+  errors: string[];
 }
 
 serve(async (req) => {
@@ -47,16 +46,15 @@ serve(async (req) => {
 
     const result: ReconcileResult = {
       total_users: 0,
-      active_marked: 0,
-      inactive_marked: 0,
+      updated: 0,
       unchanged: 0,
-      errors: 0
+      errors: []
     };
 
     // Get all profiles with user_id
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('user_id, subscription_active');
+      .select('user_id, subscription_active, subscription_status, trial_started_at, trial_expires_at, created_at, email');
 
     if (profilesError) {
       console.error('[RECONCILE] Error fetching profiles:', profilesError);
@@ -70,89 +68,94 @@ serve(async (req) => {
     console.log(`[RECONCILE] Found ${result.total_users} profiles`);
 
     // Process each profile
-    for (const profile of profiles || []) {
-      try {
-        // Check for active subscriptions in multiple tables
-        const [subscriptionsResult, subscribersResult, mpSubsResult] = await Promise.all([
-          // New subscriptions table
-          supabase
-            .from('subscriptions')
-            .select('status, cancelled_at, next_charge_at')
-            .eq('user_id', profile.user_id)
-            .order('created_at', { ascending: false })
-            .limit(1),
-          
-          // Legacy subscribers table
-          supabase
-            .from('subscribers')
-            .select('subscribed, subscription_end')
-            .or(`user_id.eq.${profile.user_id}`)
-            .order('updated_at', { ascending: false })
-            .limit(1),
-            
-          // MP subscriptions table
-          supabase
+    for (let i = 0; i < (profiles?.length || 0); i++) {
+      const profile = profiles[i];
+      let hasActive = false;
+      let newStatus = 'none';
+
+      // Backfill trial data if missing
+      let trialUpdate = {};
+      if (!profile.trial_started_at || !profile.trial_expires_at) {
+        const startedAt = profile.created_at;
+        const expiresAt = new Date(new Date(startedAt).getTime() + (7 * 24 * 60 * 60 * 1000));
+        trialUpdate = {
+          trial_started_at: startedAt,
+          trial_expires_at: expiresAt.toISOString()
+        };
+      }
+
+      // Check subscriptions table first (newest data)
+      const { data: subscriptions } = await supabase
+        .from('subscriptions')
+        .select('status, cancelled_at, next_charge_at')
+        .eq('user_id', profile.user_id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (subscriptions && subscriptions.length > 0) {
+        const sub = subscriptions[0];
+        hasActive = sub.status === 'active' && 
+                   !sub.cancelled_at &&
+                   (!sub.next_charge_at || new Date(sub.next_charge_at) > new Date());
+        newStatus = hasActive ? 'active' : sub.status;
+      } else {
+        // Check subscribers table (legacy)
+        const { data: subscribers } = await supabase
+          .from('subscribers')
+          .select('subscribed, subscription_end')
+          .or(`user_id.eq.${profile.user_id},email.eq.${profile.email || ''}`)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+
+        if (subscribers && subscribers.length > 0) {
+          const sub = subscribers[0];
+          hasActive = sub.subscribed &&
+                     (!sub.subscription_end || new Date(sub.subscription_end) > new Date());
+          newStatus = hasActive ? 'active' : 'inactive';
+        } else {
+          // Check mp_subscriptions table
+          const { data: mpSubs } = await supabase
             .from('mp_subscriptions')
             .select('status')
             .eq('user_id', profile.user_id)
             .order('created_at', { ascending: false })
-            .limit(1)
-        ]);
+            .limit(1);
 
-        let hasActiveSubscription = false;
-
-        // Check new subscriptions table
-        if (subscriptionsResult.data?.length > 0) {
-          const sub = subscriptionsResult.data[0];
-          hasActiveSubscription = sub.status === 'active' && 
-                                !sub.cancelled_at &&
-                                (!sub.next_charge_at || new Date(sub.next_charge_at) > new Date());
-        }
-
-        // Check legacy subscribers table
-        if (!hasActiveSubscription && subscribersResult.data?.length > 0) {
-          const sub = subscribersResult.data[0];
-          hasActiveSubscription = sub.subscribed &&
-                                (!sub.subscription_end || new Date(sub.subscription_end) > new Date());
-        }
-
-        console.log(`[RECONCILE] Updated ${profile.user_id}: ${hasActiveSubscription ? 'ACTIVE' : 'INACTIVE'}`);
-
-        // Check MP subscriptions table for active statuses
-        if (!hasActiveSubscription && mpSubsResult.data?.length > 0) {
-          const sub = mpSubsResult.data[0];
-          hasActiveSubscription = ['authorized', 'approved', 'authorized_payment', 'active', 'valid'].includes(sub.status);
-        }
-
-        // Update profile if status changed
-        const currentStatus = profile.subscription_active;
-        if (currentStatus !== hasActiveSubscription) {
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .update({
-              subscription_active: hasActiveSubscription,
-              subscription_updated_at: new Date().toISOString()
-            })
-            .eq('user_id', profile.user_id);
-
-          if (updateError) {
-            console.error(`[RECONCILE] Error updating profile ${profile.user_id}:`, updateError);
-            result.errors++;
-          } else {
-            if (hasActiveSubscription) {
-              result.active_marked++;
-            } else {
-              result.inactive_marked++;
-            }
-            console.log(`[RECONCILE] Updated ${profile.user_id}: ${hasActiveSubscription ? 'ACTIVE' : 'INACTIVE'}`);
+          if (mpSubs && mpSubs.length > 0) {
+            const mpSub = mpSubs[0];
+            hasActive = mpSub.status === 'authorized';
+            newStatus = hasActive ? 'active' : mpSub.status;
           }
-        } else {
-          result.unchanged++;
         }
+      }
 
-      } catch (error) {
-        console.error(`[RECONCILE] Error processing profile ${profile.user_id}:`, error);
-        result.errors++;
+      // Update if changed or trial data missing
+      const needsUpdate = profile.subscription_active !== hasActive || 
+                         profile.subscription_status !== newStatus ||
+                         trialUpdate.trial_started_at;
+      
+      if (needsUpdate) {
+        const updateData = { 
+          subscription_active: hasActive,
+          subscription_status: newStatus,
+          subscription_updated_at: new Date().toISOString(),
+          ...trialUpdate
+        };
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update(updateData)
+          .eq('user_id', profile.user_id);
+
+        if (updateError) {
+          console.error(`Error updating profile ${profile.user_id}:`, updateError);
+          result.errors.push(`Profile ${profile.user_id}: ${updateError.message}`);
+        } else {
+          result.updated++;
+          console.log(`Updated profile ${profile.user_id}: subscription_active = ${hasActive}, status = ${newStatus}`);
+        }
+      } else {
+        result.unchanged++;
       }
     }
 
@@ -170,7 +173,7 @@ serve(async (req) => {
       }
     );
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[RECONCILE] Fatal error:', error);
     return new Response(
       JSON.stringify({ 

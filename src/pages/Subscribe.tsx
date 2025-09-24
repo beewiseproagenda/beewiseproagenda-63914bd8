@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useAuthAndSubscription } from '@/hooks/useAuthAndSubscription';
 import { Check, Crown, Zap, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { redirectToDashboard } from '@/lib/forceRedirect';
@@ -18,98 +19,20 @@ const Subscribe = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading, session } = useAuth();
+  const { loading: authSubLoading, subscriptionStatus, trial } = useAuthAndSubscription();
   const [selectedPlan, setSelectedPlan] = useState<'mensal' | 'anual'>('mensal');
   const [isCreating, setIsCreating] = useState(false);
   const [userInfo, setUserInfo] = useState<{userId: string, email: string} | null>(null);
-  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Hard redirect to dashboard if already has active subscription
   useEffect(() => {
-    const checkAndRedirect = async () => {
-      // Quick check before rendering anything  
-      if (hasActiveSubscription) {
-        window.location.replace('/dashboard');
-        return;
-      }
-      
-      const otToken = searchParams.get('ot');
-      
-      // If token exists, validate and check subscription
-      if (otToken) {
-        console.log('[Subscribe] Validando token de onboarding');
-        
-        const { data, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
-          body: { token: otToken }
-        });
-
-        if (tokenError || !data?.valid) {
-          console.log('[Subscribe] Token inválido ou expirado');
-          setError('Seu link expirou. Solicite um novo e-mail de verificação.');
-          setLoading(false);
-          return;
-        }
-
-        // Check subscription status
-        const [subscriptionsResult, subscribersResult] = await Promise.all([
-          supabase
-            .from('subscriptions')
-            .select('status')
-            .eq('user_id', data.userId)
-            .eq('status', 'active')
-            .limit(1),
-          supabase
-            .from('subscribers')
-            .select('subscribed')
-            .or(`user_id.eq.${data.userId},email.eq.${data.email}`)
-            .eq('subscribed', true)
-            .limit(1)
-        ]);
-
-        if ((subscriptionsResult.data && subscriptionsResult.data.length > 0) ||
-            (subscribersResult.data && subscribersResult.data.length > 0)) {
-          window.location.replace('/dashboard');
-          return;
-        }
-
-        setUserInfo({ userId: data.userId, email: data.email });
-      } else if (user) {
-        setUserInfo({ userId: user.id, email: user.email || '' });
-        
-        // Check subscription for logged in user
-        const [subscriptionsResult, subscribersResult] = await Promise.all([
-          supabase
-            .from('subscriptions')
-            .select('status')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .limit(1),
-          supabase
-            .from('subscribers')
-            .select('subscribed')
-            .or(`user_id.eq.${user.id},email.eq.${user.email}`)
-            .eq('subscribed', true)
-            .limit(1)
-        ]);
-
-        if ((subscriptionsResult.data && subscriptionsResult.data.length > 0) ||
-            (subscribersResult.data && subscribersResult.data.length > 0)) {
-          window.location.replace('/dashboard');
-          return;
-        }
-      } else {
-        console.log('[Subscribe] Nem token nem usuário encontrado');
-        setError('Acesso negado. Faça login ou solicite um novo e-mail de verificação.');
-      }
-      
-      setLoading(false);
-    };
-    
-    if (!authLoading) {
-      checkAndRedirect();
+    if (!authLoading && !authSubLoading && subscriptionStatus === 'active') {
+      window.location.replace('/dashboard');
+      return;
     }
-  }, [searchParams, user, authLoading, hasActiveSubscription]);
+  }, [authLoading, authSubLoading, subscriptionStatus]);
 
   const didAuthPing = useRef(false);
 
@@ -175,7 +98,7 @@ const Subscribe = () => {
 
   const handleSubscribe = async () => {
     // Verificar novamente se já tem assinatura ativa antes de criar nova
-    if (hasActiveSubscription) {
+    if (subscriptionStatus === 'active') {
       alert('Você já possui uma assinatura ativa');
       return { ok: false, reason: 'ALREADY_SUBSCRIBED' };
     }
@@ -195,7 +118,7 @@ const Subscribe = () => {
     navigate('/dashboard', { replace: true });
   };
 
-  if (loading || authLoading) {
+  if (loading || authLoading || authSubLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <LoadingSpinner />
@@ -222,9 +145,9 @@ const Subscribe = () => {
     );
   }
 
-  if (hasActiveSubscription) {
+  if (subscriptionStatus === 'active') {
     // Redirecionar imediatamente para dashboard ao invés de mostrar a página
-    redirectToDashboard();
+    window.location.replace('/dashboard');
     return null;
   }
 

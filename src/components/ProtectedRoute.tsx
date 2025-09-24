@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthAndSubscription } from '@/hooks/useAuthAndSubscription';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { PaywallOverlay } from '@/components/PaywallOverlay';
 import { redirectToDashboard } from '@/lib/forceRedirect';
 
 interface ProtectedRouteProps {
@@ -8,23 +9,23 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { status, isAuthenticated, hasActive, user } = useAuthAndSubscription();
+  const { loading, user, subscriptionStatus, trial } = useAuthAndSubscription();
   const location = useLocation();
   const path = location.pathname;
 
-  // Enquanto carrega NADA de redirecionar (evita loop)
-  if (status !== 'ready') {
+  // Enquanto carrega, mostrar loading
+  if (loading) {
     return <>{children}</>;
   }
 
   // Não autenticado → login (hard redirect)
-  if (!isAuthenticated) {
+  if (!user) {
     window.location.replace('/login');
     return null;
   }
 
-  // Se tem assinatura ativa, sempre permitir acesso (mesmo sem email confirmado)
-  if (hasActive) {
+  // Se tem assinatura ativa, sempre permitir acesso
+  if (subscriptionStatus === 'active') {
     // Se está em qualquer página de assinatura, hard redirect para dashboard
     if (path === '/assinar' || 
         path.startsWith('/assinatura-') || 
@@ -39,13 +40,15 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <>{children}</>;
   }
 
-  // Verificar email confirmado apenas se não tem assinatura ativa
-  const emailConfirmed = user?.email_confirmed_at !== null;
-  if (!emailConfirmed) {
-    return <Navigate to="/assinar" replace />;
+  // Verificar se trial ainda é válido
+  const trialValid = !trial.expired;
+  
+  // Se trial válido, permitir acesso
+  if (trialValid) {
+    return <>{children}</>;
   }
 
-  // Não tem assinatura e quer usar área protegida → vá para assinar
+  // Trial expirado e sem assinatura - mostrar overlay de bloqueio
   const needsSub = path.startsWith('/dashboard') || 
                    path.startsWith('/clientes') || 
                    path.startsWith('/financeiro') ||
@@ -53,7 +56,18 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
                    path.startsWith('/relatorios') ||
                    path.startsWith('/cadastros');
                    
-  if (!hasActive && needsSub) {
+  if (needsSub && subscriptionStatus !== 'active' && trial.expired) {
+    return (
+      <>
+        {children}
+        <PaywallOverlay isOpen={true} trialDays={7} />
+      </>
+    );
+  }
+
+  // Para outras páginas não protegidas, verificar email confirmado
+  const emailConfirmed = user?.email_confirmed_at !== null;
+  if (!emailConfirmed) {
     return <Navigate to="/assinar" replace />;
   }
 
