@@ -28,9 +28,7 @@ export const useAuth = () => {
   }, []);
 
   const signUp = async (email: string, password: string, userData: { first_name: string; last_name: string; phone: string; accepted_terms_at: string }) => {
-    const host = window.location.host.includes('preview--')
-      ? 'https://preview--beewiseproagenda.lovable.app'
-      : 'https://beewiseproagenda.com.br';
+    const host = 'https://beewiseproagenda.com.br';
     
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -58,9 +56,7 @@ export const useAuth = () => {
   };
 
   const resetPassword = async (email: string) => {
-    const host = window.location.host.includes('preview--')
-      ? 'https://preview--beewiseproagenda.lovable.app'
-      : 'https://beewiseproagenda.com.br';
+    const host = 'https://beewiseproagenda.com.br';
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${host}/reset`
@@ -69,9 +65,7 @@ export const useAuth = () => {
   };
 
   const resendConfirmation = async (email: string) => {
-    const host = window.location.host.includes('preview--')
-      ? 'https://preview--beewiseproagenda.lovable.app'
-      : 'https://beewiseproagenda.com.br';
+    const host = 'https://beewiseproagenda.com.br';
     
     const { error } = await supabase.auth.resend({
       type: 'signup',

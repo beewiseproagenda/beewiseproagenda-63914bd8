@@ -111,9 +111,7 @@ const Cadastro = () => {
     setResendLoading(true);
     
     try {
-      const host = window.location.host.includes('preview--')
-        ? 'https://preview--beewiseproagenda.lovable.app'
-        : 'https://beewiseproagenda.com.br';
+      const host = 'https://beewiseproagenda.com.br';
       
       const { error } = await supabase.auth.resend({
         type: 'signup',

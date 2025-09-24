@@ -104,7 +104,7 @@ const ProtectedLayout = ({ children, title }: { children: React.ReactNode; title
 
 // Componente principal de roteamento
 const AppRoutes = () => {
-  const { user, loading } = useAuthAndSubscription();
+  const { user, status } = useAuthAndSubscription();
 
   // Verificar se é link de reset de senha
   const isPasswordResetLink = () => {
@@ -115,7 +115,7 @@ const AppRoutes = () => {
   };
 
   // Mostrar loading enquanto carrega
-  if (loading) {
+  if (status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner text="Carregando..." />

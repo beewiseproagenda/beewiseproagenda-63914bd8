@@ -12,7 +12,7 @@ interface CreateSubscriptionRequest {
 serve(async (req) => {
   // Dynamic CORS whitelist from APP_URL and APP_URL_PREVIEW
   const getCorsHeaders = (req: Request) => {
-    const ALLOWED = ["https://beewiseproagenda.com.br","https://preview--beewiseproagenda.lovable.app"];
+    const ALLOWED = ["https://beewiseproagenda.com.br"];
     const origin = req.headers.get('Origin') || '';
     const allow = ALLOWED.includes(origin) ? origin : '';
     return {

@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createHash, createHmac } from "https://deno.land/std@0.190.0/crypto/mod.ts";
 
 const getCorsHeaders = (req: Request) => {
-  const ALLOWED = ["https://beewiseproagenda.com.br","https://preview--beewiseproagenda.lovable.app"];
+  const ALLOWED = ["https://beewiseproagenda.com.br"];
   const origin = req.headers.get("Origin") || "";
   const allow = ALLOWED.includes(origin) ? origin : "";
   return {

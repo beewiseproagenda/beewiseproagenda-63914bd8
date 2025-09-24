@@ -2,7 +2,7 @@ import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const getCorsHeaders = (req: Request) => {
-  const ALLOWED = ["https://beewiseproagenda.com.br","https://preview--beewiseproagenda.lovable.app"];
+  const ALLOWED = ["https://beewiseproagenda.com.br"];
   const origin = req.headers.get('Origin') || '';
   const allow = ALLOWED.includes(origin) ? origin : '';
   return {

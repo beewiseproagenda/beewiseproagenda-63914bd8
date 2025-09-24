@@ -35,7 +35,7 @@ serve(async (req) => {
     const { data: previewData, error: previewError } = await supabase.auth.admin.generateLink({
       type: 'recovery',
       email: 'diagnostic+reset@beewiseproagenda.com.br',
-      options: { redirectTo: 'https://preview--beewiseproagenda.lovable.app/reset' }
+      options: { redirectTo: 'https://beewiseproagenda.com.br/reset' }
     });
 
     if (previewError) {

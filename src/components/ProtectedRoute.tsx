@@ -13,11 +13,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   // Enquanto carrega NADA de redirecionar (evita loop)
   if (status !== 'ready') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
+    return <>{children}</>;
   }
 
   // Não autenticado → login
@@ -31,8 +27,8 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/assinar" replace />;
   }
 
-  // Já tem assinatura e veio para "Assinatura Ativa" → vá ao dashboard
-  if (hasActive && (path === '/assinatura-ativa' || path.startsWith('/assinatura/sucesso'))) {
+  // Já tem assinatura e está na página de assinar → vá ao dashboard
+  if (hasActive && path === '/assinar') {
     return <Navigate to="/dashboard" replace />;
   }
 
