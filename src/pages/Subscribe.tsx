@@ -14,6 +14,7 @@ import { TrialStatus } from '@/components/TrialStatus';
 import { Check, Crown, Zap, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { redirectToDashboard } from '@/lib/forceRedirect';
+import { FREEMIUM_MODE } from '@/config/freemium';
 
 
 const Subscribe = () => {
@@ -28,15 +29,29 @@ const Subscribe = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // FREEMIUM MODE: Redirect to dashboard immediately
+  useEffect(() => {
+    if (FREEMIUM_MODE && user) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+  }, [user, navigate]);
+
   // Hard redirect to dashboard if already has active subscription
   useEffect(() => {
-    if (!authLoading && !authSubLoading && subscriptionStatus === 'active') {
+    if (!FREEMIUM_MODE && !authLoading && !authSubLoading && subscriptionStatus === 'active') {
       window.location.replace('/dashboard');
       return;
     }
   }, [authLoading, authSubLoading, subscriptionStatus]);
 
   const runReconciliation = useCallback(async () => {
+    // Temporarily disabled for freemium testing
+    if (FREEMIUM_MODE) {
+      console.log('[RECONCILE] Billing reconciliation disabled - freemium mode active');
+      return;
+    }
+
     const adminToken = 'beewise2024secure'; // Using the admin token
     
     try {
@@ -78,6 +93,17 @@ const Subscribe = () => {
   }, [authLoading, authSubLoading, user, runReconciliation]);
 
   async function callCreateSubscription(plan: 'monthly'|'annual') {
+    // Temporarily disabled for freemium testing
+    if (FREEMIUM_MODE) {
+      console.log('[SUBSCRIBE] Billing calls disabled - freemium mode active');
+      toast({
+        title: "Modo Freemium",
+        description: "Sistema de cobrança temporariamente desabilitado",
+      });
+      navigate('/dashboard', { replace: true });
+      return { ok: false, reason: 'FREEMIUM_MODE' };
+    }
+
     try {
       // garantir sessão válida
       try { await supabase.auth.refreshSession(); } catch {}
@@ -158,6 +184,28 @@ const Subscribe = () => {
             <p className="text-muted-foreground">{error}</p>
             <Button onClick={handleResendEmail} className="w-full">
               Solicitar Novo E-mail
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // FREEMIUM MODE: Always render message and redirect to dashboard
+  if (FREEMIUM_MODE) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Crown className="w-12 h-12 text-primary mx-auto mb-4" />
+            <CardTitle>Modo Freemium Ativo</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-muted-foreground">
+              Sistema de cobrança temporariamente desabilitado. Aproveite o acesso completo gratuito!
+            </p>
+            <Button onClick={handleGoToDashboard} className="w-full">
+              Ir para Dashboard
             </Button>
           </CardContent>
         </Card>

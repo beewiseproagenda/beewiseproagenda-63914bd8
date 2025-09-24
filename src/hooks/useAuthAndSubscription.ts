@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { User } from '@supabase/supabase-js';
+import { FREEMIUM_MODE } from '@/config/freemium';
 
 type SubStatus = { 
   active: boolean; 
@@ -155,12 +156,17 @@ export function useAuthAndSubscription() {
   return useMemo(() => ({ 
     loading: status === 'loading',
     user,
-    subscriptionStatus: profileData?.subscriptionStatus || 'none',
-    trial: profileData?.trial || { startedAt: null, expiresAt: null, daysLeft: 0, expired: true },
+    // FREEMIUM MODE: Force active subscription for all authenticated users
+    subscriptionStatus: FREEMIUM_MODE && user ? 'active' : (profileData?.subscriptionStatus || 'none'),
+    trial: FREEMIUM_MODE && user 
+      ? { startedAt: null, expiresAt: null, daysLeft: 999, expired: false }
+      : (profileData?.trial || { startedAt: null, expiresAt: null, daysLeft: 0, expired: true }),
     // Legacy compatibility
     status,
     isAuthenticated: !!user,
-    hasActive: profileData?.sub?.active ?? false,
-    subscription: profileData?.sub ?? { active: false, plan: null, status: 'none' }
+    hasActive: FREEMIUM_MODE && user ? true : (profileData?.sub?.active ?? false),
+    subscription: FREEMIUM_MODE && user 
+      ? { active: true, plan: 'freemium', status: 'active' }
+      : (profileData?.sub ?? { active: false, plan: null, status: 'none' })
   }), [status, user, profileData, sessionLoading, profileLoading]);
 }

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { LogOut, Crown } from "lucide-react";
+import { FREEMIUM_MODE } from "@/config/freemium";
 
 interface PaywallOverlayProps {
   isOpen: boolean;
@@ -12,6 +13,11 @@ interface PaywallOverlayProps {
 
 export const PaywallOverlay = ({ isOpen, trialDays = 7 }: PaywallOverlayProps) => {
   const navigate = useNavigate();
+
+  // FREEMIUM MODE: Never show paywall overlay
+  if (FREEMIUM_MODE) {
+    return null;
+  }
 
   const handleSubscribe = () => {
     navigate('/assinar', { replace: true });

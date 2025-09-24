@@ -19,10 +19,19 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { FREEMIUM_MODE } from '@/config/freemium';
+import { useNavigate } from 'react-router-dom';
 
 export const MySubscription = () => {
+  const navigate = useNavigate();
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+  // FREEMIUM MODE: Redirect to dashboard
+  if (FREEMIUM_MODE) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
   const { 
     plans, 
     currentSubscription, 

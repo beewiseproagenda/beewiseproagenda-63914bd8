@@ -9,18 +9,38 @@ import { useSubscription } from '@/hooks/useSubscription';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Check, Crown, Zap } from 'lucide-react';
+import { FREEMIUM_MODE } from '@/config/freemium';
+import { useNavigate } from 'react-router-dom';
 
 export const PlanSelector = () => {
+  const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState<'mensal' | 'anual'>('mensal');
   const [isCreating, setIsCreating] = useState(false);
   const { user } = useAuth();
   const { plans, currentSubscription, createSubscription, formatPrice, getStatusText, isActiveSubscription } = useSubscription();
   const { toast } = useToast();
 
+  // FREEMIUM MODE: Redirect to dashboard
+  if (FREEMIUM_MODE) {
+    navigate('/dashboard', { replace: true });
+    return null;
+  }
+
   // Verificar se o email foi confirmado
   const emailConfirmed = user?.email_confirmed_at !== null;
 
   const handleSubscribe = async () => {
+    // Temporarily disabled for freemium testing
+    if (FREEMIUM_MODE) {
+      console.log('[PLAN_SELECTOR] Billing calls disabled - freemium mode active');
+      toast({
+        title: "Modo Freemium",
+        description: "Sistema de cobrança temporariamente desabilitado",
+      });
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
     if (!emailConfirmed) {
       toast({
         title: 'Email não confirmado',
