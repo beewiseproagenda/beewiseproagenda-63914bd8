@@ -21,15 +21,20 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <Navigate to="/login" replace state={{ from: path }} />;
   }
 
-  // Verificar email confirmado
+  // Se tem assinatura ativa, sempre permitir acesso (mesmo sem email confirmado)
+  if (hasActive) {
+    // Se está na página de assinar, redirecionar para dashboard
+    if (path === '/assinar' || path.startsWith('/assinatura-')) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    // Permitir acesso a todas as áreas protegidas
+    return <>{children}</>;
+  }
+
+  // Verificar email confirmado apenas se não tem assinatura ativa
   const emailConfirmed = user?.email_confirmed_at !== null;
   if (!emailConfirmed) {
     return <Navigate to="/assinar" replace />;
-  }
-
-  // Já tem assinatura e está na página de assinar → vá ao dashboard
-  if (hasActive && path === '/assinar') {
-    return <Navigate to="/dashboard" replace />;
   }
 
   // Não tem assinatura e quer usar área protegida → vá para assinar
