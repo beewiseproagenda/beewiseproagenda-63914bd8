@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useAuthAndSubscription } from '@/hooks/useAuthAndSubscription';
+import { AdminReconcile } from '@/components/AdminReconcile';
+import { TrialStatus } from '@/components/TrialStatus';
 import { Check, Crown, Zap, AlertCircle, LogOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { redirectToDashboard } from '@/lib/forceRedirect';
@@ -34,28 +36,46 @@ const Subscribe = () => {
     }
   }, [authLoading, authSubLoading, subscriptionStatus]);
 
-  const didAuthPing = useRef(false);
+  const runReconciliation = useCallback(async () => {
+    const adminToken = 'beewise2024secure'; // Using the admin token
+    
+    try {
+      const response = await fetch('https://obdwvgxxunkomacbifry.supabase.co/functions/v1/reconcile-subscriptions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Token': adminToken,
+        },
+        body: JSON.stringify({})
+      });
 
-  useEffect(() => {
-    if (authLoading || didAuthPing.current) return;
-    if (!session?.access_token) return;
-
-    didAuthPing.current = true;
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('auth-ping', {
-          headers: {
-            'authorization': `Bearer ${session?.access_token}`,
-            'Authorization': `Bearer ${session?.access_token}`,
-            'x-origin': window.location.origin
-          }
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log('Reconciliation completed:', data.result);
+        toast({
+          title: "Sistema atualizado!",
+          description: `${data.result.updated} perfis foram atualizados com dados de trial`,
         });
-        console.log('[Subscribe] auth-ping result', { data, error });
-      } catch (err) {
-        console.error('[Subscribe] auth-ping failed', err);
+      } else {
+        console.error('Reconciliation failed:', data);
       }
-    })();
-  }, [authLoading, session?.access_token]);
+    } catch (error) {
+      console.error('Reconciliation error:', error);
+    }
+  }, [toast]);
+
+  // Auto-run reconciliation once when component mounts
+  useEffect(() => {
+    if (!authLoading && !authSubLoading && user) {
+      // Only run for the admin user or on first page load
+      const hasRunReconciliation = sessionStorage.getItem('reconciliation_run');
+      if (!hasRunReconciliation) {
+        runReconciliation();
+        sessionStorage.setItem('reconciliation_run', 'true');
+      }
+    }
+  }, [authLoading, authSubLoading, user, runReconciliation]);
 
   async function callCreateSubscription(plan: 'monthly'|'annual') {
     try {
@@ -320,6 +340,11 @@ const Subscribe = () => {
             </div>
           </CardContent>
           </Card>
+
+          {/* Debug info - remove in production */}
+          <div className="mt-4 opacity-50">
+            <TrialStatus />
+          </div>
         </div>
       </div>
     </div>

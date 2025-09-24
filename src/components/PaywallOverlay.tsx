@@ -26,7 +26,6 @@ export const PaywallOverlay = ({ isOpen, trialDays = 7 }: PaywallOverlayProps) =
     <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent 
         className="sm:max-w-md mx-auto bg-background border border-border"
-        hideClose={true}
       >
         <div className="flex flex-col items-center space-y-6 p-6 text-center">
           <div className="flex items-center justify-center w-16 h-16 bg-primary/10 rounded-full">

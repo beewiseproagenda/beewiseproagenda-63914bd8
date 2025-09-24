@@ -74,14 +74,12 @@ serve(async (req) => {
       let newStatus = 'none';
 
       // Backfill trial data if missing
-      let trialUpdate = {};
+      const trialUpdate: Record<string, any> = {};
       if (!profile.trial_started_at || !profile.trial_expires_at) {
         const startedAt = profile.created_at;
         const expiresAt = new Date(new Date(startedAt).getTime() + (7 * 24 * 60 * 60 * 1000));
-        trialUpdate = {
-          trial_started_at: startedAt,
-          trial_expires_at: expiresAt.toISOString()
-        };
+        trialUpdate.trial_started_at = startedAt;
+        trialUpdate.trial_expires_at = expiresAt.toISOString();
       }
 
       // Check subscriptions table first (newest data)
@@ -132,7 +130,7 @@ serve(async (req) => {
       // Update if changed or trial data missing
       const needsUpdate = profile.subscription_active !== hasActive || 
                          profile.subscription_status !== newStatus ||
-                         trialUpdate.trial_started_at;
+                         Object.keys(trialUpdate).length > 0;
       
       if (needsUpdate) {
         const updateData = { 
