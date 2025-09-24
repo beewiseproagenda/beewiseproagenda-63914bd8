@@ -349,6 +349,8 @@ export type Database = {
           last_name: string
           phone: string | null
           pwa_install_guide_disabled: boolean
+          subscription_active: boolean | null
+          subscription_updated_at: string | null
           tz: string
           updated_at: string
           user_id: string
@@ -361,6 +363,8 @@ export type Database = {
           last_name: string
           phone?: string | null
           pwa_install_guide_disabled?: boolean
+          subscription_active?: boolean | null
+          subscription_updated_at?: string | null
           tz?: string
           updated_at?: string
           user_id: string
@@ -373,6 +377,8 @@ export type Database = {
           last_name?: string
           phone?: string | null
           pwa_install_guide_disabled?: boolean
+          subscription_active?: boolean | null
+          subscription_updated_at?: string | null
           tz?: string
           updated_at?: string
           user_id?: string
