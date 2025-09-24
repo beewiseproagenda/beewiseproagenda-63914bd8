@@ -17,20 +17,22 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     return <>{children}</>;
   }
 
-  // Não autenticado → login
+  // Não autenticado → login (hard redirect)
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: path }} />;
+    window.location.replace('/login');
+    return null;
   }
 
   // Se tem assinatura ativa, sempre permitir acesso (mesmo sem email confirmado)
   if (hasActive) {
-    // Se está em qualquer página de assinatura, redirecionar para dashboard
+    // Se está em qualquer página de assinatura, hard redirect para dashboard
     if (path === '/assinar' || 
         path.startsWith('/assinatura-') || 
         path.startsWith('/assinatura/') ||
         path.startsWith('/subscription/') ||
-        path === '/payment/return') {
-      redirectToDashboard();
+        path === '/payment/return' ||
+        path === '/subscription-success') {
+      window.location.replace('/dashboard');
       return null;
     }
     // Permitir acesso a todas as áreas protegidas

@@ -15,21 +15,21 @@ const AuthCallback = () => {
         
         if (error) {
           console.error('Auth callback error:', error);
-          navigate('/login?error=confirm');
+          window.location.replace('/login?error=confirm');
           return;
         }
 
         // Check if we have a valid session
         if (data.session?.user) {
-          // Always redirect to dashboard - ProtectedRoute will handle subscription checks
-          navigate('/dashboard', { replace: true });
+          // Hard redirect to dashboard
+          window.location.replace('/dashboard');
         } else {
-          // No valid session, redirect to login
-          navigate('/login?error=confirm');
+          // No valid session, hard redirect to login
+          window.location.replace('/login?error=confirm');
         }
       } catch (error) {
         console.error('Callback processing error:', error);
-        navigate('/login?error=confirm');
+        window.location.replace('/login?error=confirm');
       } finally {
         setIsProcessing(false);
       }

@@ -25,133 +25,91 @@ const Subscribe = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Hard redirect to dashboard if already has active subscription
   useEffect(() => {
-    const validateTokenAndCheckSubscription = async () => {
-      console.log('[Subscribe] Iniciando validação', { 
-        authLoading, 
-        user: user?.id, 
-        token: searchParams.get('ot') 
-      });
-
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const otToken = searchParams.get('ot');
-        
-        // Se há token, usar fluxo de onboarding
-        if (otToken) {
-          console.log('[Subscribe] Validando token de onboarding');
-          
-          const { data, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
-            body: { token: otToken }
-          });
-
-          if (tokenError || !data?.valid) {
-            console.log('[Subscribe] Token inválido ou expirado');
-            setError('Seu link expirou. Solicite um novo e-mail de verificação.');
-            return;
-          }
-
-          console.log('[Subscribe] Token válido, definindo userInfo');
-          setUserInfo({ userId: data.userId, email: data.email });
-
-          // Check if user already has active subscription (verificar ambas as tabelas)
-          const [subscriptionsResult, subscribersResult] = await Promise.all([
-            supabase
-              .from('subscriptions')
-              .select('status')
-              .eq('user_id', data.userId)
-              .eq('status', 'active')
-              .limit(1),
-            supabase
-              .from('subscribers')
-              .select('subscribed')
-              .or(`user_id.eq.${data.userId},email.eq.${data.email}`)
-              .eq('subscribed', true)
-              .limit(1)
-          ]);
-
-          const hasActiveInSubscriptions = subscriptionsResult.data && subscriptionsResult.data.length > 0;
-          const hasActiveInSubscribers = subscribersResult.data && subscribersResult.data.length > 0;
-
-          if (subscriptionsResult.error) {
-            console.error('[Subscribe] Erro ao verificar subscriptions:', subscriptionsResult.error);
-          }
-          if (subscribersResult.error) {
-            console.error('[Subscribe] Erro ao verificar subscribers:', subscribersResult.error);
-          }
-
-          if (hasActiveInSubscriptions || hasActiveInSubscribers) {
-            console.log('[Subscribe] Assinatura ativa encontrada - redirecionando para dashboard');
-            redirectToDashboard();
-            return;
-          } else {
-            console.log('[Subscribe] Nenhuma assinatura ativa encontrada');
-          }
-        } 
-        // Se não há token, verificar se há usuário logado
-        else if (user) {
-          console.log('[Subscribe] Usuário logado encontrado, sem token');
-          setUserInfo({ userId: user.id, email: user.email || '' });
-
-          // Check if user already has active subscription (verificar ambas as tabelas)
-          const [subscriptionsResult, subscribersResult] = await Promise.all([
-            supabase
-              .from('subscriptions')
-              .select('status')
-              .eq('user_id', user.id)
-              .eq('status', 'active')
-              .limit(1),
-            supabase
-              .from('subscribers')
-              .select('subscribed')
-              .or(`user_id.eq.${user.id},email.eq.${user.email}`)
-              .eq('subscribed', true)
-              .limit(1)
-          ]);
-
-          const hasActiveInSubscriptions = subscriptionsResult.data && subscriptionsResult.data.length > 0;
-          const hasActiveInSubscribers = subscribersResult.data && subscribersResult.data.length > 0;
-
-          if (subscriptionsResult.error) {
-            console.error('[Subscribe] Erro ao verificar subscriptions:', subscriptionsResult.error);
-          }
-          if (subscribersResult.error) {
-            console.error('[Subscribe] Erro ao verificar subscribers:', subscribersResult.error);
-          }
-
-          if (hasActiveInSubscriptions || hasActiveInSubscribers) {
-            console.log('[Subscribe] Assinatura ativa encontrada para usuário logado - redirecionando para dashboard');
-            redirectToDashboard();
-            return;
-          } else {
-            console.log('[Subscribe] Nenhuma assinatura ativa encontrada para usuário logado');
-          }
-        }
-        // Se não há token nem usuário logado
-        else {
-          console.log('[Subscribe] Nem token nem usuário encontrado');
-          setError('Acesso negado. Faça login ou solicite um novo e-mail de verificação.');
-        }
-
-      } catch (err) {
-        console.error('[Subscribe] Erro na validação:', err);
-        setError('Erro ao validar acesso. Tente novamente.');
-      } finally {
-        console.log('[Subscribe] Finalizando validação, setLoading(false)');
-        setLoading(false);
+    const checkAndRedirect = async () => {
+      // Quick check before rendering anything  
+      if (hasActiveSubscription) {
+        window.location.replace('/dashboard');
+        return;
       }
-    };
+      
+      const otToken = searchParams.get('ot');
+      
+      // If token exists, validate and check subscription
+      if (otToken) {
+        console.log('[Subscribe] Validando token de onboarding');
+        
+        const { data, error: tokenError } = await supabase.functions.invoke('validate-onboarding-token', {
+          body: { token: otToken }
+        });
 
-    // Só executa quando o auth terminou de carregar
+        if (tokenError || !data?.valid) {
+          console.log('[Subscribe] Token inválido ou expirado');
+          setError('Seu link expirou. Solicite um novo e-mail de verificação.');
+          setLoading(false);
+          return;
+        }
+
+        // Check subscription status
+        const [subscriptionsResult, subscribersResult] = await Promise.all([
+          supabase
+            .from('subscriptions')
+            .select('status')
+            .eq('user_id', data.userId)
+            .eq('status', 'active')
+            .limit(1),
+          supabase
+            .from('subscribers')
+            .select('subscribed')
+            .or(`user_id.eq.${data.userId},email.eq.${data.email}`)
+            .eq('subscribed', true)
+            .limit(1)
+        ]);
+
+        if ((subscriptionsResult.data && subscriptionsResult.data.length > 0) ||
+            (subscribersResult.data && subscribersResult.data.length > 0)) {
+          window.location.replace('/dashboard');
+          return;
+        }
+
+        setUserInfo({ userId: data.userId, email: data.email });
+      } else if (user) {
+        setUserInfo({ userId: user.id, email: user.email || '' });
+        
+        // Check subscription for logged in user
+        const [subscriptionsResult, subscribersResult] = await Promise.all([
+          supabase
+            .from('subscriptions')
+            .select('status')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .limit(1),
+          supabase
+            .from('subscribers')
+            .select('subscribed')
+            .or(`user_id.eq.${user.id},email.eq.${user.email}`)
+            .eq('subscribed', true)
+            .limit(1)
+        ]);
+
+        if ((subscriptionsResult.data && subscriptionsResult.data.length > 0) ||
+            (subscribersResult.data && subscribersResult.data.length > 0)) {
+          window.location.replace('/dashboard');
+          return;
+        }
+      } else {
+        console.log('[Subscribe] Nem token nem usuário encontrado');
+        setError('Acesso negado. Faça login ou solicite um novo e-mail de verificação.');
+      }
+      
+      setLoading(false);
+    };
+    
     if (!authLoading) {
-      console.log('[Subscribe] Auth não está carregando, iniciando validação');
-      validateTokenAndCheckSubscription();
-    } else {
-      console.log('[Subscribe] Auth ainda carregando, aguardando...');
+      checkAndRedirect();
     }
-  }, [searchParams, user, authLoading, navigate]);
+  }, [searchParams, user, authLoading, hasActiveSubscription]);
 
   const didAuthPing = useRef(false);
 

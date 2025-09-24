@@ -22,12 +22,12 @@ const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect if already logged in - let ProtectedRoute handle the logic
+  // Hard redirect if already logged in
   useEffect(() => {
     if (user && !subscriptionLoading) {
-      navigate('/dashboard', { replace: true });
+      window.location.replace('/dashboard');
     }
-  }, [user, subscriptionLoading, navigate]);
+  }, [user, subscriptionLoading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,8 +66,8 @@ const Login = () => {
         title: "Login realizado com sucesso!",
         description: "Redirecionando..."
       });
-      // Always redirect to dashboard - ProtectedRoute will handle subscription checks
-      navigate('/dashboard', { replace: true });
+      // Hard redirect to dashboard
+      window.location.replace('/dashboard');
     }
   };
 

@@ -20,7 +20,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import Cadastros from "./pages/Cadastros";
-import { SubscriptionSuccess } from "./pages/SubscriptionSuccess";
+import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import { MySubscription } from "./pages/MySubscription";
 import Landing from "./pages/Landing";
 import ResetPassword from "./pages/ResetPassword";
