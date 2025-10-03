@@ -20,15 +20,10 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import Cadastro from "./pages/Cadastro";
 import Cadastros from "./pages/Cadastros";
-import SubscriptionSuccess from "./pages/SubscriptionSuccess";
-import { MySubscription } from "./pages/MySubscription";
 import Landing from "./pages/Landing";
 import ResetPassword from "./pages/ResetPassword";
 import Reset from "./pages/Reset";
-import PaymentReturn from "./pages/PaymentReturn";
 import EmailVerified from "./pages/EmailVerified";
-import Subscribe from "./pages/Subscribe";
-import SubscriptionReturn from "./pages/SubscriptionReturn";
 import AuthCallback from './pages/AuthCallback';
 import Termos from './pages/Termos';
 import Privacidade from './pages/Privacidade';
@@ -133,14 +128,10 @@ const AppRoutes = () => {
         <Route path="/cadastro" element={<Cadastro />} />
         <Route path="/verificado" element={<EmailVerified />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/assinar" element={<Subscribe />} />
         <Route path="/redefinir-senha" element={<ResetPassword />} />
         <Route path="/reset" element={<Reset />} />
         <Route path="/termos" element={<Termos />} />
         <Route path="/privacidade" element={<Privacidade />} />
-        <Route path="/assinatura/retorno" element={<SubscriptionReturn />} />
-        <Route path="/assinatura/sucesso" element={<SubscriptionSuccess />} />
-        <Route path="/payment/return" element={<PaymentReturn />} />
         <Route path="*" element={<Navigate to="/landing" replace />} />
       </Routes>
     );
@@ -217,35 +208,14 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       
-      <Route path="/minha-assinatura" element={
-        <ProtectedRoute>
-          <ProtectedLayout title="Minha Assinatura">
-            <MySubscription />
-          </ProtectedLayout>
-        </ProtectedRoute>
-      } />
-
-      {/* Rotas especiais que também passam pelo ProtectedRoute */}
-      <Route path="/assinar" element={
-        <ProtectedRoute>
-          <Subscribe />
-        </ProtectedRoute>
-      } />
-      <Route path="/assinatura/retorno" element={
-        <ProtectedRoute>
-          <SubscriptionReturn />
-        </ProtectedRoute>
-      } />
-      <Route path="/assinatura/sucesso" element={
-        <ProtectedRoute>
-          <SubscriptionSuccess />
-        </ProtectedRoute>
-      } />
-      <Route path="/payment/return" element={
-        <ProtectedRoute>
-          <PaymentReturn />
-        </ProtectedRoute>
-      } />
+      {/* FREEMIUM MODE: Redirect all subscription routes to dashboard */}
+      <Route path="/assinar" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/assinatura/retorno" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/assinatura/sucesso" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/subscription-success" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/subscription-return" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/payment/return" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/minha-assinatura" element={<Navigate to="/dashboard" replace />} />
       
       {/* 404 */}
       <Route path="*" element={<NotFound />} />

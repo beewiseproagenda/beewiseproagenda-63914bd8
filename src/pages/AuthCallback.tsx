@@ -21,7 +21,7 @@ const AuthCallback = () => {
 
         // Check if we have a valid session
         if (data.session?.user) {
-          // Hard redirect to dashboard
+          // FREEMIUM MODE: Always redirect to dashboard after email confirmation
           window.location.replace('/dashboard');
         } else {
           // No valid session, hard redirect to login
@@ -36,7 +36,7 @@ const AuthCallback = () => {
     };
 
     handleAuthCallback();
-  }, [navigate]);
+  }, []);
 
   if (isProcessing) {
     return (
