@@ -10,6 +10,18 @@ interface CreateSubscriptionRequest {
 }
 
 serve(async (req) => {
+  // FREEMIUM MODE: Temporarily disabled for freemium testing
+  if (Deno.env.get('FREEMIUM_MODE') === 'true') {
+    return new Response(JSON.stringify({ 
+      ok: true, 
+      freemium: true, 
+      message: 'Billing temporarily disabled - freemium mode active' 
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+
   // Dynamic CORS whitelist from APP_URL and APP_URL_PREVIEW
   const getCorsHeaders = (req: Request) => {
     const ALLOWED = ["https://beewiseproagenda.com.br"];

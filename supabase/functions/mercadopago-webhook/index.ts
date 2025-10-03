@@ -113,6 +113,18 @@ interface PaymentData {
 }
 
 serve(async (req) => {
+  // FREEMIUM MODE: Temporarily disabled for freemium testing
+  if (Deno.env.get('FREEMIUM_MODE') === 'true') {
+    return new Response(JSON.stringify({ 
+      status: "received", 
+      freemium: true, 
+      message: 'Webhook processing temporarily disabled - freemium mode active' 
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+
   const corsHeaders = getCorsHeaders(req);
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {

@@ -1,6 +1,18 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 
 serve(async (req) => {
+  // FREEMIUM MODE: Temporarily disabled for freemium testing
+  if (Deno.env.get('FREEMIUM_MODE') === 'true') {
+    return new Response(JSON.stringify({ 
+      ok: true, 
+      freemium: true, 
+      message: 'MercadoPago validation temporarily disabled - freemium mode active' 
+    }), { 
+      status: 200, 
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+    });
+  }
+
   const appUrl = Deno.env.get('APP_URL') || 'https://obdwvgxxunkomacbifry.supabase.co';
   
   const corsStrict = {

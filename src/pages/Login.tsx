@@ -6,9 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
-import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { FREEMIUM_MODE } from '@/config/freemium';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -18,16 +18,15 @@ const Login = () => {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const { signIn, resetPassword, resendConfirmation, user } = useAuth();
-  const { isActiveSubscription, loading: subscriptionLoading } = useSubscription();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Hard redirect if already logged in
+  // FREEMIUM MODE: Hard redirect if already logged in (no subscription check)
   useEffect(() => {
-    if (user && !subscriptionLoading) {
+    if (user) {
       window.location.replace('/dashboard');
     }
-  }, [user, subscriptionLoading]);
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,10 +124,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      {subscriptionLoading ? (
-        <LoadingSpinner />
-      ) : (
-        <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">Entrar</CardTitle>
         </CardHeader>
@@ -222,7 +218,6 @@ const Login = () => {
           </div>
         </CardContent>
       </Card>
-      )}
     </div>
   );
 };
