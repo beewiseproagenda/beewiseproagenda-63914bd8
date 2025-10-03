@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { FREEMIUM_MODE } from '@/config/freemium';
 
 const EmailVerified = () => {
   const [searchParams] = useSearchParams();
@@ -46,9 +47,8 @@ const EmailVerified = () => {
   }, [searchParams]);
 
   const handleContinue = () => {
-    if (onboardingToken) {
-      navigate(`/assinar?ot=${onboardingToken}`);
-    }
+    // FREEMIUM MODE: Always redirect to dashboard
+    window.location.replace('/dashboard');
   };
 
   const handleResendEmail = () => {
@@ -96,10 +96,10 @@ const EmailVerified = () => {
         </CardHeader>
         <CardContent className="text-center space-y-4">
           <p className="text-muted-foreground">
-            Seu e-mail foi confirmado com sucesso. Agora escolha um plano para ativar seu acesso ao BeeWise.
+            Seu e-mail foi confirmado com sucesso. Clique no botão abaixo para acessar o BeeWise.
           </p>
           <Button onClick={handleContinue} className="w-full">
-            Escolher Plano
+            Ir para Dashboard
           </Button>
         </CardContent>
       </Card>
