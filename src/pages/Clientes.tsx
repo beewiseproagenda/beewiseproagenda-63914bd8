@@ -22,24 +22,46 @@ export default function Clientes() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; cliente: Cliente | null }>({ open: false, cliente: null });
 
   const buscarEnderecoPorCep = async (cep: string) => {
+    // Security: Validate CEP format before making API call
+    const cepRegex = /^\d{8}$/;
+    if (!cepRegex.test(cep)) {
+      toast.error('CEP inválido. Use apenas números (8 dígitos)');
+      return;
+    }
+
     try {
       const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      
+      // Security: Validate response status
+      if (!response.ok) {
+        toast.error('Erro ao buscar CEP. Tente novamente.');
+        return;
+      }
+
       const data = await response.json();
       
-      if (!data.erro) {
-        setFormData(prev => ({
-          ...prev,
-          endereco: {
-            ...prev.endereco,
-            rua: data.logradouro || prev.endereco.rua,
-            bairro: data.bairro || prev.endereco.bairro,
-            cidade: data.localidade || prev.endereco.cidade,
-            estado: data.uf || prev.endereco.estado,
-          }
-        }));
+      // Security: Validate response data
+      if (data.erro) {
+        toast.error('CEP não encontrado');
+        return;
       }
+
+      // Security: Only update with validated data
+      setFormData(prev => ({
+        ...prev,
+        endereco: {
+          ...prev.endereco,
+          rua: data.logradouro || prev.endereco.rua,
+          bairro: data.bairro || prev.endereco.bairro,
+          cidade: data.localidade || prev.endereco.cidade,
+          estado: data.uf || prev.endereco.estado,
+        }
+      }));
+      
+      toast.success('Endereço encontrado!');
     } catch (error) {
       console.error('Erro ao buscar CEP:', error);
+      toast.error('Erro ao buscar CEP. Verifique sua conexão.');
     }
   };
 
