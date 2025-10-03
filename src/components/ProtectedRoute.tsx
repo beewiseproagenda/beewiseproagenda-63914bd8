@@ -34,6 +34,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         path.startsWith('/subscription/') ||
         path === '/payment/return' ||
         path === '/subscription-success' ||
+        path === '/subscription-return' ||
         path === '/minha-assinatura') {
       window.location.replace('/dashboard');
       return null;
@@ -84,12 +85,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
     );
   }
 
-  // Para outras páginas não protegidas, verificar email confirmado
-  const emailConfirmed = user?.email_confirmed_at !== null;
-  if (!emailConfirmed) {
-    return <Navigate to="/assinar" replace />;
-  }
-
+  // FREEMIUM MODE: Never redirect to /assinar, always allow authenticated access
   return <>{children}</>;
 };
 
