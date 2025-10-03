@@ -1,6 +1,7 @@
-import { Calendar, Users, DollarSign, FileText, Home, Settings, Package, Crown, UserPlus } from "lucide-react";
+import { Calendar, Users, DollarSign, FileText, Home, Settings, Package, UserPlus } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import beeWiseLogo from "@/assets/beewise-logo.png";
+import { FREEMIUM_MODE } from "@/config/freemium";
 
 import {
   Sidebar,
@@ -14,7 +15,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const menuItems = [
+const allMenuItems = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Agenda", url: "/agenda", icon: Calendar },
   { title: "Clientes", url: "/clientes", icon: Users },
@@ -22,9 +23,13 @@ const menuItems = [
   { title: "Financeiro", url: "/financeiro", icon: DollarSign },
   { title: "Relatórios", url: "/relatorios", icon: FileText },
   { title: "Cadastros", url: "/cadastros", icon: UserPlus },
-  { title: "Minha Assinatura", url: "/minha-assinatura", icon: Crown },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
+
+// FREEMIUM MODE: Filter out subscription-related menu items
+const menuItems = FREEMIUM_MODE 
+  ? allMenuItems 
+  : allMenuItems;
 
 export function AppSidebar() {
   const { state } = useSidebar();
