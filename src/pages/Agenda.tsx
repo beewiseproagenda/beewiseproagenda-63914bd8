@@ -67,14 +67,14 @@ export default function Agenda() {
     
     // Ajustar para fuso horário local
     const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
-    
-    // Get timezone for conversion
-    const userTz = browserTz();
     const dateStr = localDate.toISOString().split('T')[0];
+    const userTz = browserTz();
     const startAtUtc = toUTCFromLocal(dateStr, data.hora, userTz);
     
     const atendimentoData = {
-      data: dateStr, // Convert to YYYY-MM-DD
+      date: dateStr,
+      time: data.hora,
+      data: dateStr,
       hora: data.hora,
       cliente_id: data.clienteId,
       servico: servicoSelecionado?.nome || "",
