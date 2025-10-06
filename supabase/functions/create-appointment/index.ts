@@ -44,6 +44,16 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Create an authenticated client for RLS-aware queries
+    const db = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: authHeader } }
+      }
+    )
+
     const body = await req.json()
     const { date, time, tz = DEFAULT_TZ, ...otherFields } = body
 
@@ -58,11 +68,11 @@ Deno.serve(async (req) => {
     }
 
     // Get workspace timezone from user profile
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await db
       .from('profiles')
       .select('tz')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
     const workspaceTz = profile?.tz || DEFAULT_TZ
 
@@ -70,7 +80,7 @@ Deno.serve(async (req) => {
     const startAtUtc = toUTCFromLocal(date, time, tz)
 
     // Create appointment
-    const { data: appointment, error } = await supabaseClient
+    const { data: appointment, error } = await db
       .from('atendimentos')
       .insert({
         ...otherFields,

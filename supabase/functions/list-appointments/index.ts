@@ -44,17 +44,26 @@ Deno.serve(async (req) => {
       )
     }
 
+    // Create an authenticated client for RLS-aware queries
+    const db = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      {
+        auth: { persistSession: false },
+        global: { headers: { Authorization: authHeader } }
+      }
+    )
+
     // Get query parameters
     const url = new URL(req.url)
     const startDate = url.searchParams.get('start_date')
     const endDate = url.searchParams.get('end_date')
 
-    // Get workspace timezone from user profile
-    const { data: profile } = await supabaseClient
+    const { data: profile } = await db
       .from('profiles')
       .select('tz')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
     const workspaceTz = profile?.tz || DEFAULT_TZ
 
@@ -62,7 +71,7 @@ Deno.serve(async (req) => {
     const viewerTz = req.headers.get('x-viewer-tz') || workspaceTz
 
     // Build query
-    let query = supabaseClient
+    let query = db
       .from('atendimentos')
       .select('*')
       .eq('user_id', user.id)
@@ -73,7 +82,7 @@ Deno.serve(async (req) => {
       query = query.gte('start_at_utc', new Date(startDate).toISOString())
     }
     if (endDate) {
-      query = query.lte('start_at_utc', new Date(endDate).toISOString())
+      query = query.lt('start_at_utc', new Date(endDate).toISOString())
     }
 
     const { data: appointments, error } = await query
