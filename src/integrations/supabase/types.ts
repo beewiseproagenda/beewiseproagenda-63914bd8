@@ -566,6 +566,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sensitive_data_audit: {
+        Row: {
+          accessed_at: string | null
+          action: string
+          id: string
+          ip_address: unknown | null
+          record_id: string
+          table_name: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          accessed_at?: string | null
+          action: string
+          id?: string
+          ip_address?: unknown | null
+          record_id: string
+          table_name: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          accessed_at?: string | null
+          action?: string
+          id?: string
+          ip_address?: unknown | null
+          record_id?: string
+          table_name?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       servicos_pacotes: {
         Row: {
           criado_em: string
@@ -725,6 +758,14 @@ export type Database = {
       }
       is_admin: {
         Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      validate_cnpj: {
+        Args: { cnpj: string }
+        Returns: boolean
+      }
+      validate_cpf: {
+        Args: { cpf: string }
         Returns: boolean
       }
     }
