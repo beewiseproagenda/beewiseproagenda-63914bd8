@@ -4,6 +4,7 @@ import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 import { Tables } from '@/integrations/supabase/types';
 import { browserTz, toUTCFromLocal, DEFAULT_TZ, fmt, utcToViewer } from '@/utils/datetime';
+import { sanitizeAppointmentCreate, sanitizeAppointmentUpdate } from '@/utils/sanitizeAppointment';
 
 export type Cliente = Tables<'clientes'>;
 export type Atendimento = Tables<'atendimentos'>;
@@ -228,9 +229,12 @@ export const useSupabaseData = () => {
   const adicionarAtendimento = async (atendimentoData: Omit<Atendimento, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     if (!user) return;
 
+    // Sanitize payload: remove rule_id, keep only recurring_rule_id
+    const sanitizedData = sanitizeAppointmentCreate(atendimentoData as any);
+
     try {
       const response = await supabase.functions.invoke('create-appointment', {
-        body: atendimentoData,
+        body: sanitizedData,
         headers: {
           'x-viewer-tz': browserTz()
         }
@@ -252,7 +256,7 @@ export const useSupabaseData = () => {
       // Fallback to direct database insert
       const { data, error: dbError } = await supabase
         .from('atendimentos')
-        .insert([{ ...atendimentoData, user_id: user.id }])
+        .insert([{ ...sanitizedData, user_id: user.id } as any])
         .select()
         .single();
 
@@ -271,9 +275,12 @@ export const useSupabaseData = () => {
   const atualizarAtendimento = async (id: string, atendimentoData: Partial<Atendimento>) => {
     if (!user) return;
 
+    // Sanitize payload: remove rule_id, keep only recurring_rule_id
+    const sanitizedData = sanitizeAppointmentUpdate(atendimentoData as any);
+
     const { data, error } = await supabase
       .from('atendimentos')
-      .update(atendimentoData)
+      .update(sanitizedData)
       .eq('id', id)
       .eq('user_id', user.id)
       .select()
