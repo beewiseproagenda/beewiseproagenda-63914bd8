@@ -83,7 +83,9 @@ export default function Agenda() {
       observacoes: data.observacoes || "",
       status: data.status,
       start_at_utc: startAtUtc.toISOString(),
-      tz: userTz
+      tz: userTz,
+      occurrence_date: null,
+      rule_id: null
     };
 
     if (editingAtendimento) {

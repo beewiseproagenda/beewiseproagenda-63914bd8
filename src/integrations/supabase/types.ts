@@ -23,6 +23,8 @@ export type Database = {
           hora: string
           id: string
           observacoes: string | null
+          occurrence_date: string | null
+          rule_id: string | null
           servico: string
           start_at_utc: string | null
           status: string
@@ -39,6 +41,8 @@ export type Database = {
           hora: string
           id?: string
           observacoes?: string | null
+          occurrence_date?: string | null
+          rule_id?: string | null
           servico: string
           start_at_utc?: string | null
           status: string
@@ -55,6 +59,8 @@ export type Database = {
           hora?: string
           id?: string
           observacoes?: string | null
+          occurrence_date?: string | null
+          rule_id?: string | null
           servico?: string
           start_at_utc?: string | null
           status?: string
@@ -69,6 +75,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_rules"
             referencedColumns: ["id"]
           },
         ]
@@ -436,6 +449,57 @@ export type Database = {
           recorrente?: boolean | null
           user_id?: string
           valor?: number
+        }
+        Relationships: []
+      }
+      recurring_rules: {
+        Row: {
+          active: boolean
+          client_id: string
+          created_at: string
+          end_date: string | null
+          id: string
+          interval_weeks: number
+          occurrences_limit: number | null
+          start_date: string
+          time_local: string
+          timezone: string
+          title: string
+          updated_at: string
+          user_id: string
+          weekdays: number[]
+        }
+        Insert: {
+          active?: boolean
+          client_id: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          interval_weeks?: number
+          occurrences_limit?: number | null
+          start_date: string
+          time_local: string
+          timezone?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          weekdays: number[]
+        }
+        Update: {
+          active?: boolean
+          client_id?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          interval_weeks?: number
+          occurrences_limit?: number | null
+          start_date?: string
+          time_local?: string
+          timezone?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          weekdays?: number[]
         }
         Relationships: []
       }

@@ -51,7 +51,9 @@ export function TimezoneTestPanel() {
         observacoes: 'Teste de timezone',
         status: 'agendado' as const,
         start_at_utc: utcDate.toISOString(),
-        tz: userTz
+        tz: userTz,
+        occurrence_date: null,
+        rule_id: null
       };
 
       await adicionarAtendimento(testData);
