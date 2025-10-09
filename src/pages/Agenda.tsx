@@ -83,6 +83,8 @@ export default function Agenda() {
     const dateStr = localDate.toISOString().split('T')[0];
     const userTz = browserTz();
     const startAtUtc = toUTCFromLocal(dateStr, data.hora, userTz);
+    const endAt = new Date(startAtUtc);
+    endAt.setHours(endAt.getHours() + 1);
     
     const atendimentoData = {
       date: dateStr,
@@ -96,9 +98,10 @@ export default function Agenda() {
       observacoes: data.observacoes || "",
       status: data.status,
       start_at_utc: startAtUtc.toISOString(),
+      end_at: endAt.toISOString(),
       tz: userTz,
       occurrence_date: null,
-      rule_id: null
+      recurring_rule_id: null
     };
 
     if (editingAtendimento) {

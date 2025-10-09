@@ -19,11 +19,13 @@ export type Database = {
           cliente_id: string
           created_at: string
           data: string
+          end_at: string | null
           forma_pagamento: string
           hora: string
           id: string
           observacoes: string | null
           occurrence_date: string | null
+          recurring_rule_id: string | null
           rule_id: string | null
           servico: string
           start_at_utc: string | null
@@ -37,11 +39,13 @@ export type Database = {
           cliente_id: string
           created_at?: string
           data: string
+          end_at?: string | null
           forma_pagamento: string
           hora: string
           id?: string
           observacoes?: string | null
           occurrence_date?: string | null
+          recurring_rule_id?: string | null
           rule_id?: string | null
           servico: string
           start_at_utc?: string | null
@@ -55,11 +59,13 @@ export type Database = {
           cliente_id?: string
           created_at?: string
           data?: string
+          end_at?: string | null
           forma_pagamento?: string
           hora?: string
           id?: string
           observacoes?: string | null
           occurrence_date?: string | null
+          recurring_rule_id?: string | null
           rule_id?: string | null
           servico?: string
           start_at_utc?: string | null
@@ -75,6 +81,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_recurring_rule_id_fkey"
+            columns: ["recurring_rule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_rules"
             referencedColumns: ["id"]
           },
           {
@@ -181,6 +194,53 @@ export type Database = {
           valor?: number
         }
         Relationships: []
+      }
+      financial_entries: {
+        Row: {
+          amount: number
+          appointment_id: string | null
+          created_at: string
+          due_date: string
+          id: string
+          kind: string
+          note: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          appointment_id?: string | null
+          created_at?: string
+          due_date: string
+          id?: string
+          kind: string
+          note?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          appointment_id?: string | null
+          created_at?: string
+          due_date?: string
+          id?: string
+          kind?: string
+          note?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_entries_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "atendimentos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mercadopago_payments: {
         Row: {
@@ -455,6 +515,7 @@ export type Database = {
       recurring_rules: {
         Row: {
           active: boolean
+          amount: number | null
           client_id: string
           created_at: string
           end_date: string | null
@@ -471,6 +532,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          amount?: number | null
           client_id: string
           created_at?: string
           end_date?: string | null
@@ -487,6 +549,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          amount?: number | null
           client_id?: string
           created_at?: string
           end_date?: string | null
@@ -645,6 +708,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      fn_materialize_rule: {
+        Args: { p_rule_id: string; p_window_days?: number }
+        Returns: Json
+      }
+      fn_prune_rule_future: {
+        Args: { p_rule_id: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

@@ -296,6 +296,7 @@ export default function Clientes() {
         start_date: recurringRule.start_date || new Date().toISOString().split('T')[0],
         end_date: recurringRule.end_date || null,
         interval_weeks: recurringRule.interval_weeks || 1,
+        amount: 0,
         active: true,
       };
 

@@ -40,6 +40,8 @@ export function TimezoneTestPanel() {
     try {
       const userTz = browserTz();
       const utcDate = toUTCFromLocal(testDate, testTime, userTz);
+      const endAt = new Date(utcDate);
+      endAt.setHours(endAt.getHours() + 1);
 
       const testData = {
         data: testDate,
@@ -51,9 +53,10 @@ export function TimezoneTestPanel() {
         observacoes: 'Teste de timezone',
         status: 'agendado' as const,
         start_at_utc: utcDate.toISOString(),
+        end_at: endAt.toISOString(),
         tz: userTz,
         occurrence_date: null,
-        rule_id: null
+        recurring_rule_id: null
       };
 
       await adicionarAtendimento(testData);
