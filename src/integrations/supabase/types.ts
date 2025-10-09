@@ -102,9 +102,14 @@ export type Database = {
       clientes: {
         Row: {
           agendamento_fixo: Json | null
+          consent_given_at: string | null
+          consent_withdrawn_at: string | null
           cpf_cnpj: string
+          cpf_cnpj_hash: string | null
           criado_em: string
+          data_retention_until: string | null
           email: string
+          email_hash: string | null
           endereco: Json
           id: string
           nome: string
@@ -112,6 +117,7 @@ export type Database = {
           recorrencia: string | null
           recorrente: boolean | null
           telefone: string
+          telefone_hash: string | null
           tipo_cobranca: string | null
           tipo_pessoa: string
           ultimo_atendimento: string | null
@@ -119,9 +125,14 @@ export type Database = {
         }
         Insert: {
           agendamento_fixo?: Json | null
+          consent_given_at?: string | null
+          consent_withdrawn_at?: string | null
           cpf_cnpj: string
+          cpf_cnpj_hash?: string | null
           criado_em?: string
+          data_retention_until?: string | null
           email: string
+          email_hash?: string | null
           endereco?: Json
           id?: string
           nome: string
@@ -129,6 +140,7 @@ export type Database = {
           recorrencia?: string | null
           recorrente?: boolean | null
           telefone: string
+          telefone_hash?: string | null
           tipo_cobranca?: string | null
           tipo_pessoa: string
           ultimo_atendimento?: string | null
@@ -136,9 +148,14 @@ export type Database = {
         }
         Update: {
           agendamento_fixo?: Json | null
+          consent_given_at?: string | null
+          consent_withdrawn_at?: string | null
           cpf_cnpj?: string
+          cpf_cnpj_hash?: string | null
           criado_em?: string
+          data_retention_until?: string | null
           email?: string
+          email_hash?: string | null
           endereco?: Json
           id?: string
           nome?: string
@@ -146,6 +163,7 @@ export type Database = {
           recorrencia?: string | null
           recorrente?: boolean | null
           telefone?: string
+          telefone_hash?: string | null
           tipo_cobranca?: string | null
           tipo_pessoa?: string
           ultimo_atendimento?: string | null
@@ -741,6 +759,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      anonymize_cliente: {
+        Args: { p_cliente_id: string }
+        Returns: undefined
+      }
       fn_materialize_rule: {
         Args: { p_rule_id: string; p_window_days?: number }
         Returns: Json
@@ -755,6 +777,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      hash_pii: {
+        Args: { data: string }
+        Returns: string
       }
       is_admin: {
         Args: Record<PropertyKey, never>
