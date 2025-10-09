@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Users, Plus, Search, Phone, Mail, Calendar, Edit, Trash2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,45 @@ import { useSupabaseData } from "@/hooks/useSupabaseData";
 import type { Cliente } from "@/hooks/useSupabaseData";
 import { ConfirmDeleteDialog } from "@/components/ConfirmDeleteDialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { formatWeekdays, WEEKDAY_NAMES_SHORT } from "@/utils/weekdays";
+import { browserTz } from "@/utils/datetime";
+
+function RecurrenceDisplay({ clientId }: { clientId: string }) {
+  const [rule, setRule] = useState<any>(null);
+
+  useEffect(() => {
+    loadRule();
+  }, [clientId]);
+
+  const loadRule = async () => {
+    try {
+      const { data } = await supabase
+        .from('recurring_rules')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('active', true)
+        .maybeSingle();
+      
+      setRule(data);
+    } catch (error) {
+      console.error('Erro ao carregar regra:', error);
+    }
+  };
+
+  if (!rule) return null;
+
+  const intervalText = rule.interval_weeks > 1 ? ` (a cada ${rule.interval_weeks} semanas)` : '';
+  
+  return (
+    <div className="flex items-center gap-2">
+      <Calendar className="h-4 w-4 text-muted-foreground" />
+      <p className="text-sm text-muted-foreground">
+        Recorrência semanal - {formatWeekdays(rule.weekdays)} às {rule.time_local}{intervalText}
+      </p>
+    </div>
+  );
+}
 
 export default function Clientes() {
   const { clientes, servicosPacotes, atendimentos, adicionarCliente, atualizarCliente, removerCliente } = useSupabaseData();
@@ -90,6 +129,53 @@ export default function Clientes() {
     tipoCobranca: "variavel" as "pacote" | "variavel",
   });
 
+  const [recurringRule, setRecurringRule] = useState<{
+    id?: string;
+    weekdays: number[];
+    time_local: string;
+    start_date: string;
+    end_date?: string;
+    interval_weeks: number;
+    title: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (editingCliente && editingCliente.id) {
+      loadRecurringRule(editingCliente.id);
+    } else {
+      setRecurringRule(null);
+    }
+  }, [editingCliente]);
+
+  const loadRecurringRule = async (clientId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('recurring_rules')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data) {
+        setRecurringRule({
+          id: data.id,
+          weekdays: data.weekdays,
+          time_local: data.time_local,
+          start_date: data.start_date,
+          end_date: data.end_date || undefined,
+          interval_weeks: data.interval_weeks,
+          title: data.title,
+        });
+      } else {
+        setRecurringRule(null);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar regra de recorrência:', error);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       nome: "",
@@ -116,10 +202,11 @@ export default function Clientes() {
       tipoCobranca: "variavel",
     });
     setEditingCliente(null);
+    setRecurringRule(null);
     setIsDialogOpen(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.nome.trim()) {
@@ -132,6 +219,16 @@ export default function Clientes() {
       return;
     }
 
+    if (formData.recorrente && recurringRule) {
+      if (recurringRule.weekdays.length === 0) {
+        toast.error("Selecione ao menos um dia da semana");
+        return;
+      }
+      if (!recurringRule.time_local) {
+        toast.error("Horário é obrigatório");
+        return;
+      }
+    }
 
     const clienteData = {
       nome: formData.nome,
@@ -150,15 +247,98 @@ export default function Clientes() {
       ultimo_atendimento: null,
     };
 
-    if (editingCliente) {
-      atualizarCliente(editingCliente.id, clienteData);
-      toast.success("Cliente atualizado com sucesso!");
-    } else {
-      adicionarCliente(clienteData);
-      toast.success("Cliente cadastrado com sucesso!");
-    }
+    try {
+      let clientId: string;
+      
+      if (editingCliente) {
+        await atualizarCliente(editingCliente.id, clienteData);
+        clientId = editingCliente.id;
+        toast.success("Cliente atualizado com sucesso!");
+      } else {
+        const novoCliente = await adicionarCliente(clienteData);
+        clientId = novoCliente?.id;
+        if (!clientId) {
+          toast.error("Erro ao criar cliente");
+          return;
+        }
+        toast.success("Cliente cadastrado com sucesso!");
+      }
 
-    resetForm();
+      // Salvar regra de recorrência se recorrente
+      if (formData.recorrente && recurringRule && recurringRule.weekdays.length > 0) {
+        await saveRecurringRule(clientId);
+      }
+
+      resetForm();
+    } catch (error) {
+      console.error('Erro ao salvar cliente:', error);
+      toast.error("Erro ao salvar cliente");
+    }
+  };
+
+  const saveRecurringRule = async (clientId: string) => {
+    if (!recurringRule || recurringRule.weekdays.length === 0) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Usuário não autenticado");
+        return;
+      }
+
+      const ruleData = {
+        user_id: user.id,
+        client_id: clientId,
+        title: recurringRule.title || 'Recorrência',
+        weekdays: recurringRule.weekdays,
+        time_local: recurringRule.time_local,
+        timezone: browserTz(),
+        start_date: recurringRule.start_date || new Date().toISOString().split('T')[0],
+        end_date: recurringRule.end_date || null,
+        interval_weeks: recurringRule.interval_weeks || 1,
+        active: true,
+      };
+
+      let ruleId: string;
+
+      if (recurringRule.id) {
+        // Atualizar regra existente
+        const { data, error } = await supabase
+          .from('recurring_rules')
+          .update(ruleData)
+          .eq('id', recurringRule.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        ruleId = data.id;
+      } else {
+        // Criar nova regra
+        const { data, error } = await supabase
+          .from('recurring_rules')
+          .insert(ruleData)
+          .select()
+          .single();
+
+        if (error) throw error;
+        ruleId = data.id;
+      }
+
+      // Materializar ocorrências
+      const { error: materializeError } = await supabase.functions.invoke('materialize-recurring', {
+        body: { rule_id: ruleId }
+      });
+
+      if (materializeError) {
+        console.error('Erro ao materializar recorrência:', materializeError);
+        toast.error("Regra salva, mas erro ao gerar agendamentos automáticos");
+      } else {
+        toast.success("Recorrência configurada com sucesso!");
+      }
+    } catch (error) {
+      console.error('Erro ao salvar regra de recorrência:', error);
+      toast.error("Erro ao configurar recorrência");
+    }
   };
 
   const editarCliente = (cliente: Cliente) => {
@@ -414,59 +594,119 @@ export default function Clientes() {
                 <Checkbox
                   id="recorrente"
                   checked={formData.recorrente}
-                  onCheckedChange={(checked) => setFormData({ ...formData, recorrente: !!checked })}
+                  onCheckedChange={(checked) => {
+                    setFormData({ ...formData, recorrente: !!checked });
+                    if (checked && !recurringRule) {
+                      setRecurringRule({
+                        weekdays: [],
+                        time_local: '',
+                        start_date: new Date().toISOString().split('T')[0],
+                        interval_weeks: 1,
+                        title: 'Recorrência'
+                      });
+                    }
+                  }}
                 />
-                <Label htmlFor="recorrente">Cliente recorrente</Label>
+                <Label htmlFor="recorrente">Cliente recorrente (agendamento automático)</Label>
               </div>
 
-              {formData.recorrente && (
-                <>
+              {formData.recorrente && formData.recorrencia === 'semanal' && (
+                <div className="border-t pt-4 space-y-4">
+                  <h3 className="text-sm font-medium">Configuração de Recorrência Semanal</h3>
+                  
                   <div>
-                    <Label htmlFor="recorrencia">Recorrência</Label>
-                    <Select
-                      value={formData.recorrencia}
-                      onValueChange={(value: "diaria" | "semanal" | "mensal") => 
-                        setFormData({ ...formData, recorrencia: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="diaria">Diária</SelectItem>
-                        <SelectItem value="semanal">Semanal</SelectItem>
-                        <SelectItem value="mensal">Mensal</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Dias da Semana *</Label>
+                    <div className="grid grid-cols-4 gap-2 mt-2">
+                      {WEEKDAY_NAMES_SHORT.map((day, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`weekday-${index}`}
+                            checked={recurringRule?.weekdays.includes(index) || false}
+                            onCheckedChange={(checked) => {
+                              if (!recurringRule) return;
+                              const newWeekdays = checked
+                                ? [...recurringRule.weekdays, index].sort((a, b) => a - b)
+                                : recurringRule.weekdays.filter(d => d !== index);
+                              setRecurringRule({ ...recurringRule, weekdays: newWeekdays });
+                            }}
+                          />
+                          <Label htmlFor={`weekday-${index}`} className="text-sm cursor-pointer">
+                            {day}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="dia">Dia</Label>
+                      <Label htmlFor="time_local">Horário *</Label>
                       <Input
-                        id="dia"
-                        value={formData.agendamentoFixo.dia}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          agendamentoFixo: { ...formData.agendamentoFixo, dia: e.target.value }
+                        id="time_local"
+                        type="time"
+                        value={recurringRule?.time_local || ''}
+                        onChange={(e) => recurringRule && setRecurringRule({ 
+                          ...recurringRule, 
+                          time_local: e.target.value 
                         })}
-                        placeholder="Segunda"
+                        required={formData.recorrente}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="hora">Hora</Label>
+                      <Label htmlFor="interval_weeks">Intervalo (semanas)</Label>
                       <Input
-                        id="hora"
-                        type="time"
-                        value={formData.agendamentoFixo.hora}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          agendamentoFixo: { ...formData.agendamentoFixo, hora: e.target.value }
+                        id="interval_weeks"
+                        type="number"
+                        min="1"
+                        value={recurringRule?.interval_weeks || 1}
+                        onChange={(e) => recurringRule && setRecurringRule({ 
+                          ...recurringRule, 
+                          interval_weeks: parseInt(e.target.value) || 1
                         })}
                       />
                     </div>
                   </div>
-                </>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="start_date">Data Início</Label>
+                      <Input
+                        id="start_date"
+                        type="date"
+                        value={recurringRule?.start_date || ''}
+                        onChange={(e) => recurringRule && setRecurringRule({ 
+                          ...recurringRule, 
+                          start_date: e.target.value 
+                        })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="end_date">Data Fim (opcional)</Label>
+                      <Input
+                        id="end_date"
+                        type="date"
+                        value={recurringRule?.end_date || ''}
+                        onChange={(e) => recurringRule && setRecurringRule({ 
+                          ...recurringRule, 
+                          end_date: e.target.value || undefined
+                        })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="title">Título do Agendamento</Label>
+                    <Input
+                      id="title"
+                      value={recurringRule?.title || ''}
+                      onChange={(e) => recurringRule && setRecurringRule({ 
+                        ...recurringRule, 
+                        title: e.target.value 
+                      })}
+                      placeholder="Ex: Aulas particulares"
+                    />
+                  </div>
+                </div>
               )}
 
               <div>
@@ -601,15 +841,7 @@ export default function Clientes() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {cliente.recorrente && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Recorrência {cliente.recorrencia}
-                      {cliente.agendamento_fixo && typeof cliente.agendamento_fixo === 'object' && !Array.isArray(cliente.agendamento_fixo) &&
-                        ` - ${(cliente.agendamento_fixo as any).dia} às ${(cliente.agendamento_fixo as any).hora}`
-                      }
-                    </p>
-                  </div>
+                  <RecurrenceDisplay clientId={cliente.id} />
                 )}
                 {cliente.tipo_cobranca === "pacote" && cliente.pacote_id && (
                   <div className="flex items-center gap-2">
