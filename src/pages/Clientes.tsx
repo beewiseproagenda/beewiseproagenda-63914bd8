@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { formatWeekdays, WEEKDAY_NAMES_SHORT } from "@/utils/weekdays";
 import { browserTz } from "@/utils/datetime";
+import { RecurrenceDiagnostic } from "@/components/RecurrenceDiagnostic";
 
 function RecurrenceDisplay({ clientId }: { clientId: string }) {
   const [rule, setRule] = useState<any>(null);
@@ -265,8 +266,13 @@ export default function Clientes() {
       }
 
       // Salvar regra de recorrência se recorrente
-      if (formData.recorrente && recurringRule && recurringRule.weekdays.length > 0) {
+      if (formData.recorrente && recurringRule && recurringRule.weekdays.length > 0 && recurringRule.time_local) {
         await saveRecurringRule(clientId);
+      } else if (formData.recorrente && (!recurringRule || recurringRule.weekdays.length === 0 || !recurringRule.time_local)) {
+        toast.warning("Recorrência não configurada. Preencha todos os campos de recorrência.");
+      } else if (!formData.recorrente && editingCliente) {
+        // Se estava recorrente e agora não é mais, desativar regra
+        await deactivateRecurringRule(clientId);
       }
 
       resetForm();
@@ -313,6 +319,7 @@ export default function Clientes() {
 
         if (error) throw error;
         ruleId = data.id;
+        console.log('Regra atualizada:', ruleId);
       } else {
         // Criar nova regra
         const { data, error } = await supabase
@@ -323,22 +330,56 @@ export default function Clientes() {
 
         if (error) throw error;
         ruleId = data.id;
+        console.log('Regra criada:', ruleId);
       }
 
       // Materializar ocorrências
-      const { error: materializeError } = await supabase.functions.invoke('materialize-recurring', {
-        body: { rule_id: ruleId }
+      console.log('Materializando recorrência para regra:', ruleId);
+      const { data: materializeData, error: materializeError } = await supabase.functions.invoke('materialize-recurring', {
+        body: { rule_id: ruleId, window_days: 180 }
       });
 
       if (materializeError) {
         console.error('Erro ao materializar recorrência:', materializeError);
-        toast.error("Regra salva, mas erro ao gerar agendamentos automáticos");
+        toast.warning("Regra salva, mas erro ao gerar agendamentos automáticos. Tente recarregar a página.");
       } else {
-        toast.success("Recorrência configurada com sucesso!");
+        console.log('Materialização concluída:', materializeData);
+        
+        // Mostrar resumo da materialização
+        const summary = materializeData?.result || materializeData;
+        const created = summary?.created || 0;
+        const updated = summary?.updated || 0;
+        
+        if (created > 0 || updated > 0) {
+          toast.success(`Recorrência configurada! ${created} agendamentos criados, ${updated} atualizados.`);
+        } else {
+          toast.success("Recorrência configurada com sucesso!");
+        }
+        
+        // Aguardar um pouco e recarregar para garantir que os dados sejam refletidos
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
       }
     } catch (error) {
       console.error('Erro ao salvar regra de recorrência:', error);
       toast.error("Erro ao configurar recorrência");
+      throw error;
+    }
+  };
+
+  const deactivateRecurringRule = async (clientId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('recurring_rules')
+        .update({ active: false })
+        .eq('client_id', clientId)
+        .eq('active', true);
+
+      if (error) throw error;
+      console.log('Regra desativada para cliente:', clientId);
+    } catch (error) {
+      console.error('Erro ao desativar regra:', error);
     }
   };
 
@@ -391,8 +432,24 @@ export default function Clientes() {
     (cliente.email && cliente.email.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // DEV: Show diagnostic panel
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+
   return (
     <div className="space-y-4 p-4">
+      {/* DEV: Diagnostic Panel */}
+      {showDiagnostic && <RecurrenceDiagnostic />}
+      
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowDiagnostic(!showDiagnostic)}
+        >
+          {showDiagnostic ? 'Ocultar' : 'Mostrar'} Diagnóstico
+        </Button>
+      </div>
+      
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Clientes</h1>
@@ -612,8 +669,11 @@ export default function Clientes() {
               </div>
 
               {formData.recorrente && formData.recorrencia === 'semanal' && (
-                <div className="border-t pt-4 space-y-4">
-                  <h3 className="text-sm font-medium">Configuração de Recorrência Semanal</h3>
+                <div className="border-t pt-4 space-y-4 bg-muted/30 p-4 rounded-lg">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Configuração de Recorrência Semanal
+                  </h3>
                   
                   <div>
                     <Label>Dias da Semana *</Label>
@@ -637,6 +697,9 @@ export default function Clientes() {
                         </div>
                       ))}
                     </div>
+                    {recurringRule && recurringRule.weekdays.length === 0 && (
+                      <p className="text-xs text-destructive mt-1">Selecione ao menos um dia da semana</p>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -652,6 +715,9 @@ export default function Clientes() {
                         })}
                         required={formData.recorrente}
                       />
+                      {recurringRule && !recurringRule.time_local && (
+                        <p className="text-xs text-destructive mt-1">Horário é obrigatório</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="interval_weeks">Intervalo (semanas)</Label>
@@ -706,6 +772,12 @@ export default function Clientes() {
                       })}
                       placeholder="Ex: Aulas particulares"
                     />
+                  </div>
+
+                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded p-3 text-sm">
+                    <p className="text-blue-800 dark:text-blue-300">
+                      ℹ️ Os agendamentos serão criados automaticamente nos próximos 180 dias e aparecerão no Dashboard, Agenda e Financeiro.
+                    </p>
                   </div>
                 </div>
               )}
