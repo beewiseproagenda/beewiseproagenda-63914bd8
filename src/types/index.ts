@@ -38,6 +38,12 @@ export interface Atendimento {
   formaPagamento: FormaPagamento;
   observacoes?: string;
   status: 'agendado' | 'realizado' | 'cancelado';
+  recurring_rule_id?: string | null;
+  rule_id?: string | null;
+  occurrence_date?: string | null;
+  start_at_utc?: string;
+  end_at?: string;
+  tz?: string;
 }
 
 export interface Despesa {

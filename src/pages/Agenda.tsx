@@ -101,7 +101,8 @@ export default function Agenda() {
       end_at: endAt.toISOString(),
       tz: userTz,
       occurrence_date: null,
-      recurring_rule_id: null
+      recurring_rule_id: null,
+      rule_id: null
     };
 
     if (editingAtendimento) {
