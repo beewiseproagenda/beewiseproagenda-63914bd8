@@ -684,6 +684,22 @@ export const useSupabaseData = () => {
     };
   };
 
+  const materializeRecurringAppointments = async () => {
+    try {
+      const { error } = await supabase.functions.invoke('materialize-recurring', {
+        body: {}
+      });
+      if (error) {
+        console.error('Erro ao materializar compromissos recorrentes:', error);
+      } else {
+        // Refetch appointments after materialization
+        await fetchAtendimentos();
+      }
+    } catch (err) {
+      console.error('Erro ao chamar materialize-recurring:', err);
+    }
+  };
+
   return {
     // Data
     clientes,
@@ -719,6 +735,9 @@ export const useSupabaseData = () => {
     removerReceita,
     
     // Calculations
-    calcularDadosFinanceiros
+    calcularDadosFinanceiros,
+    
+    // Recurring appointments
+    materializeRecurringAppointments
   };
 };

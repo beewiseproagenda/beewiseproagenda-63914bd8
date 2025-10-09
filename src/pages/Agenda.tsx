@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Calendar, Clock, User, MapPin, Phone, Edit, Trash2, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,11 +35,24 @@ const atendimentoSchema = z.object({
 });
 
 export default function Agenda() {
-  const { atendimentos, clientes, servicosPacotes, adicionarAtendimento, atualizarAtendimento, removerAtendimento } = useSupabaseData();
+  const { 
+    atendimentos, 
+    clientes, 
+    servicosPacotes, 
+    adicionarAtendimento, 
+    atualizarAtendimento, 
+    removerAtendimento,
+    materializeRecurringAppointments
+  } = useSupabaseData();
   const [openDialog, setOpenDialog] = useState(false);
   const [editingAtendimento, setEditingAtendimento] = useState<string | null>(null);
   const [dayDetailDialog, setDayDetailDialog] = useState(false);
   const [selectedDayData, setSelectedDayData] = useState<{date: Date, atendimentos: any[]} | null>(null);
+
+  // Materialize recurring appointments on mount
+  useEffect(() => {
+    materializeRecurringAppointments();
+  }, []);
 
   const atendimentoForm = useForm<z.infer<typeof atendimentoSchema>>({
     resolver: zodResolver(atendimentoSchema),

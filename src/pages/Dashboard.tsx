@@ -7,14 +7,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Dashboard() {
-  const { atendimentos, clientes, calcularDadosFinanceiros } = useSupabaseData();
+  const { 
+    atendimentos, 
+    clientes, 
+    calcularDadosFinanceiros,
+    materializeRecurringAppointments
+  } = useSupabaseData();
   const dadosFinanceiros = calcularDadosFinanceiros();
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedAppointments, setSelectedAppointments] = useState<any[]>([]);
+
+  // Materialize recurring appointments on mount
+  useEffect(() => {
+    materializeRecurringAppointments();
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
