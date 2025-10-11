@@ -84,6 +84,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "atendimentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes_decrypted"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "atendimentos_recurring_rule_id_fkey"
             columns: ["recurring_rule_id"]
             isOneToOne: false
@@ -105,10 +112,12 @@ export type Database = {
           consent_given_at: string | null
           consent_withdrawn_at: string | null
           cpf_cnpj: string
+          cpf_cnpj_encrypted: string | null
           cpf_cnpj_hash: string | null
           criado_em: string
           data_retention_until: string | null
           email: string
+          email_encrypted: string | null
           email_hash: string | null
           endereco: Json
           id: string
@@ -117,6 +126,7 @@ export type Database = {
           recorrencia: string | null
           recorrente: boolean | null
           telefone: string
+          telefone_encrypted: string | null
           telefone_hash: string | null
           tipo_cobranca: string | null
           tipo_pessoa: string
@@ -128,10 +138,12 @@ export type Database = {
           consent_given_at?: string | null
           consent_withdrawn_at?: string | null
           cpf_cnpj: string
+          cpf_cnpj_encrypted?: string | null
           cpf_cnpj_hash?: string | null
           criado_em?: string
           data_retention_until?: string | null
           email: string
+          email_encrypted?: string | null
           email_hash?: string | null
           endereco?: Json
           id?: string
@@ -140,6 +152,7 @@ export type Database = {
           recorrencia?: string | null
           recorrente?: boolean | null
           telefone: string
+          telefone_encrypted?: string | null
           telefone_hash?: string | null
           tipo_cobranca?: string | null
           tipo_pessoa: string
@@ -151,10 +164,12 @@ export type Database = {
           consent_given_at?: string | null
           consent_withdrawn_at?: string | null
           cpf_cnpj?: string
+          cpf_cnpj_encrypted?: string | null
           cpf_cnpj_hash?: string | null
           criado_em?: string
           data_retention_until?: string | null
           email?: string
+          email_encrypted?: string | null
           email_hash?: string | null
           endereco?: Json
           id?: string
@@ -163,6 +178,7 @@ export type Database = {
           recorrencia?: string | null
           recorrente?: boolean | null
           telefone?: string
+          telefone_encrypted?: string | null
           telefone_hash?: string | null
           tipo_cobranca?: string | null
           tipo_pessoa?: string
@@ -210,6 +226,30 @@ export type Database = {
           tipo?: string
           user_id?: string
           valor?: number
+        }
+        Relationships: []
+      }
+      encryption_keys: {
+        Row: {
+          created_at: string | null
+          id: string
+          key_name: string
+          key_value: string
+          rotated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key_name: string
+          key_value: string
+          rotated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key_name?: string
+          key_value?: string
+          rotated_at?: string | null
         }
         Relationships: []
       }
@@ -756,12 +796,91 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      clientes_decrypted: {
+        Row: {
+          agendamento_fixo: Json | null
+          consent_given_at: string | null
+          consent_withdrawn_at: string | null
+          cpf_cnpj: string | null
+          cpf_cnpj_hash: string | null
+          criado_em: string | null
+          data_retention_until: string | null
+          email: string | null
+          email_hash: string | null
+          endereco: Json | null
+          id: string | null
+          nome: string | null
+          pacote_id: string | null
+          recorrencia: string | null
+          recorrente: boolean | null
+          telefone: string | null
+          telefone_hash: string | null
+          tipo_cobranca: string | null
+          tipo_pessoa: string | null
+          ultimo_atendimento: string | null
+          user_id: string | null
+        }
+        Insert: {
+          agendamento_fixo?: Json | null
+          consent_given_at?: string | null
+          consent_withdrawn_at?: string | null
+          cpf_cnpj?: never
+          cpf_cnpj_hash?: string | null
+          criado_em?: string | null
+          data_retention_until?: string | null
+          email?: never
+          email_hash?: string | null
+          endereco?: Json | null
+          id?: string | null
+          nome?: string | null
+          pacote_id?: string | null
+          recorrencia?: string | null
+          recorrente?: boolean | null
+          telefone?: never
+          telefone_hash?: string | null
+          tipo_cobranca?: string | null
+          tipo_pessoa?: string | null
+          ultimo_atendimento?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          agendamento_fixo?: Json | null
+          consent_given_at?: string | null
+          consent_withdrawn_at?: string | null
+          cpf_cnpj?: never
+          cpf_cnpj_hash?: string | null
+          criado_em?: string | null
+          data_retention_until?: string | null
+          email?: never
+          email_hash?: string | null
+          endereco?: Json | null
+          id?: string | null
+          nome?: string | null
+          pacote_id?: string | null
+          recorrencia?: string | null
+          recorrente?: boolean | null
+          telefone?: never
+          telefone_hash?: string | null
+          tipo_cobranca?: string | null
+          tipo_pessoa?: string | null
+          ultimo_atendimento?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       anonymize_cliente: {
         Args: { p_cliente_id: string }
         Returns: undefined
+      }
+      decrypt_pii_simple: {
+        Args: { encrypted_data: string; key_text: string }
+        Returns: string
+      }
+      encrypt_pii_simple: {
+        Args: { data: string; key_text: string }
+        Returns: string
       }
       fn_materialize_rule: {
         Args: { p_rule_id: string; p_window_days?: number }
@@ -770,6 +889,10 @@ export type Database = {
       fn_prune_rule_future: {
         Args: { p_rule_id: string }
         Returns: Json
+      }
+      get_encryption_key: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       has_role: {
         Args: {
