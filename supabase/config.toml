@@ -65,3 +65,9 @@ verify_jwt = false
 
 [functions.validate-onboarding-token]
 verify_jwt = false
+
+[functions.log-rpc-usage]
+verify_jwt = false
+
+[functions.test-rpc-security]
+verify_jwt = false

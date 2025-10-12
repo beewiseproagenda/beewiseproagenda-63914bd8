@@ -30,6 +30,17 @@ export async function fetchClientesSecure(
       p_offset: offset,
     });
 
+    // Telemetria leve (fire-and-forget, não bloqueia UX)
+    if (!error) {
+      const { data: { user } } = await supabase.auth.getUser();
+      supabase.functions.invoke('log-rpc-usage', {
+        body: {
+          rpc_name: 'get_clientes_secure',
+          user_id: user?.id || null
+        }
+      }).catch(() => null); // Ignora erros de telemetria
+    }
+
     if (error) {
       return {
         ok: false,

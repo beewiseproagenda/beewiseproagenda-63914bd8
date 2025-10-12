@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_rpc_usage: {
+        Row: {
+          count: number
+          created_at: string
+          date: string
+          id: string
+          rpc_name: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          date?: string
+          id?: string
+          rpc_name: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          date?: string
+          id?: string
+          rpc_name?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       atendimentos: {
         Row: {
           cliente_id: string
@@ -933,6 +963,10 @@ export type Database = {
       hash_pii: {
         Args: { data: string }
         Returns: string
+      }
+      increment_rpc_usage: {
+        Args: { p_rpc_name: string; p_user_id?: string }
+        Returns: undefined
       }
       is_admin: {
         Args: Record<PropertyKey, never>
