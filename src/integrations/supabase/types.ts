@@ -890,6 +890,35 @@ export type Database = {
         Args: { p_rule_id: string }
         Returns: Json
       }
+      get_clientes_secure: {
+        Args: { p_limit?: number; p_offset?: number; p_search?: string }
+        Returns: {
+          agendamento_fixo: Json | null
+          consent_given_at: string | null
+          consent_withdrawn_at: string | null
+          cpf_cnpj: string
+          cpf_cnpj_encrypted: string | null
+          cpf_cnpj_hash: string | null
+          criado_em: string
+          data_retention_until: string | null
+          email: string
+          email_encrypted: string | null
+          email_hash: string | null
+          endereco: Json
+          id: string
+          nome: string
+          pacote_id: string | null
+          recorrencia: string | null
+          recorrente: boolean | null
+          telefone: string
+          telefone_encrypted: string | null
+          telefone_hash: string | null
+          tipo_cobranca: string | null
+          tipo_pessoa: string
+          ultimo_atendimento: string | null
+          user_id: string
+        }[]
+      }
       get_encryption_key: {
         Args: Record<PropertyKey, never>
         Returns: string

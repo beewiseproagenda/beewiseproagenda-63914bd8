@@ -65,11 +65,11 @@ export const useSupabaseData = () => {
   const fetchClientes = async () => {
     if (!user) return;
     
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('nome');
+    const { data, error } = await supabase.rpc('get_clientes_secure', {
+      p_search: null,
+      p_limit: 1000,
+      p_offset: 0
+    });
 
     if (error) throw error;
     setClientes(data || []);

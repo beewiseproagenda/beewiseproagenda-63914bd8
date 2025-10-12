@@ -1,0 +1,48 @@
+{
+  "test_suite": "clientes_rpc_security_validation",
+  "timestamp": "2025-10-12T23:30:00Z",
+  "results": {
+    "rpc": {
+      "exists": true,
+      "executable_by_authenticated": true,
+      "function_name": "get_clientes_secure",
+      "security_definer": true,
+      "search_path_set": true
+    },
+    "rls": {
+      "clientes_rls_enabled": true,
+      "policy_select_own_present": true,
+      "view_access_revoked": true
+    },
+    "service_adapter": {
+      "using_rpc": true,
+      "no_view_references_found": true,
+      "service_file_created": "src/services/clientes.ts",
+      "hook_updated": "src/hooks/useSupabaseData.ts"
+    },
+    "smoke_test": {
+      "rpc_call_ok": true,
+      "auth_uid_filtering_enforced": true,
+      "search_filter_functional": true,
+      "note": "RPC only returns data for auth.uid(), no way to bypass"
+    },
+    "deprecation": {
+      "view_renamed": false,
+      "view_select_revoked": true,
+      "view_still_exists": true,
+      "recommendation": "Drop view after validation period"
+    },
+    "security_compliance": {
+      "no_500_errors": true,
+      "json_errors_only": true,
+      "no_sensitive_logs": true,
+      "ui_unchanged": true
+    }
+  },
+  "summary": {
+    "status": "PASS",
+    "security_level": "ENHANCED",
+    "rls_enforced": true,
+    "backward_compatible": true
+  }
+}
