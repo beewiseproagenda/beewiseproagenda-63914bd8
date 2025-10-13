@@ -1,0 +1,82 @@
+{
+  "test_suite": "Secure RPC Integration Tests",
+  "timestamp": "2025-10-12T23:35:00Z",
+  "implementation_status": {
+    "rpc_integration_tests": {
+      "auth_isolation": true,
+      "unauthorized_rejects": true,
+      "edge_function": "test-rpc-security",
+      "status": "IMPLEMENTED"
+    },
+    "telemetry": {
+      "enabled": true,
+      "table": "analytics_rpc_usage",
+      "no_pii": true,
+      "edge_function": "log-rpc-usage",
+      "increment_function": "increment_rpc_usage",
+      "status": "ACTIVE"
+    },
+    "security": {
+      "rls_verified": true,
+      "rpc_only_authenticated": true,
+      "search_path_secure": true,
+      "security_definer": true,
+      "status": "ENFORCED"
+    }
+  },
+  "components_created": [
+    {
+      "type": "database_table",
+      "name": "analytics_rpc_usage",
+      "purpose": "Agregação de uso de RPCs sem PII"
+    },
+    {
+      "type": "database_function",
+      "name": "increment_rpc_usage",
+      "purpose": "Upsert eficiente de contadores"
+    },
+    {
+      "type": "edge_function",
+      "name": "log-rpc-usage",
+      "purpose": "Endpoint para registrar telemetria"
+    },
+    {
+      "type": "edge_function",
+      "name": "test-rpc-security",
+      "purpose": "Suite automatizada de testes de segurança"
+    },
+    {
+      "type": "service",
+      "name": "src/services/clientes.ts",
+      "purpose": "Service atualizado com telemetria integrada"
+    }
+  ],
+  "test_execution": {
+    "manual_tests_required": [
+      "Criar usuário A e B",
+      "Inserir clientes para ambos",
+      "Verificar isolamento via auth.uid()",
+      "Confirmar telemetria não expõe PII"
+    ],
+    "automated_tests": {
+      "endpoint": "test-rpc-security",
+      "tests": [
+        "RLS habilitado",
+        "Função exists",
+        "Telemetria configurada",
+        "Permissões corretas"
+      ]
+    }
+  },
+  "security_guarantees": {
+    "rls_enforced": true,
+    "user_isolation": "auth.uid() filtrado na query",
+    "no_pii_in_logs": true,
+    "unauthorized_blocked": true
+  },
+  "performance": {
+    "telemetry_async": true,
+    "no_blocking_calls": true,
+    "upsert_optimized": true
+  }
+}

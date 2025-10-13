@@ -17,6 +17,7 @@ export type ClientesServiceResponse = {
 /**
  * Fetch clientes using secure RPC with RLS enforcement
  * Only returns clientes for the authenticated user
+ * Includes lightweight telemetry (no PII)
  */
 export async function fetchClientesSecure(
   params: ClientesQueryParams = {}
@@ -30,15 +31,17 @@ export async function fetchClientesSecure(
       p_offset: offset,
     });
 
-    // Telemetria leve (fire-and-forget, não bloqueia UX)
-    if (!error) {
-      const { data: { user } } = await supabase.auth.getUser();
-      supabase.functions.invoke('log-rpc-usage', {
-        body: {
-          rpc_name: 'get_clientes_secure',
-          user_id: user?.id || null
-        }
-      }).catch(() => null); // Ignora erros de telemetria
+    // Telemetria leve (não bloqueia a resposta)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      supabase.functions
+        .invoke('log-rpc-usage', {
+          body: {
+            rpc_name: 'get_clientes_secure',
+            user_id: user.id,
+          },
+        })
+        .catch(() => null); // Silenciar erros de telemetria para não afetar UX
     }
 
     if (error) {
