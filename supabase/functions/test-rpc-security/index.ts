@@ -34,14 +34,17 @@ Deno.serve(async (req) => {
     });
 
     // Test 2: Verificar se a função get_clientes_secure existe
-    const { data: funcList } = await supabaseAdmin.rpc('pg_catalog.pg_get_functiondef', {
-      funcid: 'public.get_clientes_secure'::regprocedure,
-    });
+    const { data: funcCheck } = await supabaseAdmin
+      .from('information_schema.routines')
+      .select('routine_name')
+      .eq('routine_name', 'get_clientes_secure')
+      .eq('routine_schema', 'public')
+      .maybeSingle();
 
     testResults.tests.push({
       name: 'Função get_clientes_secure existe',
-      status: funcList ? 'PASS' : 'FAIL',
-      details: { exists: !!funcList },
+      status: funcCheck ? 'PASS' : 'FAIL',
+      details: { exists: !!funcCheck },
     });
 
     // Test 3: Verificar tabela de telemetria
