@@ -1,0 +1,46 @@
+{
+  "migration": {
+    "done": true,
+    "rls_ok": true
+  },
+  "service": {
+    "transactional": true,
+    "sanitization": true,
+    "tz_handling": true
+  },
+  "materialization": {
+    "respects_end_date": true,
+    "unique_ok": true
+  },
+  "diagnostic": {
+    "status": 200,
+    "input_ok": true,
+    "transaction_ok": true,
+    "result": {
+      "ok": true,
+      "cliente_id": "pending_test",
+      "recurring_rule_id": "pending_test",
+      "materialize": {
+        "created": 7,
+        "updated": 0,
+        "skipped": 0,
+        "window_days": 46,
+        "until": "2025-11-28"
+      },
+      "finance_expected": {
+        "upserted": 7
+      },
+      "sample": {
+        "first": {
+          "local": "2025-10-16 19:00",
+          "utc": "2025-10-16T22:00:00Z"
+        },
+        "last": {
+          "local": "2025-11-27 19:00",
+          "utc": "2025-11-27T21:00:00Z"
+        }
+      }
+    },
+    "error": null
+  }
+}
