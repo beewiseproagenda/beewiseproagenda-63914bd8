@@ -6,6 +6,18 @@ verify_jwt = true
 [functions.list-appointments] 
 verify_jwt = true
 
+[functions.materialize-recurring]
+verify_jwt = true
+
+[functions.diag-create-client]
+verify_jwt = true
+
+[functions.diag-create-cliente-recorrente]
+verify_jwt = true
+
+[functions.test-client-create-flow]
+verify_jwt = true
+
 [functions.mercadopago-webhook]
 verify_jwt = false
 

@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatWeekdays, WEEKDAY_NAMES_SHORT } from "@/utils/weekdays";
 import { browserTz } from "@/utils/datetime";
 import { RecurrenceDiagnostic } from "@/components/RecurrenceDiagnostic";
+import { ClientDiagnostic } from "@/components/ClientDiagnostic";
 
 function RecurrenceDisplay({ clientId }: { clientId: string }) {
   const [rule, setRule] = useState<any>(null);
@@ -231,13 +232,25 @@ export default function Clientes() {
       }
     }
 
+    // Sanitize inputs
+    const sanitizedTelefone = formData.telefone.replace(/\D/g, '');
+    const sanitizedCep = formData.endereco.cep.replace(/\D/g, '');
+    
     const clienteData = {
-      nome: formData.nome,
-      telefone: formData.telefone,
-      email: formData.email || '',
+      nome: formData.nome.trim(),
+      telefone: sanitizedTelefone,
+      email: formData.email?.trim() || '',
       tipo_pessoa: formData.tipoPessoa || 'cpf',
-      cpf_cnpj: formData.cpfCnpj || '',
-      endereco: formData.endereco,
+      cpf_cnpj: formData.cpfCnpj?.trim() || '',
+      endereco: {
+        cep: sanitizedCep,
+        rua: formData.endereco.rua?.trim() || '',
+        numero: formData.endereco.numero?.trim() || '',
+        complemento: formData.endereco.complemento?.trim() || '',
+        bairro: formData.endereco.bairro?.trim() || '',
+        cidade: formData.endereco.cidade?.trim() || '',
+        estado: formData.endereco.estado?.trim() || '',
+      },
       recorrente: formData.recorrente,
       recorrencia: formData.recorrente ? formData.recorrencia : null,
       agendamento_fixo: formData.recorrente && formData.agendamentoFixo.dia && formData.agendamentoFixo.hora 
@@ -276,9 +289,29 @@ export default function Clientes() {
       }
 
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao salvar cliente:', error);
-      toast.error("Erro ao salvar cliente");
+      
+      // Parse detailed error
+      const errorMessage = error?.message || 'Erro ao salvar cliente';
+      const errorCode = error?.code;
+      const errorDetails = error?.details;
+      const errorHint = error?.hint;
+      
+      console.log('Error details:', { code: errorCode, message: errorMessage, details: errorDetails, hint: errorHint });
+      
+      // User-friendly error messages
+      if (errorMessage.includes('CPF inválido') || errorMessage.includes('CNPJ inválido')) {
+        toast.error(errorMessage);
+      } else if (errorCode === '23505') { // Unique constraint violation
+        toast.error("Cliente com estes dados já existe");
+      } else if (errorCode === '23503') { // Foreign key violation
+        toast.error("Referência inválida nos dados do cliente");
+      } else if (errorCode === '42501') { // RLS violation
+        toast.error("Sem permissão para criar cliente");
+      } else {
+        toast.error(`Erro ao salvar: ${errorMessage}`);
+      }
     }
   };
 
@@ -438,7 +471,12 @@ export default function Clientes() {
   return (
     <div className="space-y-4 p-4">
       {/* DEV: Diagnostic Panel */}
-      {showDiagnostic && <RecurrenceDiagnostic />}
+      {showDiagnostic && (
+        <>
+          <ClientDiagnostic />
+          <RecurrenceDiagnostic />
+        </>
+      )}
       
       <div className="flex items-center justify-between gap-2">
         <Button

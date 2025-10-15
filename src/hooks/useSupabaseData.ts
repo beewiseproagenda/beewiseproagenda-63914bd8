@@ -154,7 +154,15 @@ export const useSupabaseData = () => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      throw error;
+    }
     
     setClientes(prev => [...prev, data]);
     toast({
