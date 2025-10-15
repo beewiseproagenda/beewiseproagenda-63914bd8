@@ -33,27 +33,6 @@ verify_jwt = false
 [functions.user-data]
 verify_jwt = false
 
-[functions.ping]
-verify_jwt = false
-
-[functions.diag-env]
-verify_jwt = false
-
-[functions.mp-validate]
-verify_jwt = false
-
-[functions.diag-secret]
-verify_jwt = false
-
-[functions.db-health]
-verify_jwt = false
-
-[functions.test-prod-connection]
-verify_jwt = false
-
-[functions.whoami]
-verify_jwt = false
-
 [functions.reconcile-subscriptions]
 verify_jwt = false
 
@@ -69,17 +48,8 @@ verify_jwt = false
 [functions.mp-methods]
 verify_jwt = false
 
-[functions.test-mercadopago]
-verify_jwt = false
-
-[functions.test-reset-flow]
-verify_jwt = false
-
 [functions.validate-onboarding-token]
 verify_jwt = false
 
 [functions.log-rpc-usage]
-verify_jwt = false
-
-[functions.test-rpc-security]
 verify_jwt = false
