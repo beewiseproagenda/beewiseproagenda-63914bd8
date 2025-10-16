@@ -45,6 +45,9 @@ verify_jwt = false
 [functions.diagnostic-reset]
 verify_jwt = false
 
+[functions.diag-digest-fix]
+verify_jwt = true
+
 [functions.mp-methods]
 verify_jwt = false
 

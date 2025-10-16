@@ -972,6 +972,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      util_hash_sha256: {
+        Args: { input: string }
+        Returns: string
+      }
       validate_cnpj: {
         Args: { cnpj: string }
         Returns: boolean
