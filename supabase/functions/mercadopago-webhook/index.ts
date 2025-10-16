@@ -163,22 +163,54 @@ serve(async (req) => {
     // Ler payload como texto primeiro
     const payloadText = await req.text();
     
-    // Validar assinatura se os headers estiverem presentes
+    // Validar assinatura - OBRIGATÓRIO para segurança
     const webhookSecret = Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
-    if (xSignature && xRequestId && webhookSecret) {
-      signatureValid = validateSignature(xSignature, xRequestId, payloadText, webhookSecret);
-      
-      if (!signatureValid) {
-        logStep("ERROR: Invalid signature", { requestId });
-        // Ainda salvar o webhook mesmo com assinatura inválida para auditoria
-      }
-    } else {
-      logStep("WARNING: Missing signature headers or secret", { 
+    if (!xSignature || !xRequestId || !webhookSecret) {
+      logStep("ERROR: Missing required signature headers - rejecting webhook", { 
         hasSignature: !!xSignature, 
         hasRequestId: !!xRequestId, 
         hasSecret: !!webhookSecret 
       });
+      
+      // Salvar tentativa rejeitada para auditoria
+      await saveWebhookLog(supabaseClient, requestId || 'no-request-id', 'rejected_missing_signature', 
+        { error: 'Missing signature headers', raw_payload: payloadText }, false);
+      
+      return new Response(
+        JSON.stringify({ 
+          status: "rejected", 
+          error: "Missing signature headers" 
+        }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
+    
+    // Validar assinatura
+    signatureValid = validateSignature(xSignature, xRequestId, payloadText, webhookSecret);
+    
+    if (!signatureValid) {
+      logStep("ERROR: Invalid signature - rejecting webhook", { requestId });
+      
+      // Salvar tentativa de webhook com assinatura inválida para auditoria de segurança
+      await saveWebhookLog(supabaseClient, requestId, 'rejected_invalid_signature', 
+        { error: 'Invalid signature', raw_payload_preview: payloadText.substring(0, 100) }, false);
+      
+      return new Response(
+        JSON.stringify({ 
+          status: "rejected", 
+          error: "Invalid signature" 
+        }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    logStep("Signature validated successfully", { requestId });
 
     // Parse payload JSON
     try {
