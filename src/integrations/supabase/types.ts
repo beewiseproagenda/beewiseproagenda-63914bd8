@@ -904,11 +904,11 @@ export type Database = {
         Args: { p_cliente_id: string }
         Returns: undefined
       }
-      decrypt_pii_simple: {
+      decrypt_pii_aes: {
         Args: { encrypted_data: string; key_text: string }
         Returns: string
       }
-      encrypt_pii_simple: {
+      encrypt_pii_aes: {
         Args: { data: string; key_text: string }
         Returns: string
       }
