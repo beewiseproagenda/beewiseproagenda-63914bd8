@@ -20,6 +20,18 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    // Require admin authentication
+    const adminToken = req.headers.get('x-admin-token');
+    const expectedToken = Deno.env.get('ADMIN_SECRET_TOKEN');
+
+    if (!adminToken || adminToken !== expectedToken) {
+      logStep("Unauthorized - missing or invalid admin token");
+      return new Response(JSON.stringify({ error: 'Unauthorized - admin token required' }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
