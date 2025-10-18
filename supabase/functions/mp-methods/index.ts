@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
-import { logSafely } from '../_shared/auth.ts';
+import { logSafely, requireAuth } from '../_shared/auth.ts';
 
 serve(async (req) => {
   // Dynamic CORS whitelist from APP_URL and APP_URL_PREVIEW
@@ -25,6 +25,15 @@ serve(async (req) => {
   logSafely('[MP Methods Check]', { method: req.method });
 
   try {
+    // Require authentication
+    const authResult = await requireAuth(req);
+    if (!authResult) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsStrict, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Only allow GET method
     if (req.method !== 'GET') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
