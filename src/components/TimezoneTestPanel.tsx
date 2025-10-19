@@ -57,7 +57,10 @@ export function TimezoneTestPanel() {
         tz: userTz,
         occurrence_date: null,
         recurring_rule_id: null,
-        rule_id: null
+        rule_id: null,
+        // Campos de competência/recebimento
+        competencia_date: testDate,
+        recebimento_previsto: testDate
       };
 
       await adicionarAtendimento(testData);

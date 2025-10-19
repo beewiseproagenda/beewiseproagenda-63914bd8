@@ -21,7 +21,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toUTCFromLocal, browserTz } from "@/utils/datetime";
+import { toUtcISO, fromUtcToLocalParts, getBrowserTz, normalizeTime } from "@/lib/dateUtils";
 
 const atendimentoSchema = z.object({
   data: z.date(),
@@ -48,24 +48,44 @@ export default function Agenda() {
   const [editingAtendimento, setEditingAtendimento] = useState<string | null>(null);
   const [dayDetailDialog, setDayDetailDialog] = useState(false);
   const [selectedDayData, setSelectedDayData] = useState<{date: Date, atendimentos: any[]} | null>(null);
+  const [contextSlot, setContextSlot] = useState<{date: Date, time: string} | null>(null);
+  const [saveAndNew, setSaveAndNew] = useState(false);
 
   // Materialize recurring appointments on mount
   useEffect(() => {
     materializeRecurringAppointments();
   }, []);
 
-  const atendimentoForm = useForm<z.infer<typeof atendimentoSchema>>({
-    resolver: zodResolver(atendimentoSchema),
-    defaultValues: {
+  const getDefaultFormValues = () => {
+    // Prioridade: contextSlot > hoje
+    if (contextSlot) {
+      return {
+        data: contextSlot.date,
+        hora: contextSlot.time,
+        clienteId: "",
+        servicoId: "",
+        valor: 0,
+        formaPagamento: "pix" as const,
+        observacoes: "",
+        status: "agendado" as const,
+      };
+    }
+    
+    return {
       data: new Date(),
       hora: "08:00",
       clienteId: "",
       servicoId: "",
       valor: 0,
-      formaPagamento: "pix",
+      formaPagamento: "pix" as const,
       observacoes: "",
-      status: "agendado",
-    },
+      status: "agendado" as const,
+    };
+  };
+
+  const atendimentoForm = useForm<z.infer<typeof atendimentoSchema>>({
+    resolver: zodResolver(atendimentoSchema),
+    defaultValues: getDefaultFormValues(),
   });
 
   const formatCurrency = (value: number) => {
@@ -78,31 +98,40 @@ export default function Agenda() {
   const onSubmit = (data: z.infer<typeof atendimentoSchema>) => {
     const servicoSelecionado = servicosPacotes.find(s => s.id === data.servicoId);
     
-    // Ajustar para fuso horário local
+    // Usar helpers centralizados para conversão de data/hora
     const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
     const dateStr = localDate.toISOString().split('T')[0];
-    const userTz = browserTz();
-    const startAtUtc = toUTCFromLocal(dateStr, data.hora, userTz);
+    const userTz = getBrowserTz();
+    
+    // Normalizar hora antes de converter
+    const normalizedTime = normalizeTime(data.hora);
+    
+    // Converter para UTC usando helper
+    const startAtUtcISO = toUtcISO(dateStr, normalizedTime, userTz);
+    const startAtUtc = new Date(startAtUtcISO);
     const endAt = new Date(startAtUtc);
     endAt.setHours(endAt.getHours() + 1);
     
     const atendimentoData = {
       date: dateStr,
-      time: data.hora,
+      time: normalizedTime,
       data: dateStr,
-      hora: data.hora,
+      hora: normalizedTime,
       cliente_id: data.clienteId,
       servico: servicoSelecionado?.nome || "",
       valor: data.valor,
       forma_pagamento: data.formaPagamento,
       observacoes: data.observacoes || "",
       status: data.status,
-      start_at_utc: startAtUtc.toISOString(),
+      start_at_utc: startAtUtcISO,
       end_at: endAt.toISOString(),
       tz: userTz,
       occurrence_date: null,
       recurring_rule_id: null,
-      rule_id: null
+      rule_id: null,
+      // Campos de competência/recebimento serão preenchidos automaticamente pelo trigger
+      competencia_date: dateStr,
+      recebimento_previsto: dateStr
     };
 
     if (editingAtendimento) {
@@ -111,16 +140,53 @@ export default function Agenda() {
     } else {
       adicionarAtendimento(atendimentoData);
     }
-    atendimentoForm.reset();
-    setOpenDialog(false);
+    
+    // Comportamento "Salvar e novo" - manter contexto
+    if (saveAndNew) {
+      setSaveAndNew(false);
+      const nextSlot = contextSlot ? {
+        date: contextSlot.date,
+        time: addMinutesToTime(contextSlot.time, 60)
+      } : null;
+      setContextSlot(nextSlot);
+      atendimentoForm.reset(getDefaultFormValues());
+    } else {
+      atendimentoForm.reset(getDefaultFormValues());
+      setContextSlot(null);
+      setOpenDialog(false);
+    }
+  };
+
+  // Helper para adicionar minutos a hora
+  const addMinutesToTime = (time: string, minutes: number): string => {
+    const [hours, mins] = time.split(':').map(Number);
+    const totalMinutes = hours * 60 + mins + minutes;
+    const newHours = Math.floor(totalMinutes / 60) % 24;
+    const newMins = totalMinutes % 60;
+    return `${String(newHours).padStart(2, '0')}:${String(newMins).padStart(2, '0')}`;
   };
 
   const editAtendimento = (atendimento: any) => {
     setEditingAtendimento(atendimento.id);
     const servicoOriginal = servicosPacotes.find(s => s.nome === atendimento.servico);
+    
+    // Usar helper para converter UTC para local ao editar
+    const userTz = getBrowserTz();
+    let localParts;
+    
+    if (atendimento.start_at_utc) {
+      localParts = fromUtcToLocalParts(atendimento.start_at_utc, userTz);
+    } else {
+      // Fallback para campos legados
+      localParts = {
+        date: atendimento.data,
+        time: normalizeTime(atendimento.hora)
+      };
+    }
+    
     atendimentoForm.reset({
-      data: new Date(atendimento.data),
-      hora: atendimento.hora,
+      data: new Date(localParts.date + 'T00:00:00'),
+      hora: localParts.time,
       clienteId: atendimento.cliente_id,
       servicoId: servicoOriginal?.id || "",
       valor: Number(atendimento.valor),
@@ -128,12 +194,39 @@ export default function Agenda() {
       observacoes: atendimento.observacoes || "",
       status: atendimento.status,
     });
+    setContextSlot(null); // Limpar contexto ao editar
     setOpenDialog(true);
   };
 
   const handleDayClick = (date: Date, atendimentos: any[]) => {
     setSelectedDayData({ date, atendimentos });
     setDayDetailDialog(true);
+  };
+
+  const handleNewAppointmentClick = () => {
+    setEditingAtendimento(null);
+    setSaveAndNew(false);
+    
+    // Se há um dia selecionado, usar como contexto
+    if (selectedDayData) {
+      setContextSlot({
+        date: selectedDayData.date,
+        time: "08:00" // Hora padrão de início do expediente
+      });
+    } else {
+      setContextSlot(null);
+    }
+    
+    atendimentoForm.reset(getDefaultFormValues());
+    setOpenDialog(true);
+  };
+
+  const handleSlotClick = (date: Date, time: string) => {
+    setEditingAtendimento(null);
+    setSaveAndNew(false);
+    setContextSlot({ date, time });
+    atendimentoForm.reset(getDefaultFormValues());
+    setOpenDialog(true);
   };
 
   return (
@@ -145,16 +238,32 @@ export default function Agenda() {
             Gerencie seus agendamentos e horários
           </p>
         </div>
-        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+        <Dialog open={openDialog} onOpenChange={(open) => {
+          setOpenDialog(open);
+          if (!open) {
+            // Resetar estado ao fechar
+            setEditingAtendimento(null);
+            setContextSlot(null);
+            setSaveAndNew(false);
+            atendimentoForm.reset(getDefaultFormValues());
+          }
+        }}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={handleNewAppointmentClick}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Atendimento
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{editingAtendimento ? 'Editar Atendimento' : 'Novo Atendimento'}</DialogTitle>
+              <DialogTitle>
+                {editingAtendimento ? 'Editar Atendimento' : 'Novo Atendimento'}
+                {contextSlot && !editingAtendimento && (
+                  <p className="text-sm text-muted-foreground font-normal mt-1">
+                    Criando para {format(contextSlot.date, "EEE, dd/MM", { locale: ptBR })} às {contextSlot.time}
+                  </p>
+                )}
+              </DialogTitle>
             </DialogHeader>
             <Form {...atendimentoForm}>
               <form onSubmit={atendimentoForm.handleSubmit(onSubmit)} className="space-y-4">
@@ -354,17 +463,53 @@ export default function Agenda() {
                   )}
                 />
 
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-1">
-                    {editingAtendimento ? 'Atualizar' : 'Adicionar'}
-                  </Button>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1">
+                      {editingAtendimento ? 'Atualizar' : 'Salvar'}
+                    </Button>
+                    {!editingAtendimento && (
+                      <>
+                        <Button
+                          type="submit"
+                          variant="secondary"
+                          className="flex-1"
+                          onClick={() => setSaveAndNew(true)}
+                        >
+                          Salvar e Novo
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const currentValues = atendimentoForm.getValues();
+                            onSubmit(currentValues);
+                            setSaveAndNew(false);
+                            setTimeout(() => {
+                              atendimentoForm.reset(currentValues);
+                              if (contextSlot) {
+                                setContextSlot({
+                                  date: contextSlot.date,
+                                  time: addMinutesToTime(contextSlot.time, 60)
+                                });
+                              }
+                            }, 100);
+                          }}
+                        >
+                          Duplicar
+                        </Button>
+                      </>
+                    )}
+                  </div>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => {
                       setOpenDialog(false);
                       setEditingAtendimento(null);
-                      atendimentoForm.reset();
+                      setContextSlot(null);
+                      setSaveAndNew(false);
+                      atendimentoForm.reset(getDefaultFormValues());
                     }}
                   >
                     Cancelar

@@ -57,9 +57,79 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const { date, time, tz = DEFAULT_TZ, ...otherFields } = body
 
+    // Validação básica de campos obrigatórios
     if (!date || !time) {
       return new Response(
         JSON.stringify({ error: 'Date and time are required' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Validação de campos críticos de otherFields
+    const requiredFields = ['cliente_id', 'servico', 'valor', 'forma_pagamento', 'status']
+    const missingFields = requiredFields.filter(field => !otherFields[field])
+    
+    if (missingFields.length > 0) {
+      return new Response(
+        JSON.stringify({ error: `Missing required fields: ${missingFields.join(', ')}` }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Validação de tipos e limites
+    if (typeof otherFields.valor !== 'number' || otherFields.valor <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid valor: must be a positive number' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Validação de strings (limite de tamanho e sanitização básica)
+    if (otherFields.servico && (typeof otherFields.servico !== 'string' || otherFields.servico.length > 200)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid servico: must be a string with max 200 characters' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    if (otherFields.observacoes && (typeof otherFields.observacoes !== 'string' || otherFields.observacoes.length > 1000)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid observacoes: must be a string with max 1000 characters' }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    // Validação de enums
+    const validFormaPagamento = ['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'transferencia', 'outro']
+    if (!validFormaPagamento.includes(otherFields.forma_pagamento)) {
+      return new Response(
+        JSON.stringify({ error: `Invalid forma_pagamento: must be one of ${validFormaPagamento.join(', ')}` }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
+    }
+
+    const validStatus = ['agendado', 'realizado', 'cancelado']
+    if (!validStatus.includes(otherFields.status)) {
+      return new Response(
+        JSON.stringify({ error: `Invalid status: must be one of ${validStatus.join(', ')}` }),
         { 
           status: 400, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

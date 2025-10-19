@@ -47,6 +47,7 @@ export type Database = {
       atendimentos: {
         Row: {
           cliente_id: string
+          competencia_date: string | null
           created_at: string
           data: string
           end_at: string | null
@@ -55,6 +56,7 @@ export type Database = {
           id: string
           observacoes: string | null
           occurrence_date: string | null
+          recebimento_previsto: string | null
           recurring_rule_id: string | null
           rule_id: string | null
           servico: string
@@ -67,6 +69,7 @@ export type Database = {
         }
         Insert: {
           cliente_id: string
+          competencia_date?: string | null
           created_at?: string
           data: string
           end_at?: string | null
@@ -75,6 +78,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           occurrence_date?: string | null
+          recebimento_previsto?: string | null
           recurring_rule_id?: string | null
           rule_id?: string | null
           servico: string
@@ -87,6 +91,7 @@ export type Database = {
         }
         Update: {
           cliente_id?: string
+          competencia_date?: string | null
           created_at?: string
           data?: string
           end_at?: string | null
@@ -95,6 +100,7 @@ export type Database = {
           id?: string
           observacoes?: string | null
           occurrence_date?: string | null
+          recebimento_previsto?: string | null
           recurring_rule_id?: string | null
           rule_id?: string | null
           servico?: string
@@ -153,6 +159,7 @@ export type Database = {
           id: string
           nome: string
           pacote_id: string | null
+          recebimento_posterior: boolean | null
           recorrencia: string | null
           recorrente: boolean | null
           telefone: string
@@ -179,6 +186,7 @@ export type Database = {
           id?: string
           nome: string
           pacote_id?: string | null
+          recebimento_posterior?: boolean | null
           recorrencia?: string | null
           recorrente?: boolean | null
           telefone: string
@@ -205,6 +213,7 @@ export type Database = {
           id?: string
           nome?: string
           pacote_id?: string | null
+          recebimento_posterior?: boolean | null
           recorrencia?: string | null
           recorrente?: boolean | null
           telefone?: string
@@ -904,6 +913,10 @@ export type Database = {
         Args: { p_cliente_id: string }
         Returns: undefined
       }
+      calcular_recebimento_previsto: {
+        Args: { p_data_competencia: string; p_recebimento_posterior: boolean }
+        Returns: string
+      }
       decrypt_pii_aes: {
         Args: { encrypted_data: string; key_text: string }
         Returns: string
@@ -938,6 +951,7 @@ export type Database = {
           id: string
           nome: string
           pacote_id: string | null
+          recebimento_posterior: boolean | null
           recorrencia: string | null
           recorrente: boolean | null
           telefone: string
