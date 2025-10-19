@@ -49,6 +49,7 @@ export function TimezoneTestPanel() {
         cliente_id: clientes[0].id,
         servico: servicosPacotes[0].nome,
         valor: servicosPacotes[0].valor,
+        valor_total: servicosPacotes[0].valor,
         forma_pagamento: 'pix' as const,
         observacoes: 'Teste de timezone',
         status: 'agendado' as const,

@@ -234,11 +234,14 @@ export const useSupabaseData = () => {
   };
 
   // Atendimento functions - now using timezone-aware edge functions
-  const adicionarAtendimento = async (atendimentoData: Omit<Atendimento, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+  const adicionarAtendimento = async (atendimentoData: any) => {
     if (!user) return;
 
+    // Extrair servicos do atendimentoData
+    const { servicos, ...atendimentoBase } = atendimentoData;
+
     // Sanitize payload: remove rule_id, keep only recurring_rule_id
-    const sanitizedData = sanitizeAppointmentCreate(atendimentoData as any);
+    const sanitizedData = sanitizeAppointmentCreate(atendimentoBase as any);
 
     try {
       const response = await supabase.functions.invoke('create-appointment', {
@@ -251,6 +254,12 @@ export const useSupabaseData = () => {
       if (response.error) throw response.error;
 
       const newAtendimento = response.data.appointment;
+      
+      // Salvar serviços relacionados se existirem
+      if (servicos && servicos.length > 0 && newAtendimento.id) {
+        await saveAppointmentServices(newAtendimento.id, servicos);
+      }
+      
       setAtendimentos(prev => [...prev, newAtendimento]);
       
       toast({
@@ -270,6 +279,11 @@ export const useSupabaseData = () => {
 
       if (dbError) throw dbError;
       
+      // Salvar serviços relacionados se existirem
+      if (servicos && servicos.length > 0 && data.id) {
+        await saveAppointmentServices(data.id, servicos);
+      }
+      
       setAtendimentos(prev => [...prev, data]);
       toast({
         title: "Sucesso",
@@ -280,11 +294,41 @@ export const useSupabaseData = () => {
     }
   };
 
-  const atualizarAtendimento = async (id: string, atendimentoData: Partial<Atendimento>) => {
+  // Função auxiliar para salvar serviços do agendamento
+  const saveAppointmentServices = async (agendamentoId: string, servicos: any[]) => {
+    // Primeiro, deletar serviços existentes (para updates)
+    await supabase
+      .from('agendamento_servicos')
+      .delete()
+      .eq('agendamento_id', agendamentoId);
+
+    // Inserir novos serviços
+    const servicosToInsert = servicos.map(s => ({
+      agendamento_id: agendamentoId,
+      servico_id: s.servico_id,
+      descricao: s.descricao || null,
+      valor: s.valor,
+      quantidade: s.quantidade
+    }));
+
+    const { error } = await supabase
+      .from('agendamento_servicos')
+      .insert(servicosToInsert);
+
+    if (error) {
+      console.error('Erro ao salvar serviços:', error);
+      throw error;
+    }
+  };
+
+  const atualizarAtendimento = async (id: string, atendimentoData: any) => {
     if (!user) return;
 
+    // Extrair servicos do atendimentoData
+    const { servicos, ...atendimentoBase } = atendimentoData;
+
     // Sanitize payload: remove rule_id, keep only recurring_rule_id
-    const sanitizedData = sanitizeAppointmentUpdate(atendimentoData as any);
+    const sanitizedData = sanitizeAppointmentUpdate(atendimentoBase as any);
 
     const { data, error } = await supabase
       .from('atendimentos')
@@ -295,6 +339,11 @@ export const useSupabaseData = () => {
       .single();
 
     if (error) throw error;
+    
+    // Atualizar serviços relacionados se existirem
+    if (servicos && servicos.length > 0) {
+      await saveAppointmentServices(id, servicos);
+    }
     
     setAtendimentos(prev => prev.map(a => a.id === id ? data : a));
     toast({

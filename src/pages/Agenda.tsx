@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { MonthlyCalendar } from "@/components/MonthlyCalendar";
+import { AppointmentServicesManager, AppointmentService } from "@/components/AppointmentServicesManager";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,13 +23,19 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toUtcISO, fromUtcToLocalParts, getBrowserTz, normalizeTime } from "@/lib/dateUtils";
+import { supabase } from "@/integrations/supabase/client";
 
 const atendimentoSchema = z.object({
   data: z.date(),
   hora: z.string().regex(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)"),
   clienteId: z.string().min(1, "Selecione um cliente"),
-  servicoId: z.string().min(1, "Selecione um serviço"),
-  valor: z.number().min(0.01, "Valor deve ser maior que zero"),
+  servicos: z.array(z.object({
+    id: z.string().optional(),
+    servico_id: z.string().min(1, "Selecione um serviço"),
+    descricao: z.string().optional(),
+    valor: z.number().min(0.01, "Valor deve ser maior que zero"),
+    quantidade: z.number().int().min(1, "Quantidade deve ser no mínimo 1"),
+  })).min(1, "Adicione pelo menos um serviço"),
   formaPagamento: z.enum(['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'transferencia', 'outro']),
   observacoes: z.string().optional(),
   status: z.enum(['agendado', 'realizado', 'cancelado']),
@@ -63,8 +70,7 @@ export default function Agenda() {
         data: contextSlot.date,
         hora: contextSlot.time,
         clienteId: "",
-        servicoId: "",
-        valor: 0,
+        servicos: [{ servico_id: "", valor: 0, quantidade: 1, descricao: "" }] as AppointmentService[],
         formaPagamento: "pix" as const,
         observacoes: "",
         status: "agendado" as const,
@@ -75,8 +81,7 @@ export default function Agenda() {
       data: new Date(),
       hora: "08:00",
       clienteId: "",
-      servicoId: "",
-      valor: 0,
+      servicos: [{ servico_id: "", valor: 0, quantidade: 1, descricao: "" }] as AppointmentService[],
       formaPagamento: "pix" as const,
       observacoes: "",
       status: "agendado" as const,
@@ -95,8 +100,9 @@ export default function Agenda() {
     }).format(value);
   };
 
-  const onSubmit = (data: z.infer<typeof atendimentoSchema>) => {
-    const servicoSelecionado = servicosPacotes.find(s => s.id === data.servicoId);
+  const onSubmit = async (data: z.infer<typeof atendimentoSchema>) => {
+    // Calcular valor total
+    const valorTotal = data.servicos.reduce((sum, s) => sum + (s.valor * s.quantidade), 0);
     
     // Usar helpers centralizados para conversão de data/hora
     const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
@@ -112,14 +118,21 @@ export default function Agenda() {
     const endAt = new Date(startAtUtc);
     endAt.setHours(endAt.getHours() + 1);
     
+    // Criar nome do serviço baseado nos serviços selecionados
+    const servicosNomes = data.servicos.map(s => {
+      const servicoPacote = servicosPacotes.find(sp => sp.id === s.servico_id);
+      return servicoPacote?.nome || "Serviço";
+    }).join(", ");
+    
     const atendimentoData = {
       date: dateStr,
       time: normalizedTime,
       data: dateStr,
       hora: normalizedTime,
       cliente_id: data.clienteId,
-      servico: servicoSelecionado?.nome || "",
-      valor: data.valor,
+      servico: servicosNomes,
+      valor: valorTotal, // Usar valor total para retrocompatibilidade
+      valor_total: valorTotal,
       forma_pagamento: data.formaPagamento,
       observacoes: data.observacoes || "",
       status: data.status,
@@ -129,16 +142,16 @@ export default function Agenda() {
       occurrence_date: null,
       recurring_rule_id: null,
       rule_id: null,
-      // Campos de competência/recebimento serão preenchidos automaticamente pelo trigger
       competencia_date: dateStr,
-      recebimento_previsto: dateStr
+      recebimento_previsto: dateStr,
+      servicos: data.servicos // Passar serviços para serem salvos
     };
 
     if (editingAtendimento) {
-      atualizarAtendimento(editingAtendimento, atendimentoData);
+      await atualizarAtendimento(editingAtendimento, atendimentoData);
       setEditingAtendimento(null);
     } else {
-      adicionarAtendimento(atendimentoData);
+      await adicionarAtendimento(atendimentoData);
     }
     
     // Comportamento "Salvar e novo" - manter contexto
@@ -166,9 +179,8 @@ export default function Agenda() {
     return `${String(newHours).padStart(2, '0')}:${String(newMins).padStart(2, '0')}`;
   };
 
-  const editAtendimento = (atendimento: any) => {
+  const editAtendimento = async (atendimento: any) => {
     setEditingAtendimento(atendimento.id);
-    const servicoOriginal = servicosPacotes.find(s => s.nome === atendimento.servico);
     
     // Usar helper para converter UTC para local ao editar
     const userTz = getBrowserTz();
@@ -184,12 +196,39 @@ export default function Agenda() {
       };
     }
     
+    // Carregar serviços relacionados do agendamento
+    const { data: servicosRelacionados, error } = await supabase
+      .from('agendamento_servicos')
+      .select('*')
+      .eq('agendamento_id', atendimento.id);
+    
+    let servicos: AppointmentService[] = [];
+    
+    if (servicosRelacionados && servicosRelacionados.length > 0) {
+      // Se tem serviços na tabela relacionada, usar eles
+      servicos = servicosRelacionados.map(s => ({
+        id: s.id,
+        servico_id: s.servico_id,
+        descricao: s.descricao || "",
+        valor: Number(s.valor),
+        quantidade: s.quantidade
+      }));
+    } else {
+      // Retrocompatibilidade: criar serviço único baseado nos campos antigos
+      const servicoOriginal = servicosPacotes.find(s => s.nome === atendimento.servico);
+      servicos = [{
+        servico_id: servicoOriginal?.id || "",
+        descricao: "",
+        valor: Number(atendimento.valor || 0),
+        quantidade: 1
+      }];
+    }
+    
     atendimentoForm.reset({
       data: new Date(localParts.date + 'T00:00:00'),
       hora: localParts.time,
       clienteId: atendimento.cliente_id,
-      servicoId: servicoOriginal?.id || "",
-      valor: Number(atendimento.valor),
+      servicos: servicos,
       formaPagamento: atendimento.forma_pagamento,
       observacoes: atendimento.observacoes || "",
       status: atendimento.status,
@@ -349,50 +388,14 @@ export default function Agenda() {
 
                 <FormField
                   control={atendimentoForm.control}
-                  name="servicoId"
+                  name="servicos"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Serviço</FormLabel>
-                      <Select 
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                          const servicoSelecionado = servicosPacotes.find(s => s.id === value);
-                          if (servicoSelecionado) {
-                            atendimentoForm.setValue('valor', servicoSelecionado.valor);
-                          }
-                        }} 
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione um serviço ou pacote" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {servicosPacotes.map((servico) => (
-                            <SelectItem key={servico.id} value={servico.id}>
-                              {servico.nome} - R$ {servico.valor.toFixed(2)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={atendimentoForm.control}
-                  name="valor"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Valor (R$)</FormLabel>
                       <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        <AppointmentServicesManager
+                          servicos={(field.value || []) as AppointmentService[]}
+                          onChange={field.onChange}
+                          servicosPacotes={servicosPacotes}
                         />
                       </FormControl>
                       <FormMessage />

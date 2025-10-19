@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      agendamento_servicos: {
+        Row: {
+          agendamento_id: string
+          created_at: string
+          descricao: string | null
+          id: string
+          quantidade: number
+          servico_id: string
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          agendamento_id: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          quantidade?: number
+          servico_id: string
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          agendamento_id?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          quantidade?: number
+          servico_id?: string
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agendamento_servicos_agendamento_id_fkey"
+            columns: ["agendamento_id"]
+            isOneToOne: false
+            referencedRelation: "atendimentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamento_servicos_servico_id_fkey"
+            columns: ["servico_id"]
+            isOneToOne: false
+            referencedRelation: "servicos_pacotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_rpc_usage: {
         Row: {
           count: number
@@ -66,6 +114,7 @@ export type Database = {
           updated_at: string
           user_id: string
           valor: number
+          valor_total: number | null
         }
         Insert: {
           cliente_id: string
@@ -88,6 +137,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           valor: number
+          valor_total?: number | null
         }
         Update: {
           cliente_id?: string
@@ -110,6 +160,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           valor?: number
+          valor_total?: number | null
         }
         Relationships: [
           {
