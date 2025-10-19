@@ -222,13 +222,12 @@ export default function PacotesServicos() {
                 </div>
 
                 <div>
-                  <Label htmlFor="descricao">Descrição *</Label>
+                  <Label htmlFor="descricao">Descrição</Label>
                   <Textarea
                     id="descricao"
                     value={formData.descricao}
                     onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
                     placeholder="Descreva o serviço ou pacote"
-                    required
                   />
                 </div>
 
