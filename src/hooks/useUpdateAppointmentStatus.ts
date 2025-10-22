@@ -21,7 +21,11 @@ export function useUpdateAppointmentStatus(opts: Options = {}) {
     const started = Date.now();
     
     try {
-      console.info('[BW][RPC] call /update_appointment_status', { id, status });
+      // Log ambiente para diagnóstico
+      console.info('[BW][ENV]', {
+        supabaseUrl: (supabase as any)?.supabaseUrl || 'unknown',
+      });
+      console.info('[BW][RPC] POST /rpc/update_appointment_status', { id, status });
       
       const { data, error, status: httpStatus } = await supabase.rpc('update_appointment_status', { 
         p_id: id, 

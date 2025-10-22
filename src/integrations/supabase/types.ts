@@ -965,6 +965,13 @@ export type Database = {
         Args: { p_data_competencia: string; p_recebimento_posterior: boolean }
         Returns: string
       }
+      debug_whoami: {
+        Args: never
+        Returns: {
+          now: string
+          uid: string
+        }[]
+      }
       decrypt_pii_aes: {
         Args: { encrypted_data: string; key_text: string }
         Returns: string

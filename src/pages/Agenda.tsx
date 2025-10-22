@@ -575,7 +575,7 @@ export default function Agenda() {
                   </div>
                   {editingAtendimento && (
                     <p className="text-[10px] text-muted-foreground text-center opacity-60">
-                      Em caso de problemas, abra DevTools → Console e procure por [BW]
+                      🔍 DevTools → Console (filtre por <code>[BW]</code>) | Network (<code>update_appointment_status</code>)
                     </p>
                   )}
                   <Button
