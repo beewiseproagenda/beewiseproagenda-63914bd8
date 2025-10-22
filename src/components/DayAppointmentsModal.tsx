@@ -10,10 +10,11 @@ interface DayAppointmentsModalProps {
   onOpenChange: (open: boolean) => void;
   date: Date;
   appointments: any[];
+  onEdit?: (appointmentId: string) => void;
 }
 
-export function DayAppointmentsModal({ open, onOpenChange, date, appointments }: DayAppointmentsModalProps) {
-  const { atualizarAtendimento, removerAtendimento } = useSupabaseData();
+export function DayAppointmentsModal({ open, onOpenChange, date, appointments, onEdit }: DayAppointmentsModalProps) {
+  const { removerAtendimento } = useSupabaseData();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -44,26 +45,10 @@ export function DayAppointmentsModal({ open, onOpenChange, date, appointments }:
     }
   };
 
-  const toggleStatus = async (appointment: any) => {
-    const newStatus = appointment.status === 'agendado' 
-      ? 'realizado' 
-      : appointment.status === 'realizado' 
-      ? 'cancelado' 
-      : 'agendado';
-    
-    try {
-      await atualizarAtendimento(appointment.id, { 
-        status: newStatus,
-        data: appointment.data,
-        hora: appointment.hora,
-        cliente_id: appointment.cliente_id,
-        servico: appointment.servico,
-        valor: appointment.valor,
-        forma_pagamento: appointment.forma_pagamento,
-        observacoes: appointment.observacoes
-      });
-    } catch (error) {
-      console.error('Erro ao atualizar status:', error);
+  const handleEdit = (appointmentId: string) => {
+    if (onEdit) {
+      onEdit(appointmentId);
+      onOpenChange(false); // Fecha o modal de listagem
     }
   };
 
@@ -132,7 +117,8 @@ export function DayAppointmentsModal({ open, onOpenChange, date, appointments }:
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => toggleStatus(appointment)}
+                      onClick={() => handleEdit(appointment.id)}
+                      title="Editar agendamento"
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -140,6 +126,7 @@ export function DayAppointmentsModal({ open, onOpenChange, date, appointments }:
                       variant="outline"
                       size="sm"
                       onClick={() => deleteAppointment(appointment.id)}
+                      title="Excluir agendamento"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

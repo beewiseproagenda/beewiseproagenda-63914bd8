@@ -65,6 +65,20 @@ export default function Agenda() {
     materializeRecurringAppointments();
   }, []);
 
+  // Detectar hash na URL para abrir edição automática
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#edit-')) {
+      const appointmentId = hash.replace('#edit-', '');
+      const atendimento = atendimentos.find(a => a.id === appointmentId);
+      if (atendimento) {
+        editAtendimento(atendimento);
+        // Limpar o hash
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  }, [atendimentos]);
+
   const getDefaultFormValues = () => {
     // Prioridade: contextSlot > hoje
     if (contextSlot) {

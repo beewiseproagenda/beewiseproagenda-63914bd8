@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { 
     atendimentos, 
     clientes, 
@@ -25,6 +27,11 @@ export default function Dashboard() {
   useEffect(() => {
     materializeRecurringAppointments();
   }, []);
+
+  const handleEditAppointment = (appointmentId: string) => {
+    // Navegar para a página de Agenda e abrir o modal de edição
+    navigate(`/agenda#edit-${appointmentId}`);
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -406,6 +413,7 @@ export default function Dashboard() {
         onOpenChange={(open) => !open && setSelectedDate(null)}
         date={selectedDate || new Date()}
         appointments={selectedAppointments}
+        onEdit={handleEditAppointment}
       />
     </div>
   );
