@@ -57,6 +57,8 @@ export default function Agenda() {
   const [selectedDayData, setSelectedDayData] = useState<{date: Date, atendimentos: any[]} | null>(null);
   const [contextSlot, setContextSlot] = useState<{date: Date, time: string} | null>(null);
   const [saveAndNew, setSaveAndNew] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [originalStatus, setOriginalStatus] = useState<string | null>(null);
 
   // Materialize recurring appointments on mount
   useEffect(() => {
@@ -101,72 +103,81 @@ export default function Agenda() {
   };
 
   const onSubmit = async (data: z.infer<typeof atendimentoSchema>) => {
-    // Calcular valor total
-    const valorTotal = data.servicos.reduce((sum, s) => sum + (s.valor * s.quantidade), 0);
+    setIsSubmitting(true);
     
-    // Usar helpers centralizados para conversão de data/hora
-    const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
-    const dateStr = localDate.toISOString().split('T')[0];
-    const userTz = getBrowserTz();
-    
-    // Normalizar hora antes de converter
-    const normalizedTime = normalizeTime(data.hora);
-    
-    // Converter para UTC usando helper
-    const startAtUtcISO = toUtcISO(dateStr, normalizedTime, userTz);
-    const startAtUtc = new Date(startAtUtcISO);
-    const endAt = new Date(startAtUtc);
-    endAt.setHours(endAt.getHours() + 1);
-    
-    // Criar nome do serviço baseado nos serviços selecionados
-    const servicosNomes = data.servicos.map(s => {
-      const servicoPacote = servicosPacotes.find(sp => sp.id === s.servico_id);
-      return servicoPacote?.nome || "Serviço";
-    }).join(", ");
-    
-    const atendimentoData = {
-      date: dateStr,
-      time: normalizedTime,
-      data: dateStr,
-      hora: normalizedTime,
-      cliente_id: data.clienteId,
-      servico: servicosNomes,
-      valor: valorTotal, // Usar valor total para retrocompatibilidade
-      valor_total: valorTotal,
-      forma_pagamento: data.formaPagamento,
-      observacoes: data.observacoes || "",
-      status: data.status,
-      start_at_utc: startAtUtcISO,
-      end_at: endAt.toISOString(),
-      tz: userTz,
-      occurrence_date: null,
-      recurring_rule_id: null,
-      rule_id: null,
-      competencia_date: dateStr,
-      recebimento_previsto: dateStr,
-      servicos: data.servicos // Passar serviços para serem salvos
-    };
+    try {
+      // Calcular valor total
+      const valorTotal = data.servicos.reduce((sum, s) => sum + (s.valor * s.quantidade), 0);
+      
+      // Usar helpers centralizados para conversão de data/hora
+      const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
+      const dateStr = localDate.toISOString().split('T')[0];
+      const userTz = getBrowserTz();
+      
+      // Normalizar hora antes de converter
+      const normalizedTime = normalizeTime(data.hora);
+      
+      // Converter para UTC usando helper
+      const startAtUtcISO = toUtcISO(dateStr, normalizedTime, userTz);
+      const startAtUtc = new Date(startAtUtcISO);
+      const endAt = new Date(startAtUtc);
+      endAt.setHours(endAt.getHours() + 1);
+      
+      // Criar nome do serviço baseado nos serviços selecionados
+      const servicosNomes = data.servicos.map(s => {
+        const servicoPacote = servicosPacotes.find(sp => sp.id === s.servico_id);
+        return servicoPacote?.nome || "Serviço";
+      }).join(", ");
+      
+      const atendimentoData = {
+        date: dateStr,
+        time: normalizedTime,
+        data: dateStr,
+        hora: normalizedTime,
+        cliente_id: data.clienteId,
+        servico: servicosNomes,
+        valor: valorTotal, // Usar valor total para retrocompatibilidade
+        valor_total: valorTotal,
+        forma_pagamento: data.formaPagamento,
+        observacoes: data.observacoes || "",
+        status: data.status,
+        start_at_utc: startAtUtcISO,
+        end_at: endAt.toISOString(),
+        tz: userTz,
+        occurrence_date: null,
+        recurring_rule_id: null,
+        rule_id: null,
+        competencia_date: dateStr,
+        recebimento_previsto: dateStr,
+        servicos: data.servicos // Passar serviços para serem salvos
+      };
 
-    if (editingAtendimento) {
-      await atualizarAtendimento(editingAtendimento, atendimentoData);
-      setEditingAtendimento(null);
-    } else {
-      await adicionarAtendimento(atendimentoData);
-    }
-    
-    // Comportamento "Salvar e novo" - manter contexto
-    if (saveAndNew) {
-      setSaveAndNew(false);
-      const nextSlot = contextSlot ? {
-        date: contextSlot.date,
-        time: addMinutesToTime(contextSlot.time, 60)
-      } : null;
-      setContextSlot(nextSlot);
-      atendimentoForm.reset(getDefaultFormValues());
-    } else {
-      atendimentoForm.reset(getDefaultFormValues());
-      setContextSlot(null);
-      setOpenDialog(false);
+      if (editingAtendimento) {
+        await atualizarAtendimento(editingAtendimento, atendimentoData);
+        setEditingAtendimento(null);
+        setOriginalStatus(null);
+      } else {
+        await adicionarAtendimento(atendimentoData);
+      }
+      
+      // Comportamento "Salvar e novo" - manter contexto
+      if (saveAndNew) {
+        setSaveAndNew(false);
+        const nextSlot = contextSlot ? {
+          date: contextSlot.date,
+          time: addMinutesToTime(contextSlot.time, 60)
+        } : null;
+        setContextSlot(nextSlot);
+        atendimentoForm.reset(getDefaultFormValues());
+      } else {
+        atendimentoForm.reset(getDefaultFormValues());
+        setContextSlot(null);
+        setOpenDialog(false);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar agendamento:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -181,6 +192,7 @@ export default function Agenda() {
 
   const editAtendimento = async (atendimento: any) => {
     setEditingAtendimento(atendimento.id);
+    setOriginalStatus(atendimento.status);
     
     // Usar helper para converter UTC para local ao editar
     const userTz = getBrowserTz();
@@ -288,7 +300,10 @@ export default function Agenda() {
           }
         }}>
           <DialogTrigger asChild>
-            <Button onClick={handleNewAppointmentClick}>
+            <Button onClick={() => {
+              handleNewAppointmentClick();
+              setOriginalStatus(null);
+            }}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Atendimento
             </Button>
@@ -468,8 +483,12 @@ export default function Agenda() {
 
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
-                    <Button type="submit" className="flex-1">
-                      {editingAtendimento ? 'Atualizar' : 'Salvar'}
+                    <Button 
+                      type="submit" 
+                      className="flex-1"
+                      disabled={isSubmitting || (!atendimentoForm.formState.isDirty && atendimentoForm.watch('status') === originalStatus)}
+                    >
+                      {isSubmitting ? 'Salvando...' : editingAtendimento ? 'Atualizar' : 'Salvar'}
                     </Button>
                     {!editingAtendimento && (
                       <>

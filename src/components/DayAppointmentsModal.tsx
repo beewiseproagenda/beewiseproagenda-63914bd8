@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Pencil, Trash2, Plus } from 'lucide-react';
-import { useBwData } from '@/hooks/useBwData';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 
 interface DayAppointmentsModalProps {
   open: boolean;
@@ -13,7 +13,7 @@ interface DayAppointmentsModalProps {
 }
 
 export function DayAppointmentsModal({ open, onOpenChange, date, appointments }: DayAppointmentsModalProps) {
-  const { atualizarAtendimento, removerAtendimento } = useBwData();
+  const { atualizarAtendimento, removerAtendimento } = useSupabaseData();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -44,14 +44,27 @@ export function DayAppointmentsModal({ open, onOpenChange, date, appointments }:
     }
   };
 
-  const toggleStatus = (appointment: any) => {
+  const toggleStatus = async (appointment: any) => {
     const newStatus = appointment.status === 'agendado' 
       ? 'realizado' 
       : appointment.status === 'realizado' 
       ? 'cancelado' 
       : 'agendado';
     
-    atualizarAtendimento(appointment.id, { ...appointment, status: newStatus });
+    try {
+      await atualizarAtendimento(appointment.id, { 
+        status: newStatus,
+        data: appointment.data,
+        hora: appointment.hora,
+        cliente_id: appointment.cliente_id,
+        servico: appointment.servico,
+        valor: appointment.valor,
+        forma_pagamento: appointment.forma_pagamento,
+        observacoes: appointment.observacoes
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+    }
   };
 
   const deleteAppointment = (appointmentId: string) => {
