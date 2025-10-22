@@ -18,11 +18,17 @@ export function useUpdateAppointmentStatus(opts: Options = {}) {
 
   async function run({ id, status }: UpdateStatusArgs) {
     setLoading(true);
+    const started = Date.now();
+    
     try {
-      const { data, error } = await supabase.rpc('update_appointment_status', { 
+      console.info('[BW][RPC] call /update_appointment_status', { id, status });
+      
+      const { data, error, status: httpStatus } = await supabase.rpc('update_appointment_status', { 
         p_id: id, 
         p_status: status 
       });
+      
+      console.info('[BW][RPC][resp]', { httpStatus, data, error });
       
       if (error) throw error;
       
@@ -38,7 +44,7 @@ export function useUpdateAppointmentStatus(opts: Options = {}) {
       return data;
     } catch (err: any) {
       const msg = err?.message || 'Falha ao atualizar status';
-      console.error('Erro ao atualizar status:', err);
+      console.error('[BW][RPC][fail]', err);
       
       toast({
         title: "Erro",
@@ -49,6 +55,7 @@ export function useUpdateAppointmentStatus(opts: Options = {}) {
       opts.onError?.(msg);
       throw err;
     } finally {
+      console.info('[BW][RPC][ms]', Date.now() - started);
       setLoading(false);
     }
   }

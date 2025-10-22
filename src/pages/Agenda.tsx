@@ -144,6 +144,11 @@ export default function Agenda() {
         );
         
         if (onlyStatusChanged) {
+          console.info('[BW][FORM][submit] Status-only update detected', { 
+            id: editingAtendimento, 
+            from: originalStatus, 
+            to: data.status 
+          });
           await updateStatus({ id: editingAtendimento, status: data.status });
           setIsSubmitting(false);
           return;
@@ -568,6 +573,11 @@ export default function Agenda() {
                       </>
                     )}
                   </div>
+                  {editingAtendimento && (
+                    <p className="text-[10px] text-muted-foreground text-center opacity-60">
+                      Em caso de problemas, abra DevTools → Console e procure por [BW]
+                    </p>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
