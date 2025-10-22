@@ -719,7 +719,7 @@ export type Database = {
           accessed_at: string | null
           action: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           record_id: string
           table_name: string
           user_agent: string | null
@@ -729,7 +729,7 @@ export type Database = {
           accessed_at?: string | null
           action: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           record_id: string
           table_name: string
           user_agent?: string | null
@@ -739,7 +739,7 @@ export type Database = {
           accessed_at?: string | null
           action?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           record_id?: string
           table_name?: string
           user_agent?: string | null
@@ -960,10 +960,7 @@ export type Database = {
       }
     }
     Functions: {
-      anonymize_cliente: {
-        Args: { p_cliente_id: string }
-        Returns: undefined
-      }
+      anonymize_cliente: { Args: { p_cliente_id: string }; Returns: undefined }
       calcular_recebimento_previsto: {
         Args: { p_data_competencia: string; p_recebimento_posterior: boolean }
         Returns: string
@@ -980,10 +977,7 @@ export type Database = {
         Args: { p_rule_id: string; p_window_days?: number }
         Returns: Json
       }
-      fn_prune_rule_future: {
-        Args: { p_rule_id: string }
-        Returns: Json
-      }
+      fn_prune_rule_future: { Args: { p_rule_id: string }; Returns: Json }
       get_clientes_secure: {
         Args: { p_limit?: number; p_offset?: number; p_search?: string }
         Returns: {
@@ -1013,11 +1007,14 @@ export type Database = {
           ultimo_atendimento: string | null
           user_id: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "clientes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
-      get_encryption_key: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_encryption_key: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1025,30 +1022,23 @@ export type Database = {
         }
         Returns: boolean
       }
-      hash_pii: {
-        Args: { data: string }
-        Returns: string
-      }
+      hash_pii: { Args: { data: string }; Returns: string }
       increment_rpc_usage: {
         Args: { p_rpc_name: string; p_user_id?: string }
         Returns: undefined
       }
-      is_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
+      is_admin: { Args: never; Returns: boolean }
+      update_appointment_status: {
+        Args: { p_id: string; p_status: string }
+        Returns: {
+          id: string
+          status: string
+          updated_at: string
+        }[]
       }
-      util_hash_sha256: {
-        Args: { input: string }
-        Returns: string
-      }
-      validate_cnpj: {
-        Args: { cnpj: string }
-        Returns: boolean
-      }
-      validate_cpf: {
-        Args: { cpf: string }
-        Returns: boolean
-      }
+      util_hash_sha256: { Args: { input: string }; Returns: string }
+      validate_cnpj: { Args: { cnpj: string }; Returns: boolean }
+      validate_cpf: { Args: { cpf: string }; Returns: boolean }
     }
     Enums: {
       app_role: "admin" | "user"

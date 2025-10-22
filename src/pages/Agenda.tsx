@@ -24,6 +24,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toUtcISO, fromUtcToLocalParts, getBrowserTz, normalizeTime } from "@/lib/dateUtils";
 import { supabase } from "@/integrations/supabase/client";
+import { useUpdateAppointmentStatus } from "@/hooks/useUpdateAppointmentStatus";
 
 const atendimentoSchema = z.object({
   data: z.date(),
@@ -57,8 +58,17 @@ export default function Agenda() {
   const [selectedDayData, setSelectedDayData] = useState<{date: Date, atendimentos: any[]} | null>(null);
   const [contextSlot, setContextSlot] = useState<{date: Date, time: string} | null>(null);
   const [saveAndNew, setSaveAndNew] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [originalStatus, setOriginalStatus] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const { run: updateStatus, loading: isUpdatingStatus } = useUpdateAppointmentStatus({
+    onSuccess: async () => {
+      await materializeRecurringAppointments();
+      setOpenDialog(false);
+      setEditingAtendimento(null);
+      setOriginalStatus(null);
+    }
+  });
 
   // Materialize recurring appointments on mount
   useEffect(() => {
@@ -120,6 +130,27 @@ export default function Agenda() {
     setIsSubmitting(true);
     
     try {
+      // Se estamos editando e APENAS o status mudou, usar a RPC segura
+      if (editingAtendimento && originalStatus !== data.status) {
+        const currentAtendimento = atendimentos.find(a => a.id === editingAtendimento);
+        
+        // Verificar se apenas o status foi alterado
+        const onlyStatusChanged = currentAtendimento && (
+          format(new Date(data.data), 'yyyy-MM-dd') === format(new Date(currentAtendimento.data), 'yyyy-MM-dd') &&
+          data.hora === currentAtendimento.hora &&
+          data.clienteId === currentAtendimento.cliente_id &&
+          data.formaPagamento === currentAtendimento.forma_pagamento &&
+          (data.observacoes || '') === (currentAtendimento.observacoes || '')
+        );
+        
+        if (onlyStatusChanged) {
+          await updateStatus({ id: editingAtendimento, status: data.status });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
+      // Fluxo normal para outras alterações
       // Calcular valor total
       const valorTotal = data.servicos.reduce((sum, s) => sum + (s.valor * s.quantidade), 0);
       
@@ -500,9 +531,9 @@ export default function Agenda() {
                     <Button 
                       type="submit" 
                       className="flex-1"
-                      disabled={isSubmitting || (!atendimentoForm.formState.isDirty && atendimentoForm.watch('status') === originalStatus)}
+                      disabled={(isSubmitting || isUpdatingStatus) || (!atendimentoForm.formState.isDirty && atendimentoForm.watch('status') === originalStatus)}
                     >
-                      {isSubmitting ? 'Salvando...' : editingAtendimento ? 'Atualizar' : 'Salvar'}
+                      {(isSubmitting || isUpdatingStatus) ? 'Salvando...' : editingAtendimento ? 'Atualizar' : 'Salvar'}
                     </Button>
                     {!editingAtendimento && (
                       <>
