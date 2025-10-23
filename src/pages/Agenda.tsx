@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Plus, Calendar, Clock, User, MapPin, Phone, Edit, Trash2, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +46,7 @@ const atendimentoSchema = z.object({
 });
 
 export default function Agenda() {
+  const location = useLocation();
   const { 
     atendimentos, 
     clientes, 
@@ -90,6 +92,18 @@ export default function Agenda() {
       }
     }
   }, [atendimentos]);
+
+  // Detectar data inicial da navegação (do Dashboard)
+  useEffect(() => {
+    const state = location.state as { initialDate?: string };
+    if (state?.initialDate) {
+      const initialDate = new Date(state.initialDate + 'T12:00:00');
+      setContextSlot({ date: initialDate, time: '08:00' });
+      setOpenDialog(true);
+      // Limpar o state após uso
+      window.history.replaceState({}, document.title);
+    }
+  }, [location]);
 
   const getDefaultFormValues = () => {
     // Prioridade: contextSlot > hoje
@@ -766,10 +780,10 @@ export default function Agenda() {
           </CardContent>
         </Card>
 
-        {/* Próximos Atendimentos */}
+        {/* Próximos Agendamentos */}
         <Card className="bg-card border-border">
           <CardHeader className="flex items-center justify-between">
-            <CardTitle>Próximos Atendimentos</CardTitle>
+            <CardTitle>Próximos Agendamentos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4">

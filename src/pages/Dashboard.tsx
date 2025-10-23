@@ -34,6 +34,11 @@ export default function Dashboard() {
     navigate(`/agenda#edit-${appointmentId}`);
   };
 
+  const handleNewAppointment = (dateISO: string) => {
+    // Navegar para Agenda com data inicial
+    navigate('/agenda', { state: { initialDate: dateISO } });
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -330,10 +335,10 @@ export default function Dashboard() {
         />
         
         <DashboardCard
-          title="Atendimentos"
+          title="Agendamentos Realizados"
           value={atendimentosRealizados.toString()}
           icon={Calendar}
-          description="Atendimentos realizados no mês"
+          description="Agendamentos realizados no mês"
         />
         
         <DashboardCard
@@ -416,6 +421,7 @@ export default function Dashboard() {
         date={selectedDate || new Date()}
         appointments={selectedAppointments}
         onEdit={handleEditAppointment}
+        onNewAppointment={handleNewAppointment}
       />
     </div>
   );

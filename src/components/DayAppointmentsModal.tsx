@@ -12,9 +12,10 @@ interface DayAppointmentsModalProps {
   date: Date;
   appointments: any[];
   onEdit?: (appointmentId: string) => void;
+  onNewAppointment?: (dateISO: string) => void;
 }
 
-export function DayAppointmentsModal({ open, onOpenChange, date, appointments, onEdit }: DayAppointmentsModalProps) {
+export function DayAppointmentsModal({ open, onOpenChange, date, appointments, onEdit, onNewAppointment }: DayAppointmentsModalProps) {
   const { removerAtendimento } = useSupabaseData();
 
   const formatCurrency = (value: number) => {
@@ -139,7 +140,12 @@ export function DayAppointmentsModal({ open, onOpenChange, date, appointments, o
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Fechar
           </Button>
-          <Button>
+          <Button onClick={() => {
+            if (onNewAppointment) {
+              const dateISO = date.toISOString().split('T')[0];
+              onNewAppointment(dateISO);
+            }
+          }}>
             <Plus className="h-4 w-4 mr-2" />
             Novo Agendamento
           </Button>
