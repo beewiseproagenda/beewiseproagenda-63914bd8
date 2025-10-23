@@ -26,6 +26,7 @@ import { toUtcISO, fromUtcToLocalParts, getBrowserTz, normalizeTime } from "@/li
 import { supabase } from "@/integrations/supabase/client";
 import { useUpdateAppointmentStatus } from "@/hooks/useUpdateAppointmentStatus";
 import { isPastClient, effectiveStatus } from "@/lib/appointments/time";
+import { fmtAptDate, fmtAptTime } from "@/lib/appointments/format";
 
 const atendimentoSchema = z.object({
   data: z.date(),
@@ -737,11 +738,11 @@ export default function Agenda() {
                       <div className="mt-2 text-sm">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4" />
-                          {new Date(atendimento.data).toLocaleDateString('pt-BR')}
+                          {fmtAptDate(atendimento)}
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4" />
-                          {atendimento.hora}
+                          {fmtAptTime(atendimento)}
                         </div>
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4" />
@@ -798,11 +799,11 @@ export default function Agenda() {
                       <div className="mt-2 text-sm">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4" />
-                          {new Date(atendimento.data).toLocaleDateString('pt-BR')}
+                          {fmtAptDate(atendimento)}
                         </div>
                         <div className="flex items-center gap-2">
                           <Clock className="h-4 w-4" />
-                          {atendimento.hora}
+                          {fmtAptTime(atendimento)}
                         </div>
                         <div className="flex items-center gap-2">
                           <DollarSign className="h-4 w-4" />
