@@ -20,13 +20,12 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    // Require admin authentication
-    const adminToken = req.headers.get('x-admin-token');
-    const expectedToken = Deno.env.get('ADMIN_SECRET_TOKEN');
-
-    if (!adminToken || adminToken !== expectedToken) {
-      logStep("Unauthorized - missing or invalid admin token");
-      return new Response(JSON.stringify({ error: 'Unauthorized - admin token required' }), {
+    // Require JWT authentication with admin role
+    const authHeader = req.headers.get('Authorization');
+    
+    if (!authHeader) {
+      logStep("Unauthorized - missing authorization header");
+      return new Response(JSON.stringify({ error: 'Unauthorized - Missing authorization header' }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 401,
       });
@@ -37,6 +36,34 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
+
+    // Verify JWT token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    
+    if (authError || !user) {
+      logStep("Unauthorized - invalid token", { error: authError?.message });
+      return new Response(JSON.stringify({ error: 'Unauthorized - Invalid token' }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+      });
+    }
+
+    // Check if user has admin role
+    const { data: isAdmin, error: roleError } = await supabaseClient.rpc('has_role', {
+      _user_id: user.id,
+      _role: 'admin'
+    });
+
+    if (roleError || !isAdmin) {
+      logStep("Forbidden - not admin", { userId: user.id, error: roleError?.message });
+      return new Response(JSON.stringify({ error: 'Forbidden - Admin role required' }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+      });
+    }
+
+    logStep("Admin authenticated", { userId: user.id, email: user.email });
 
     const { userId, email } = await req.json();
     

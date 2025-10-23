@@ -40,7 +40,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.create-onboarding-token]
-verify_jwt = false
+verify_jwt = true
 
 [functions.diagnostic-reset]
 verify_jwt = false
