@@ -371,13 +371,13 @@ export default function Agenda() {
               setOriginalStatus(null);
             }}>
               <Plus className="h-4 w-4 mr-2" />
-              Novo Atendimento
+              Novo Agendamento
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingAtendimento ? 'Editar Atendimento' : 'Novo Atendimento'}
+                {editingAtendimento ? 'Editar Atendimento' : 'Novo Agendamento'}
                 {contextSlot && !editingAtendimento && (
                   <p className="text-sm text-muted-foreground font-normal mt-1">
                     Criando para {format(contextSlot.date, "EEE, dd/MM", { locale: ptBR })} às {contextSlot.time}
