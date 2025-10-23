@@ -713,8 +713,8 @@ export default function Agenda() {
           <CardContent>
             <div className="grid gap-4">
               {atendimentos
-                .filter(atendimento => new Date(atendimento.data) < new Date())
-                .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+                .filter(atendimento => isPastClient(atendimento))
+                .sort((a, b) => new Date(b.start_at_utc || b.data).getTime() - new Date(a.start_at_utc || a.data).getTime())
                 .slice(0, 10)
                 .map((atendimento) => {
                   const cliente = clientes.find(c => c.id === atendimento.cliente_id);
@@ -774,8 +774,8 @@ export default function Agenda() {
           <CardContent>
             <div className="grid gap-4">
               {atendimentos
-                .filter(atendimento => new Date(atendimento.data) >= new Date())
-                .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+                .filter(atendimento => !isPastClient(atendimento))
+                .sort((a, b) => new Date(a.start_at_utc || a.data).getTime() - new Date(b.start_at_utc || b.data).getTime())
                 .slice(0, 10)
                 .map((atendimento) => {
                   const cliente = clientes.find(c => c.id === atendimento.cliente_id);
