@@ -54,6 +54,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "agendamento_servicos_agendamento_id_fkey"
+            columns: ["agendamento_id"]
+            isOneToOne: false
+            referencedRelation: "atendimentos_effective"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "agendamento_servicos_servico_id_fkey"
             columns: ["servico_id"]
             isOneToOne: false
@@ -386,6 +393,13 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "atendimentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_entries_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "atendimentos_effective"
             referencedColumns: ["id"]
           },
         ]
@@ -886,6 +900,110 @@ export type Database = {
       }
     }
     Views: {
+      atendimentos_effective: {
+        Row: {
+          cliente_id: string | null
+          competencia_date: string | null
+          created_at: string | null
+          data: string | null
+          end_at: string | null
+          forma_pagamento: string | null
+          hora: string | null
+          id: string | null
+          observacoes: string | null
+          occurrence_date: string | null
+          recebimento_previsto: string | null
+          recurring_rule_id: string | null
+          rule_id: string | null
+          servico: string | null
+          start_at_utc: string | null
+          status: string | null
+          status_efetivo: string | null
+          tz: string | null
+          updated_at: string | null
+          user_id: string | null
+          valor: number | null
+          valor_total: number | null
+        }
+        Insert: {
+          cliente_id?: string | null
+          competencia_date?: string | null
+          created_at?: string | null
+          data?: string | null
+          end_at?: string | null
+          forma_pagamento?: string | null
+          hora?: string | null
+          id?: string | null
+          observacoes?: string | null
+          occurrence_date?: string | null
+          recebimento_previsto?: string | null
+          recurring_rule_id?: string | null
+          rule_id?: string | null
+          servico?: string | null
+          start_at_utc?: string | null
+          status?: string | null
+          status_efetivo?: never
+          tz?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          valor?: number | null
+          valor_total?: number | null
+        }
+        Update: {
+          cliente_id?: string | null
+          competencia_date?: string | null
+          created_at?: string | null
+          data?: string | null
+          end_at?: string | null
+          forma_pagamento?: string | null
+          hora?: string | null
+          id?: string | null
+          observacoes?: string | null
+          occurrence_date?: string | null
+          recebimento_previsto?: string | null
+          recurring_rule_id?: string | null
+          rule_id?: string | null
+          servico?: string | null
+          start_at_utc?: string | null
+          status?: string | null
+          status_efetivo?: never
+          tz?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          valor?: number | null
+          valor_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "atendimentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes_decrypted"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_recurring_rule_id_fkey"
+            columns: ["recurring_rule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "atendimentos_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "recurring_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes_decrypted: {
         Row: {
           agendamento_fixo: Json | null
@@ -1035,6 +1153,11 @@ export type Database = {
         Returns: undefined
       }
       is_admin: { Args: never; Returns: boolean }
+      is_appointment_past: {
+        Args: { p_end: string; p_start: string; p_tz: string }
+        Returns: boolean
+      }
+      now_at_tz: { Args: { p_tz: string }; Returns: string }
       update_appointment_status: {
         Args: { p_id: string; p_status: string }
         Returns: {

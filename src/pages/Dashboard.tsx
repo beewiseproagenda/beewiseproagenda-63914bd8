@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { isPastClient, effectiveStatus, getStatusLabel, getStatusBadgeVariant } from "@/lib/appointments/time";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -183,9 +184,9 @@ export default function Dashboard() {
                 <div 
                   key={agendamento.id} 
                   className={`flex items-center justify-between p-3 rounded-lg border ${
-                    agendamento.status === 'realizado'
+                    effectiveStatus(agendamento) === 'realizado'
                       ? 'bg-green-50 border-green-200'
-                      : agendamento.status === 'cancelado'
+                      : effectiveStatus(agendamento) === 'cancelado'
                       ? 'bg-red-50 border-red-200'
                       : 'bg-primary/5 border-primary/10'
                   }`}
@@ -203,18 +204,14 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <Badge 
-                      variant={
-                        agendamento.status === 'realizado' ? 'default' : 
-                        agendamento.status === 'cancelado' ? 'destructive' : 
-                        'secondary'
-                      }
-                      className="mb-1"
-                    >
-                      {agendamento.status === 'realizado' ? 'Realizado' : 
-                       agendamento.status === 'cancelado' ? 'Cancelado' : 
-                       'Agendado'}
-                    </Badge>
+                    <div className="flex items-center gap-1 mb-1">
+                      <Badge variant={getStatusBadgeVariant(effectiveStatus(agendamento))}>
+                        {getStatusLabel(effectiveStatus(agendamento))}
+                      </Badge>
+                      {isPastClient(agendamento) && (
+                        <span className="text-xs text-muted-foreground">(auto)</span>
+                      )}
+                    </div>
                      <p className="font-medium text-foreground">{formatCurrency(Number(agendamento.valor))}</p>
                      <p className="text-xs text-muted-foreground">{agendamento.forma_pagamento}</p>
                   </div>
@@ -287,24 +284,29 @@ export default function Dashboard() {
                     </p>
                   </div>
                    <div className="space-y-1">
-                     {agendamentosDoDia.slice(0, 1).map((agendamento) => (
-                       <div
-                         key={agendamento.id}
-                         className={`text-xs p-1 rounded truncate ${
-                           isPast 
-                             ? 'bg-muted/30 text-muted-foreground' 
-                             : agendamento.status === 'realizado'
-                             ? 'bg-green-100 text-foreground'
-                             : agendamento.status === 'cancelado'
-                             ? 'bg-red-100 text-foreground'
-                             : 'bg-secondary text-foreground'
-                         }`}
-                         title={`${agendamento.hora.slice(0, 5)} - ${agendamento.clienteNome} - ${agendamento.servico} - ${agendamento.status}`}
-                       >
-                         <div className="font-medium text-foreground">{agendamento.hora.slice(0, 5)}</div>
-                         <div className="truncate text-foreground">{agendamento.clienteNome}</div>
-                       </div>
-                     ))}
+                     {agendamentosDoDia.slice(0, 1).map((agendamento) => {
+                       const isPast = isPastClient(agendamento);
+                       const status = effectiveStatus(agendamento);
+                       
+                       return (
+                         <div
+                           key={agendamento.id}
+                           className={`text-xs p-1 rounded truncate ${
+                             isPast 
+                               ? 'bg-muted/30 text-muted-foreground' 
+                               : status === 'realizado'
+                               ? 'bg-green-100 text-foreground'
+                               : status === 'cancelado'
+                               ? 'bg-red-100 text-foreground'
+                               : 'bg-secondary text-foreground'
+                           }`}
+                           title={`${agendamento.hora.slice(0, 5)} - ${agendamento.clienteNome} - ${agendamento.servico} - ${status}`}
+                         >
+                           <div className="font-medium text-foreground">{agendamento.hora.slice(0, 5)}</div>
+                           <div className="truncate text-foreground">{agendamento.clienteNome}</div>
+                         </div>
+                       );
+                     })}
                      {agendamentosDoDia.length > 1 && (
                        <div className="text-xs text-muted-foreground text-center">
                          ...

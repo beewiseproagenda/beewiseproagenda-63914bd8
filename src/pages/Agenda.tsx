@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { toUtcISO, fromUtcToLocalParts, getBrowserTz, normalizeTime } from "@/lib/dateUtils";
 import { supabase } from "@/integrations/supabase/client";
 import { useUpdateAppointmentStatus } from "@/hooks/useUpdateAppointmentStatus";
+import { isPastClient, effectiveStatus } from "@/lib/appointments/time";
 
 const atendimentoSchema = z.object({
   data: z.date(),
@@ -511,24 +512,46 @@ export default function Agenda() {
                 <FormField
                   control={atendimentoForm.control}
                   name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione o status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="agendado">Agendado</SelectItem>
-                          <SelectItem value="realizado">Realizado</SelectItem>
-                          <SelectItem value="cancelado">Cancelado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                  render={({ field }) => {
+                    const currentAppointment = editingAtendimento 
+                      ? atendimentos.find(a => a.id === editingAtendimento)
+                      : null;
+                    const isPast = isPastClient(currentAppointment);
+                    const statusEfetivo = effectiveStatus(currentAppointment);
+                    
+                    return (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        {isPast ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 p-3 rounded-md bg-muted">
+                              <Badge variant="default">{statusEfetivo}</Badge>
+                              <span className="text-sm text-muted-foreground">(aplicado automaticamente)</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              ℹ️ Agendamentos passados têm status automático "Realizado". Para cancelados/não realizados, <strong>exclua o agendamento</strong>.
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione o status" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="agendado">Agendado</SelectItem>
+                                <SelectItem value="realizado">Realizado</SelectItem>
+                                <SelectItem value="cancelado">Cancelado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </>
+                        )}
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <div className="flex flex-col gap-2">
