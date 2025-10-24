@@ -101,21 +101,14 @@ export function DayAppointmentsModal({ open, onOpenChange, date, appointments, o
                     </div>
                     
                     <div className="flex gap-2 ml-4">
-                      {!isPast ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(appointment.id)}
-                          title="Editar agendamento"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <AlertCircle className="h-4 w-4" />
-                          <span>Status automático</span>
-                        </div>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(appointment.id)}
+                        title={isPast ? "Editar agendamento passado" : "Editar agendamento"}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"

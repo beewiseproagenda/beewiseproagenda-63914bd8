@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { MonthlyCalendar } from "@/components/MonthlyCalendar";
@@ -28,6 +29,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUpdateAppointmentStatus } from "@/hooks/useUpdateAppointmentStatus";
 import { isPastClient, effectiveStatus } from "@/lib/appointments/time";
 import { fmtAptDate, fmtAptTime } from "@/lib/appointments/format";
+import { useAppointmentConflicts } from "@/hooks/useAppointmentConflicts";
+import { AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const atendimentoSchema = z.object({
   data: z.date(),
@@ -64,6 +68,10 @@ export default function Agenda() {
   const [saveAndNew, setSaveAndNew] = useState(false);
   const [originalStatus, setOriginalStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [conflicts, setConflicts] = useState<any[]>([]);
+  
+  const { detectConflicts } = useAppointmentConflicts(atendimentos);
+  const { toast } = useToast();
   
   const { run: updateStatus, loading: isUpdatingStatus } = useUpdateAppointmentStatus({
     onSuccess: async () => {
@@ -117,6 +125,35 @@ export default function Agenda() {
     }
   }, [location]);
 
+  // Verificar conflitos em tempo real quando data/hora mudam
+  useEffect(() => {
+    const subscription = atendimentoForm.watch((value, { name }) => {
+      if (name === 'data' || name === 'hora') {
+        const data = value.data;
+        const hora = value.hora;
+        
+        if (data && hora) {
+          const localDate = new Date(data.getTime() - data.getTimezoneOffset() * 60000);
+          const dateStr = localDate.toISOString().split('T')[0];
+          const userTz = getBrowserTz();
+          const normalizedTime = normalizeTime(hora);
+          
+          const conflictingAppointments = detectConflicts({
+            dateStr,
+            timeStr: normalizedTime,
+            currentAppointmentId: editingAtendimento || undefined,
+            userId: '',
+            timezone: userTz
+          });
+          
+          setConflicts(conflictingAppointments);
+        }
+      }
+    });
+    
+    return () => subscription.unsubscribe();
+  }, [editingAtendimento, atendimentos]);
+
   const getDefaultFormValues = () => {
     // Prioridade: contextSlot > hoje
     if (contextSlot) {
@@ -158,6 +195,33 @@ export default function Agenda() {
     setIsSubmitting(true);
     
     try {
+      // Verificar conflitos antes de salvar
+      const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
+      const dateStr = localDate.toISOString().split('T')[0];
+      const userTz = getBrowserTz();
+      const normalizedTime = normalizeTime(data.hora);
+      
+      const conflictingAppointments = detectConflicts({
+        dateStr,
+        timeStr: normalizedTime,
+        currentAppointmentId: editingAtendimento || undefined,
+        userId: '', // será filtrado por RLS
+        timezone: userTz
+      });
+      
+      if (conflictingAppointments.length > 0) {
+        setConflicts(conflictingAppointments);
+        toast({
+          title: "Conflito de horário",
+          description: `Já existe(m) ${conflictingAppointments.length} agendamento(s) neste intervalo. Ajuste a data/hora para continuar.`,
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Limpar conflitos se passou na validação
+      setConflicts([]);
       // Se estamos editando e APENAS o status mudou, usar a RPC segura
       if (editingAtendimento && originalStatus !== data.status) {
         const currentAtendimento = atendimentos.find(a => a.id === editingAtendimento);
@@ -187,19 +251,23 @@ export default function Agenda() {
       // Calcular valor total
       const valorTotal = data.servicos.reduce((sum, s) => sum + (s.valor * s.quantidade), 0);
       
-      // Usar helpers centralizados para conversão de data/hora
-      const localDate = new Date(data.data.getTime() - data.data.getTimezoneOffset() * 60000);
-      const dateStr = localDate.toISOString().split('T')[0];
-      const userTz = getBrowserTz();
-      
-      // Normalizar hora antes de converter
-      const normalizedTime = normalizeTime(data.hora);
-      
-      // Converter para UTC usando helper
+      // Converter para UTC usando helper (já calculado acima na verificação de conflito)
       const startAtUtcISO = toUtcISO(dateStr, normalizedTime, userTz);
       const startAtUtc = new Date(startAtUtcISO);
       const endAt = new Date(startAtUtc);
       endAt.setHours(endAt.getHours() + 1);
+      
+      // Ajustar status automaticamente baseado em passado/futuro
+      let finalStatus = data.status;
+      const isPastAppointment = endAt.getTime() < Date.now();
+      
+      if (isPastAppointment && finalStatus !== 'cancelado') {
+        // Se está no passado e não foi cancelado, status = realizado
+        finalStatus = 'realizado';
+      } else if (!isPastAppointment && originalStatus === 'realizado' && data.status === 'realizado') {
+        // Se mudou de passado para futuro, ajustar para agendado
+        finalStatus = 'agendado';
+      }
       
       // Criar nome do serviço baseado nos serviços selecionados
       const servicosNomes = data.servicos.map(s => {
@@ -214,11 +282,11 @@ export default function Agenda() {
         hora: normalizedTime,
         cliente_id: data.clienteId,
         servico: servicosNomes,
-        valor: valorTotal, // Usar valor total para retrocompatibilidade
+        valor: valorTotal,
         valor_total: valorTotal,
         forma_pagamento: data.formaPagamento,
         observacoes: data.observacoes || "",
-        status: data.status,
+        status: finalStatus, // Usar status ajustado automaticamente
         start_at_utc: startAtUtcISO,
         end_at: endAt.toISOString(),
         tz: userTz,
@@ -227,7 +295,7 @@ export default function Agenda() {
         rule_id: null,
         competencia_date: dateStr,
         recebimento_previsto: dateStr,
-        servicos: data.servicos // Passar serviços para serem salvos
+        servicos: data.servicos
       };
 
       if (editingAtendimento) {
@@ -531,6 +599,25 @@ export default function Agenda() {
                   )}
                 />
 
+                {/* Alerta de conflitos */}
+                {conflicts.length > 0 && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Conflito de horário</AlertTitle>
+                    <AlertDescription>
+                      <p className="mb-2">Já existe(m) agendamento(s) neste intervalo:</p>
+                      <ul className="list-disc list-inside space-y-1 text-sm">
+                        {conflicts.map((conflict, idx) => (
+                          <li key={idx}>
+                            {conflict.hora} - {conflict.clienteNome}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-sm">Ajuste a data/hora para continuar.</p>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <FormField
                   control={atendimentoForm.control}
                   name="status"
@@ -581,7 +668,7 @@ export default function Agenda() {
                     <Button 
                       type="submit" 
                       className="flex-1"
-                      disabled={(isSubmitting || isUpdatingStatus) || (!atendimentoForm.formState.isDirty && atendimentoForm.watch('status') === originalStatus)}
+                      disabled={(isSubmitting || isUpdatingStatus || conflicts.length > 0) || (!atendimentoForm.formState.isDirty && atendimentoForm.watch('status') === originalStatus)}
                     >
                       {(isSubmitting || isUpdatingStatus) ? 'Salvando...' : editingAtendimento ? 'Atualizar' : 'Salvar'}
                     </Button>
