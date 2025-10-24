@@ -680,51 +680,60 @@ export type Database = {
           amount: number | null
           client_id: string
           created_at: string
+          day_of_month: number | null
           end_date: string | null
           id: string
+          interval_months: number | null
           interval_weeks: number
           occurrences_limit: number | null
+          recurrence_type: string | null
           start_date: string
           time_local: string
           timezone: string
           title: string
           updated_at: string
           user_id: string
-          weekdays: number[]
+          weekdays: number[] | null
         }
         Insert: {
           active?: boolean
           amount?: number | null
           client_id: string
           created_at?: string
+          day_of_month?: number | null
           end_date?: string | null
           id?: string
+          interval_months?: number | null
           interval_weeks?: number
           occurrences_limit?: number | null
+          recurrence_type?: string | null
           start_date: string
           time_local: string
           timezone?: string
           title: string
           updated_at?: string
           user_id: string
-          weekdays: number[]
+          weekdays?: number[] | null
         }
         Update: {
           active?: boolean
           amount?: number | null
           client_id?: string
           created_at?: string
+          day_of_month?: number | null
           end_date?: string | null
           id?: string
+          interval_months?: number | null
           interval_weeks?: number
           occurrences_limit?: number | null
+          recurrence_type?: string | null
           start_date?: string
           time_local?: string
           timezone?: string
           title?: string
           updated_at?: string
           user_id?: string
-          weekdays?: number[]
+          weekdays?: number[] | null
         }
         Relationships: []
       }
