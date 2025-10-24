@@ -97,8 +97,20 @@ export default function Agenda() {
   useEffect(() => {
     const state = location.state as { initialDate?: string };
     if (state?.initialDate) {
+      console.info('[BW][AGENDA] Received initialDate from Dashboard', { initialDate: state.initialDate });
       const initialDate = new Date(state.initialDate + 'T12:00:00');
       setContextSlot({ date: initialDate, time: '08:00' });
+      setEditingAtendimento(null);
+      setSaveAndNew(false);
+      atendimentoForm.reset({
+        data: initialDate,
+        hora: '08:00',
+        clienteId: "",
+        servicos: [{ servico_id: "", valor: 0, quantidade: 1, descricao: "" }] as AppointmentService[],
+        formaPagamento: "pix" as const,
+        observacoes: "",
+        status: "agendado" as const,
+      });
       setOpenDialog(true);
       // Limpar o state após uso
       window.history.replaceState({}, document.title);
@@ -378,11 +390,6 @@ export default function Agenda() {
             <DialogHeader>
               <DialogTitle>
                 {editingAtendimento ? 'Editar Atendimento' : 'Novo Agendamento'}
-                {contextSlot && !editingAtendimento && (
-                  <p className="text-sm text-muted-foreground font-normal mt-1">
-                    Criando para {format(contextSlot.date, "EEE, dd/MM", { locale: ptBR })} às {contextSlot.time}
-                  </p>
-                )}
               </DialogTitle>
             </DialogHeader>
             <Form {...atendimentoForm}>
