@@ -133,11 +133,14 @@ export default function Clientes() {
 
   const [recurringRule, setRecurringRule] = useState<{
     id?: string;
+    recurrence_type: 'weekly' | 'monthly';
     weekdays: number[];
+    day_of_month?: number;
     time_local: string;
     start_date: string;
     end_date?: string;
     interval_weeks: number;
+    interval_months: number;
     title: string;
   } | null>(null);
 
@@ -163,11 +166,14 @@ export default function Clientes() {
       if (data) {
         setRecurringRule({
           id: data.id,
-          weekdays: data.weekdays,
+          recurrence_type: (data.recurrence_type as 'weekly' | 'monthly') || 'weekly',
+          weekdays: data.weekdays || [],
+          day_of_month: data.day_of_month || undefined,
           time_local: data.time_local,
           start_date: data.start_date,
           end_date: data.end_date || undefined,
-          interval_weeks: data.interval_weeks,
+          interval_weeks: data.interval_weeks || 1,
+          interval_months: data.interval_months || 1,
           title: data.title,
         });
       } else {
@@ -222,12 +228,20 @@ export default function Clientes() {
     }
 
     if (formData.recorrente && recurringRule) {
-      if (recurringRule.weekdays.length === 0) {
+      if (recurringRule.recurrence_type === 'weekly' && recurringRule.weekdays.length === 0) {
         toast.error("Selecione ao menos um dia da semana");
         return;
       }
+      if (recurringRule.recurrence_type === 'monthly' && !recurringRule.day_of_month) {
+        toast.error("Informe um dia do mês entre 1 e 31");
+        return;
+      }
       if (!recurringRule.time_local) {
-        toast.error("Horário é obrigatório");
+        toast.error("Informe o horário e a data de início");
+        return;
+      }
+      if (!recurringRule.start_date) {
+        toast.error("Data de início é obrigatória");
         return;
       }
     }
@@ -279,9 +293,17 @@ export default function Clientes() {
       }
 
       // Salvar regra de recorrência se recorrente
-      if (formData.recorrente && recurringRule && recurringRule.weekdays.length > 0 && recurringRule.time_local) {
-        await saveRecurringRule(clientId);
-      } else if (formData.recorrente && (!recurringRule || recurringRule.weekdays.length === 0 || !recurringRule.time_local)) {
+      if (formData.recorrente && recurringRule && recurringRule.time_local && recurringRule.start_date) {
+        const isValid = recurringRule.recurrence_type === 'weekly' 
+          ? recurringRule.weekdays.length > 0 
+          : !!recurringRule.day_of_month;
+        
+        if (isValid) {
+          await saveRecurringRule(clientId);
+        } else {
+          toast.warning("Recorrência não configurada. Preencha todos os campos de recorrência.");
+        }
+      } else if (formData.recorrente && (!recurringRule || !recurringRule.time_local || !recurringRule.start_date)) {
         toast.warning("Recorrência não configurada. Preencha todos os campos de recorrência.");
       } else if (!formData.recorrente && editingCliente) {
         // Se estava recorrente e agora não é mais, desativar regra
@@ -316,7 +338,7 @@ export default function Clientes() {
   };
 
   const saveRecurringRule = async (clientId: string) => {
-    if (!recurringRule || recurringRule.weekdays.length === 0) return;
+    if (!recurringRule) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -325,19 +347,31 @@ export default function Clientes() {
         return;
       }
 
-      const ruleData = {
+      const ruleData: any = {
         user_id: user.id,
         client_id: clientId,
         title: recurringRule.title || 'Recorrência',
-        weekdays: recurringRule.weekdays,
+        recurrence_type: recurringRule.recurrence_type,
         time_local: recurringRule.time_local,
         timezone: browserTz(),
         start_date: recurringRule.start_date || new Date().toISOString().split('T')[0],
         end_date: recurringRule.end_date || null,
-        interval_weeks: recurringRule.interval_weeks || 1,
         amount: 0,
         active: true,
       };
+
+      // Adicionar campos específicos por tipo
+      if (recurringRule.recurrence_type === 'weekly') {
+        ruleData.weekdays = recurringRule.weekdays;
+        ruleData.interval_weeks = recurringRule.interval_weeks || 1;
+        ruleData.day_of_month = null;
+        ruleData.interval_months = 1;
+      } else {
+        ruleData.day_of_month = recurringRule.day_of_month;
+        ruleData.interval_months = recurringRule.interval_months || 1;
+        ruleData.weekdays = null;
+        ruleData.interval_weeks = 1;
+      }
 
       let ruleId: string;
 
@@ -694,10 +728,12 @@ export default function Clientes() {
                     setFormData({ ...formData, recorrente: !!checked });
                     if (checked && !recurringRule) {
                       setRecurringRule({
+                        recurrence_type: 'weekly',
                         weekdays: [],
                         time_local: '',
                         start_date: new Date().toISOString().split('T')[0],
                         interval_weeks: 1,
+                        interval_months: 1,
                         title: 'Recorrência'
                       });
                     }
@@ -706,39 +742,93 @@ export default function Clientes() {
                 <Label htmlFor="recorrente">Cliente recorrente (agendamento automático)</Label>
               </div>
 
-              {formData.recorrente && formData.recorrencia === 'semanal' && (
+              {formData.recorrente && (
                 <div className="border-t pt-4 space-y-4 bg-muted/30 p-4 rounded-lg">
                   <h3 className="text-sm font-medium flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    Configuração de Recorrência Semanal
+                    Configuração de Recorrência
                   </h3>
                   
                   <div>
-                    <Label>Dias da Semana *</Label>
-                    <div className="grid grid-cols-4 gap-2 mt-2">
-                      {WEEKDAY_NAMES_SHORT.map((day, index) => (
-                        <div key={index} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`weekday-${index}`}
-                            checked={recurringRule?.weekdays.includes(index) || false}
-                            onCheckedChange={(checked) => {
-                              if (!recurringRule) return;
-                              const newWeekdays = checked
-                                ? [...recurringRule.weekdays, index].sort((a, b) => a - b)
-                                : recurringRule.weekdays.filter(d => d !== index);
-                              setRecurringRule({ ...recurringRule, weekdays: newWeekdays });
-                            }}
-                          />
-                          <Label htmlFor={`weekday-${index}`} className="text-sm cursor-pointer">
-                            {day}
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
-                    {recurringRule && recurringRule.weekdays.length === 0 && (
-                      <p className="text-xs text-destructive mt-1">Selecione ao menos um dia da semana</p>
-                    )}
+                    <Label htmlFor="recurrence_type">Recorrência *</Label>
+                    <Select
+                      value={recurringRule?.recurrence_type || 'weekly'}
+                      onValueChange={(value: 'weekly' | 'monthly') => {
+                        if (!recurringRule) return;
+                        setRecurringRule({ 
+                          ...recurringRule, 
+                          recurrence_type: value,
+                          weekdays: value === 'weekly' ? recurringRule.weekdays : [],
+                          day_of_month: value === 'monthly' ? (recurringRule.day_of_month || 1) : undefined
+                        });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="weekly">Semanal</SelectItem>
+                        <SelectItem value="monthly">Mensal</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+
+                  {recurringRule?.recurrence_type === 'weekly' && (
+                    <div>
+                      <Label>Dias da Semana *</Label>
+                      <div className="grid grid-cols-4 gap-2 mt-2">
+                        {WEEKDAY_NAMES_SHORT.map((day, index) => (
+                          <div key={index} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`weekday-${index}`}
+                              checked={recurringRule?.weekdays.includes(index) || false}
+                              onCheckedChange={(checked) => {
+                                if (!recurringRule) return;
+                                const newWeekdays = checked
+                                  ? [...recurringRule.weekdays, index].sort((a, b) => a - b)
+                                  : recurringRule.weekdays.filter(d => d !== index);
+                                setRecurringRule({ ...recurringRule, weekdays: newWeekdays });
+                              }}
+                            />
+                            <Label htmlFor={`weekday-${index}`} className="text-sm cursor-pointer">
+                              {day}
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                      {recurringRule && recurringRule.weekdays.length === 0 && (
+                        <p className="text-xs text-destructive mt-1">Selecione ao menos um dia da semana.</p>
+                      )}
+                    </div>
+                  )}
+
+                  {recurringRule?.recurrence_type === 'monthly' && (
+                    <div>
+                      <Label htmlFor="day_of_month">Dia do Mês (1-31) *</Label>
+                      <Input
+                        id="day_of_month"
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={recurringRule?.day_of_month || ''}
+                        onChange={(e) => {
+                          if (!recurringRule) return;
+                          const value = parseInt(e.target.value);
+                          if (value >= 1 && value <= 31) {
+                            setRecurringRule({ 
+                              ...recurringRule, 
+                              day_of_month: value
+                            });
+                          }
+                        }}
+                        placeholder="Ex: 15"
+                        required
+                      />
+                      {recurringRule && !recurringRule.day_of_month && (
+                        <p className="text-xs text-destructive mt-1">Informe um dia do mês entre 1 e 31.</p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -754,27 +844,34 @@ export default function Clientes() {
                         required={formData.recorrente}
                       />
                       {recurringRule && !recurringRule.time_local && (
-                        <p className="text-xs text-destructive mt-1">Horário é obrigatório</p>
+                        <p className="text-xs text-destructive mt-1">Horário é obrigatório.</p>
                       )}
                     </div>
                     <div>
-                      <Label htmlFor="interval_weeks">Intervalo (semanas)</Label>
+                      <Label htmlFor={recurringRule?.recurrence_type === 'weekly' ? 'interval_weeks' : 'interval_months'}>
+                        Intervalo ({recurringRule?.recurrence_type === 'weekly' ? 'semanas' : 'meses'})
+                      </Label>
                       <Input
-                        id="interval_weeks"
+                        id={recurringRule?.recurrence_type === 'weekly' ? 'interval_weeks' : 'interval_months'}
                         type="number"
                         min="1"
-                        value={recurringRule?.interval_weeks || 1}
-                        onChange={(e) => recurringRule && setRecurringRule({ 
-                          ...recurringRule, 
-                          interval_weeks: parseInt(e.target.value) || 1
-                        })}
+                        value={recurringRule?.recurrence_type === 'weekly' ? (recurringRule?.interval_weeks || 1) : (recurringRule?.interval_months || 1)}
+                        onChange={(e) => {
+                          if (!recurringRule) return;
+                          const value = parseInt(e.target.value) || 1;
+                          if (recurringRule.recurrence_type === 'weekly') {
+                            setRecurringRule({ ...recurringRule, interval_weeks: value });
+                          } else {
+                            setRecurringRule({ ...recurringRule, interval_months: value });
+                          }
+                        }}
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="start_date">Data Início</Label>
+                      <Label htmlFor="start_date">Data Início *</Label>
                       <Input
                         id="start_date"
                         type="date"
@@ -783,6 +880,7 @@ export default function Clientes() {
                           ...recurringRule, 
                           start_date: e.target.value 
                         })}
+                        required
                       />
                     </div>
                     <div>
@@ -814,7 +912,7 @@ export default function Clientes() {
 
                   <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded p-3 text-sm">
                     <p className="text-blue-800 dark:text-blue-300">
-                      ℹ️ Os agendamentos serão criados automaticamente nos próximos 180 dias e aparecerão no Dashboard, Agenda e Financeiro.
+                      ℹ️ Se não houver <strong>Data Fim</strong>, vamos manter seus agendamentos recorrentes <strong>automaticamente</strong> pelos <strong>próximos 180 dias</strong>.
                     </p>
                   </div>
                 </div>
