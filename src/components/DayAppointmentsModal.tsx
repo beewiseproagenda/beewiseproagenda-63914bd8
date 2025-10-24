@@ -137,15 +137,23 @@ export function DayAppointmentsModal({ open, onOpenChange, date, appointments, o
         </div>
         
         <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button 
+            type="button"
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+          >
             Fechar
           </Button>
-          <Button onClick={() => {
-            if (onNewAppointment) {
+          <Button 
+            type="button"
+            onClick={() => {
               const dateISO = date.toISOString().split('T')[0];
-              onNewAppointment(dateISO);
-            }
-          }}>
+              console.info('[BW][DAY_MODAL] Novo Agendamento click', { dateISO });
+              if (onNewAppointment) {
+                onNewAppointment(dateISO);
+              }
+            }}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Novo Agendamento
           </Button>

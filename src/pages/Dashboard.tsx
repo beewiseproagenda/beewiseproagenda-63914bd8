@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { isPastClient, effectiveStatus, getStatusLabel, getStatusBadgeVariant } from "@/lib/appointments/time";
 
@@ -30,14 +30,18 @@ export default function Dashboard() {
   }, []);
 
   const handleEditAppointment = (appointmentId: string) => {
+    console.info('[BW][DASHBOARD] Edit appointment', { appointmentId });
     // Navegar para a página de Agenda e abrir o modal de edição
     navigate(`/agenda#edit-${appointmentId}`);
   };
 
-  const handleNewAppointment = (dateISO: string) => {
+  const handleNewAppointment = useCallback((dateISO: string) => {
+    console.info('[BW][DASHBOARD][OPEN_CREATE]', { dateISO });
+    // Fechar o modal do dia
+    setSelectedDate(null);
     // Navegar para Agenda com data inicial
     navigate('/agenda', { state: { initialDate: dateISO } });
-  };
+  }, [navigate]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
