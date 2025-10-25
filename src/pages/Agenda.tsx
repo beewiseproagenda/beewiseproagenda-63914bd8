@@ -668,7 +668,7 @@ export default function Agenda() {
                     <Button 
                       type="submit" 
                       className="flex-1"
-                      disabled={(isSubmitting || isUpdatingStatus || conflicts.length > 0) || (!atendimentoForm.formState.isDirty && atendimentoForm.watch('status') === originalStatus)}
+                      disabled={isSubmitting || isUpdatingStatus || conflicts.length > 0}
                     >
                       {(isSubmitting || isUpdatingStatus) ? 'Salvando...' : editingAtendimento ? 'Atualizar' : 'Salvar'}
                     </Button>
