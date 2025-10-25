@@ -4,6 +4,7 @@ import { Calendar, DollarSign, BarChart3, Star, CheckCircle, Clock, TrendingUp }
 import { useNavigate } from "react-router-dom";
 import beeWiseHero from "@/assets/beewise-hero.png";
 import beeWiseLogo from "@/assets/beewise-logo.png";
+import beeWiseMockup from "@/assets/beewise-mockup.png";
 const Landing = () => {
   const navigate = useNavigate();
   return <div className="min-h-screen">
@@ -130,11 +131,11 @@ const Landing = () => {
             </div>
 
             <div className="flex justify-center">
-              <div className="w-80 h-96 bg-gradient-to-br from-[hsl(var(--bw-yellow-light))] to-[hsl(var(--bw-yellow-dark))] rounded-3xl flex items-center justify-center shadow-2xl">
-                <div className="w-64 h-80 bg-white rounded-2xl shadow-inner flex items-center justify-center">
-                  <BarChart3 className="w-24 h-24 text-[hsl(var(--bw-blue-dark))]" />
-                </div>
-              </div>
+              <img 
+                src={beeWiseMockup} 
+                alt="BeeWise App - Tela Financeiro" 
+                className="w-80 h-auto object-contain drop-shadow-2xl"
+              />
             </div>
           </div>
         </div>
