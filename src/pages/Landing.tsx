@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar, DollarSign, BarChart3, Star, CheckCircle, Smartphone, Clock, TrendingUp } from "lucide-react";
+import { Calendar, DollarSign, BarChart3, Star, CheckCircle, Clock, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import beeWiseHero from "@/assets/beewise-hero.png";
 const Landing = () => {
   const navigate = useNavigate();
   return <div className="min-h-screen">
@@ -24,9 +25,11 @@ const Landing = () => {
           </div>
           <div className="flex justify-center">
             <div className="relative">
-              <div className="w-80 h-80 bg-gradient-to-br from-[hsl(var(--bw-yellow-light))] to-[hsl(var(--bw-yellow-dark))] rounded-3xl flex items-center justify-center shadow-2xl">
-                <Smartphone className="w-32 h-32 text-[hsl(var(--bw-blue-dark))]" />
-              </div>
+              <img 
+                src={beeWiseHero} 
+                alt="BeeWise Logo" 
+                className="w-80 h-80 object-contain drop-shadow-2xl"
+              />
               {/* Decorative elements */}
               <div className="absolute -top-4 -right-4 w-8 h-8 bg-[hsl(var(--bw-yellow-dark))] rounded-full animate-bounce"></div>
               <div className="absolute -bottom-6 -left-6 w-12 h-12 bg-[hsl(var(--bw-yellow-light))] rounded-full opacity-60"></div>
