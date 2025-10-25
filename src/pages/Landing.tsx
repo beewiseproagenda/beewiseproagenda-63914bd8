@@ -157,9 +157,9 @@ const Landing = () => {
             role: "Personal Trainer",
             content: "Troquei as planilhas pela BeeWise. Registro meus horários, edito preço e vejo a semana inteira de forma clara. No fim do mês, o resumo financeiro ajuda a fechar as contas. Facilitou meu dia."
           }, {
-            name: "Ana Costa",
-            role: "Consultora",
-            content: "Finalmente posso visualizar meus lucros de forma clara. Recomendo para todos!"
+            name: "Giovanna Abreu",
+            role: "Psicóloga",
+            content: "Uso a BeeWise pra organizar meus atendimentos. O aplicativo é simples e direto e bem fácil de usar, do jeito que eu preciso."
           }].map((testimonial, index) => <Card key={index} className="border-none shadow-lg bg-white">
                 <CardContent className="p-6">
                   <div className="flex mb-4">
