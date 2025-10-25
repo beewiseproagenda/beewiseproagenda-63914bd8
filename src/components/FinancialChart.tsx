@@ -23,9 +23,9 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
           case 'faturamento':
             return 'Faturamento';
           case 'realizado':
-            return 'Realizado';
+            return 'Receitas';
           case 'agendado':
-            return 'Agendado';
+            return 'Agendados';
           case 'despesas':
             return 'Despesas';
           case 'lucro':
@@ -95,35 +95,45 @@ export function FinancialChart({ data, type = 'line' }: FinancialChartProps) {
           width={60}
         />
         <Tooltip content={<CustomTooltip />} />
+        {/* Green line - Receitas (confirmed revenues from receitas table) */}
+        <Line 
+          type="monotone" 
+          dataKey="realizado" 
+          stroke="hsl(142, 71%, 45%)" 
+          strokeWidth={3}
+          dot={{ fill: 'hsl(142, 71%, 45%)', strokeWidth: 2, r: 4 }}
+          activeDot={{ r: 6, stroke: 'hsl(142, 71%, 45%)', strokeWidth: 2 }}
+        />
+        {/* Blue dashed line - Agendados (scheduled appointments by valor_total) */}
         <Line 
           type="monotone" 
           dataKey="agendado" 
-          stroke="hsl(var(--chart-agendado))" 
+          stroke="hsl(221, 83%, 53%)" 
           strokeWidth={3}
           strokeDasharray="5 5"
           strokeOpacity={0.8}
-          dot={{ fill: 'hsl(var(--chart-agendado))', strokeWidth: 2, r: 4 }}
-          activeDot={{ r: 6, stroke: 'hsl(var(--chart-agendado))', strokeWidth: 2 }}
+          dot={{ fill: 'hsl(221, 83%, 53%)', strokeWidth: 2, r: 4 }}
+          activeDot={{ r: 6, stroke: 'hsl(221, 83%, 53%)', strokeWidth: 2 }}
         />
+        {/* Red line - Despesas */}
         <Line 
           type="monotone" 
           dataKey="despesas" 
-          stroke="hsl(var(--chart-despesas))" 
+          stroke="hsl(0, 84%, 60%)" 
           strokeWidth={3}
-          strokeDasharray="5 5"
-          strokeOpacity={0.8}
-          dot={{ fill: 'hsl(var(--chart-despesas))', strokeWidth: 2, r: 4 }}
-          activeDot={{ r: 6, stroke: 'hsl(var(--chart-despesas))', strokeWidth: 2 }}
+          dot={{ fill: 'hsl(0, 84%, 60%)', strokeWidth: 2, r: 4 }}
+          activeDot={{ r: 6, stroke: 'hsl(0, 84%, 60%)', strokeWidth: 2 }}
         />
+        {/* Yellow/Orange line - Lucro */}
         <Line 
           type="monotone" 
           dataKey="lucro" 
-          stroke="hsl(var(--chart-lucro))" 
+          stroke="hsl(45, 93%, 47%)" 
           strokeWidth={3}
-          strokeDasharray="5 5"
-          strokeOpacity={0.8}
-          dot={{ fill: 'hsl(var(--chart-lucro))', strokeWidth: 2, r: 4 }}
-          activeDot={{ r: 6, stroke: 'hsl(var(--chart-lucro))', strokeWidth: 2 }}
+          strokeDasharray="3 3"
+          strokeOpacity={0.7}
+          dot={{ fill: 'hsl(45, 93%, 47%)', strokeWidth: 2, r: 4 }}
+          activeDot={{ r: 6, stroke: 'hsl(45, 93%, 47%)', strokeWidth: 2 }}
         />
       </LineChart>
     </ResponsiveContainer>

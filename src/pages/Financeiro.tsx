@@ -137,8 +137,16 @@ export default function Financeiro() {
 
   const onSubmitReceita = async (data: z.infer<typeof receitaSchema>) => {
     try {
+      // FIX: Use local date format to prevent timezone shift (-1 day bug)
+      const year = data.data.getFullYear();
+      const month = String(data.data.getMonth() + 1).padStart(2, '0');
+      const day = String(data.data.getDate()).padStart(2, '0');
+      const localDateStr = `${year}-${month}-${day}`;
+      
+      console.log('[BW][FIN_DATES] Saving receita with local date:', { original: data.data, localDateStr });
+      
       const receitaData = {
-        data: data.data.toISOString().split('T')[0],
+        data: localDateStr,
         valor: data.valor,
         descricao: data.descricao,
         categoria: data.categoria,
@@ -164,8 +172,16 @@ export default function Financeiro() {
 
   const onSubmitDespesa = async (data: z.infer<typeof despesaSchema>) => {
     try {
+      // FIX: Use local date format to prevent timezone shift (-1 day bug)
+      const year = data.data.getFullYear();
+      const month = String(data.data.getMonth() + 1).padStart(2, '0');
+      const day = String(data.data.getDate()).padStart(2, '0');
+      const localDateStr = `${year}-${month}-${day}`;
+      
+      console.log('[BW][FIN_DATES] Saving despesa with local date:', { original: data.data, localDateStr });
+      
       const despesaData = {
-        data: data.data.toISOString().split('T')[0],
+        data: localDateStr,
         valor: data.valor,
         descricao: data.descricao,
         categoria: data.categoria,

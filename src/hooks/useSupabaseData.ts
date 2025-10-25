@@ -459,6 +459,10 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setDespesas(prev => [...prev, data]);
+    
+    // Refetch financial entries to update projections
+    await fetchFinancialEntries();
+    
     toast({
       title: "Sucesso",
       description: "Despesa adicionada com sucesso"
@@ -481,6 +485,10 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setDespesas(prev => prev.map(d => d.id === id ? data : d));
+    
+    // Refetch financial entries to update projections
+    await fetchFinancialEntries();
+    
     toast({
       title: "Sucesso",
       description: "Despesa atualizada com sucesso"
@@ -499,6 +507,10 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setDespesas(prev => prev.filter(d => d.id !== id));
+    
+    // Refetch financial entries to update projections
+    await fetchFinancialEntries();
+    
     toast({
       title: "Sucesso",
       description: "Despesa removida com sucesso"
@@ -518,6 +530,10 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setReceitas(prev => [...prev, data]);
+    
+    // Refetch financial entries to update projections
+    await fetchFinancialEntries();
+    
     toast({
       title: "Sucesso",
       description: "Receita adicionada com sucesso"
@@ -540,6 +556,10 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setReceitas(prev => prev.map(r => r.id === id ? data : r));
+    
+    // Refetch financial entries to update projections
+    await fetchFinancialEntries();
+    
     toast({
       title: "Sucesso",
       description: "Receita atualizada com sucesso"
@@ -558,6 +578,10 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setReceitas(prev => prev.filter(r => r.id !== id));
+    
+    // Refetch financial entries to update projections
+    await fetchFinancialEntries();
+    
     toast({
       title: "Sucesso",
       description: "Receita removida com sucesso"
@@ -620,87 +644,108 @@ export const useSupabaseData = () => {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
     
-    // ============================================
-    // CURRENT MONTH DATA (historical - only up to today)
-    // ============================================
-    const atendimentosRealizados = atendimentos.filter(a => 
-      a.status === 'realizado' &&
-      new Date(a.data).getMonth() === currentMonth &&
-      new Date(a.data).getFullYear() === currentYear &&
-      new Date(a.data) <= today
-    );
+    console.log('[BW][FIN_DATES] Calculating financial data. TZ:', DEFAULT_TZ, 'Today:', today);
     
-    const atendimentosAgendados = atendimentos.filter(a => 
-      a.status === 'agendado' &&
-      new Date(a.data).getMonth() === currentMonth &&
-      new Date(a.data).getFullYear() === currentYear &&
-      new Date(a.data) <= today
-    );
+    // Helper to parse DATE as local (prevent -1 day bug)
+    const parseLocalDate = (dateStr: string): Date => {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    };
+    
+    // ============================================
+    // CURRENT MONTH DATA - USE RECEITAS TABLE (not atendimentos)
+    // ============================================
+    
+    // RECEITAS do mês atual (confirmed revenues from receitas table)
+    const receitasMesAtual = receitas.filter(r => {
+      const dataReceita = parseLocalDate(r.data);
+      return dataReceita.getMonth() === currentMonth &&
+             dataReceita.getFullYear() === currentYear &&
+             dataReceita <= today;
+    });
+    
+    // DESPESAS do mês atual
+    const despesasMesAtual = despesas.filter(d => {
+      const dataDespesa = parseLocalDate(d.data);
+      return dataDespesa.getMonth() === currentMonth &&
+             dataDespesa.getFullYear() === currentYear &&
+             dataDespesa <= today;
+    });
 
-    const despesasMesAtual = despesas.filter(d => 
-      new Date(d.data).getMonth() === currentMonth &&
-      new Date(d.data).getFullYear() === currentYear &&
-      new Date(d.data) <= today
-    );
-
-    const faturamentoMesAtual = atendimentosRealizados.reduce((sum, a) => sum + Number(a.valor), 0);
-    const projecaoMesAtual = atendimentosAgendados.reduce((sum, a) => sum + Number(a.valor), 0);
+    const faturamentoMesAtual = receitasMesAtual.reduce((sum, r) => sum + Number(r.valor), 0);
     const totalDespesas = despesasMesAtual.reduce((sum, d) => sum + Number(d.valor), 0);
 
     // Add recurring expenses to current month (only for current month and before)
     const despesasRecorrentesMesAtual = despesas
-      .filter(d => d.recorrente && new Date(d.data) <= today)
+      .filter(d => d.recorrente && parseLocalDate(d.data) <= today)
       .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, currentMonth, currentYear), 0);
 
     const totalDespesasComRecorrencia = totalDespesas + despesasRecorrentesMesAtual;
+    
+    console.log('[BW][FIN_DATES] Current month:', { 
+      receitasCount: receitasMesAtual.length, 
+      faturamentoMesAtual, 
+      despesasCount: despesasMesAtual.length,
+      totalDespesas: totalDespesasComRecorrencia
+    });
 
     // ============================================
-    // HISTORICAL DATA - ONLY past months and current month (no future data)
+    // HISTORICAL DATA - USE RECEITAS/DESPESAS TABLES + AGENDADOS FROM ATENDIMENTOS
     // ============================================
     const historicoMensal = [];
     
-    // Get exactly 4 months: 3 past months + current month (prevent duplicates)
+    // Get exactly 4 months: 3 past months + current month
     for (let i = 3; i >= 0; i--) {
       const date = new Date(currentYear, currentMonth - i, 1);
       const month = date.getMonth();
       const year = date.getFullYear();
       const isCurrentMonth = month === currentMonth && year === currentYear;
       
-      const atendimentosRealizadosMes = atendimentos.filter(a => 
-        a.status === 'realizado' &&
-        new Date(a.data).getMonth() === month &&
-        new Date(a.data).getFullYear() === year &&
-        (!isCurrentMonth || new Date(a.data) <= today)
-      );
+      // RECEITAS do mês (confirmed revenues)
+      const receitasMes = receitas.filter(r => {
+        const dataReceita = parseLocalDate(r.data);
+        return dataReceita.getMonth() === month &&
+               dataReceita.getFullYear() === year &&
+               (!isCurrentMonth || dataReceita <= today);
+      });
       
-      // For past months, include all agendamentos. For current month, only up to today
-      const atendimentosAgendadosMes = atendimentos.filter(a => 
-        a.status === 'agendado' &&
-        new Date(a.data).getMonth() === month &&
-        new Date(a.data).getFullYear() === year &&
-        (!isCurrentMonth || new Date(a.data) <= today)
-      );
+      // AGENDADOS do mês (scheduled appointments by data local)
+      const atendimentosAgendadosMes = atendimentos.filter(a => {
+        const dataAtendimento = parseLocalDate(a.data);
+        return a.status === 'agendado' &&
+               dataAtendimento.getMonth() === month &&
+               dataAtendimento.getFullYear() === year &&
+               (!isCurrentMonth || dataAtendimento <= today);
+      });
 
-      const despesasMes = despesas.filter(d => 
-        new Date(d.data).getMonth() === month &&
-        new Date(d.data).getFullYear() === year &&
-        (!isCurrentMonth || new Date(d.data) <= today)
-      );
+      // DESPESAS do mês
+      const despesasMes = despesas.filter(d => {
+        const dataDespesa = parseLocalDate(d.data);
+        return dataDespesa.getMonth() === month &&
+               dataDespesa.getFullYear() === year &&
+               (!isCurrentMonth || dataDespesa <= today);
+      });
 
-      // Add recurring expenses for this month (only if original date is before or in this month)
+      // Add recurring expenses for this month
       const despesasRecorrentesMes = despesas
-        .filter(d => d.recorrente && new Date(d.data) <= new Date(year, month + 1, 0))
+        .filter(d => d.recorrente && parseLocalDate(d.data) <= new Date(year, month + 1, 0))
         .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, month, year), 0);
 
-      const realizadoMes = atendimentosRealizadosMes.reduce((sum, a) => sum + Number(a.valor), 0);
-      const agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor), 0);
+      const realizadoMes = receitasMes.reduce((sum, r) => sum + Number(r.valor), 0);
+      const agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
       const despesasTotalMes = despesasMes.reduce((sum, d) => sum + Number(d.valor), 0) + despesasRecorrentesMes;
 
       historicoMensal.push({
         mes: date.toLocaleDateString('pt-BR', { month: 'short' }),
         faturamento: realizadoMes,
         realizado: realizadoMes,
-        agendado: agendadoMes,
+        agendado: agendadoMes, // Blue dashed line in chart
+        despesas: despesasTotalMes
+      });
+      
+      console.log(`[BW][FIN_DATES] ${year}-${String(month + 1).padStart(2, '0')}:`, {
+        receitas: realizadoMes,
+        agendados: agendadoMes,
         despesas: despesasTotalMes
       });
     }

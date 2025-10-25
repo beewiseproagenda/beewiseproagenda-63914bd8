@@ -55,10 +55,10 @@ export default function Dashboard() {
     return `${signal}${value.toFixed(1)}%`;
   };
 
-  // Preparar dados para o gráfico
+  // Preparar dados para o gráfico - usar mesma fonte do Dashboard (calcularDadosFinanceiros)
   const chartData = dadosFinanceiros.historicoMensal.map(item => ({
     ...item,
-    lucro: item.faturamento - item.despesas
+    lucro: (item.realizado || 0) - (item.despesas || 0)
   }));
 
   // Cálculos para as métricas do Dashboard
