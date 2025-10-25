@@ -149,9 +149,9 @@ const Landing = () => {
           
           <div className="grid md:grid-cols-3 gap-8">
             {[{
-            name: "Maria Silva",
-            role: "Esteticista",
-            content: "Revolucionou minha agenda! Agora tenho controle total dos meus atendimentos e finanças."
+            name: "Felipe Oliveira",
+            role: "Fisioterapeuta",
+            content: "Ficou tudo no lugar. Eu mesmo crio e ajusto meus agendamentos, marco recorrências e acompanho tudo no painel. O financeiro mostra o que entrou e o que falta. Gostei muito."
           }, {
             name: "João Santos",
             role: "Personal Trainer",
