@@ -25,14 +25,10 @@ const Landing = () => {
           </div>
           <div className="flex justify-center">
             <div className="relative">
-              <img 
-                src={beeWiseHero} 
-                alt="BeeWise Logo" 
-                className="w-80 h-80 object-contain drop-shadow-2xl"
-              />
+              <img src={beeWiseHero} alt="BeeWise Logo" className="w-80 h-80 object-contain drop-shadow-2xl" />
               {/* Decorative elements */}
-              <div className="absolute -top-4 -right-4 w-8 h-8 bg-[hsl(var(--bw-yellow-dark))] rounded-full animate-bounce"></div>
-              <div className="absolute -bottom-6 -left-6 w-12 h-12 bg-[hsl(var(--bw-yellow-light))] rounded-full opacity-60"></div>
+              
+              
             </div>
           </div>
         </div>
