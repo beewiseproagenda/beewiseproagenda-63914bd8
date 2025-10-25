@@ -404,144 +404,6 @@ export type Database = {
           },
         ]
       }
-      mercadopago_payments: {
-        Row: {
-          amount: number | null
-          approved_at: string | null
-          created_at: string
-          currency: string | null
-          external_reference: string | null
-          id: string
-          payment_id: string
-          payment_method: string | null
-          status: string
-          updated_at: string
-          user_email: string
-        }
-        Insert: {
-          amount?: number | null
-          approved_at?: string | null
-          created_at: string
-          currency?: string | null
-          external_reference?: string | null
-          id?: string
-          payment_id: string
-          payment_method?: string | null
-          status: string
-          updated_at?: string
-          user_email: string
-        }
-        Update: {
-          amount?: number | null
-          approved_at?: string | null
-          created_at?: string
-          currency?: string | null
-          external_reference?: string | null
-          id?: string
-          payment_id?: string
-          payment_method?: string | null
-          status?: string
-          updated_at?: string
-          user_email?: string
-        }
-        Relationships: []
-      }
-      mercadopago_webhooks: {
-        Row: {
-          created_at: string
-          event_type: string
-          id: string
-          payload: Json
-          processed: boolean
-          request_id: string
-          signature_valid: boolean
-        }
-        Insert: {
-          created_at?: string
-          event_type: string
-          id?: string
-          payload: Json
-          processed?: boolean
-          request_id: string
-          signature_valid?: boolean
-        }
-        Update: {
-          created_at?: string
-          event_type?: string
-          id?: string
-          payload?: Json
-          processed?: boolean
-          request_id?: string
-          signature_valid?: boolean
-        }
-        Relationships: []
-      }
-      mp_events: {
-        Row: {
-          created_at: string | null
-          id: number
-          payload: Json | null
-          resource_id: string | null
-          type: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: number
-          payload?: Json | null
-          resource_id?: string | null
-          type?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: number
-          payload?: Json | null
-          resource_id?: string | null
-          type?: string | null
-        }
-        Relationships: []
-      }
-      mp_subscriptions: {
-        Row: {
-          created_at: string
-          external_reference: string
-          id: number
-          init_point: string | null
-          mp_preapproval_id: string | null
-          mp_preference_id: string | null
-          plan: string
-          raw_response: Json | null
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          external_reference: string
-          id?: number
-          init_point?: string | null
-          mp_preapproval_id?: string | null
-          mp_preference_id?: string | null
-          plan: string
-          raw_response?: Json | null
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          external_reference?: string
-          id?: number
-          init_point?: string | null
-          mp_preapproval_id?: string | null
-          mp_preference_id?: string | null
-          plan?: string
-          raw_response?: Json | null
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       plans: {
         Row: {
           code: string
@@ -549,7 +411,6 @@ export type Database = {
           id: string
           interval: string
           is_active: boolean | null
-          mp_preapproval_plan_id: string
           price_cents: number
           updated_at: string | null
         }
@@ -559,7 +420,6 @@ export type Database = {
           id?: string
           interval: string
           is_active?: boolean | null
-          mp_preapproval_plan_id: string
           price_cents: number
           updated_at?: string | null
         }
@@ -569,7 +429,6 @@ export type Database = {
           id?: string
           interval?: string
           is_active?: boolean | null
-          mp_preapproval_plan_id?: string
           price_cents?: number
           updated_at?: string | null
         }
@@ -800,48 +659,11 @@ export type Database = {
         }
         Relationships: []
       }
-      subscribers: {
-        Row: {
-          created_at: string
-          email: string
-          id: string
-          payment_id: string | null
-          subscribed: boolean
-          subscription_end: string | null
-          subscription_tier: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          id?: string
-          payment_id?: string | null
-          subscribed?: boolean
-          subscription_end?: string | null
-          subscription_tier?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: string
-          payment_id?: string | null
-          subscribed?: boolean
-          subscription_end?: string | null
-          subscription_tier?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       subscriptions: {
         Row: {
           cancelled_at: string | null
           created_at: string | null
           id: string
-          mp_preapproval_id: string | null
           next_charge_at: string | null
           plan_code: string
           started_at: string | null
@@ -853,7 +675,6 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string | null
           id?: string
-          mp_preapproval_id?: string | null
           next_charge_at?: string | null
           plan_code: string
           started_at?: string | null
@@ -865,7 +686,6 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string | null
           id?: string
-          mp_preapproval_id?: string | null
           next_charge_at?: string | null
           plan_code?: string
           started_at?: string | null
