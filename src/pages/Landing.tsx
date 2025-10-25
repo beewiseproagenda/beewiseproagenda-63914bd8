@@ -134,7 +134,7 @@ const Landing = () => {
               <img 
                 src={beeWiseMockup} 
                 alt="BeeWise App - Tela Financeiro" 
-                className="w-[26rem] h-auto object-contain drop-shadow-2xl"
+                className="w-[34rem] h-auto object-contain drop-shadow-2xl"
               />
             </div>
           </div>
