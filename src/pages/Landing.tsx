@@ -3,6 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, DollarSign, BarChart3, Star, CheckCircle, Clock, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import beeWiseHero from "@/assets/beewise-hero.png";
+import beeWiseLogo from "@/assets/beewise-logo.png";
 const Landing = () => {
   const navigate = useNavigate();
   return <div className="min-h-screen">
@@ -10,7 +11,8 @@ const Landing = () => {
       <section className="bg-[hsl(var(--bw-off-white))] py-20 px-4">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div className="text-center md:text-left">
-            <h1 className="text-4xl md:text-6xl font-bold text-[hsl(var(--bw-blue-dark))] mb-6">BeeWise Organização para quem empreende</h1>
+            <img src={beeWiseLogo} alt="BeeWise" className="h-16 mb-6 mx-auto md:mx-0" />
+            <h1 className="text-4xl md:text-6xl font-bold text-[hsl(var(--bw-blue-dark))] mb-6">Organização para quem empreende</h1>
             <p className="text-xl text-[hsl(var(--bw-blue-dark))] opacity-80 mb-8">
               Agende, controle e prospere. Tudo em um só lugar.
             </p>
