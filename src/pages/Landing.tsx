@@ -110,7 +110,7 @@ const Landing = () => {
                       Evite perdas de clientes
                     </h3>
                     <p className="text-[hsl(var(--bw-blue-dark))] opacity-80">
-                      Sistema de notificações e lembretes para nunca mais perder um compromisso.
+                      Organize sua agenda e garanta cada atendimento.
                     </p>
                   </div>
                 </div>
