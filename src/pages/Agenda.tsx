@@ -69,6 +69,8 @@ export default function Agenda() {
   const [originalStatus, setOriginalStatus] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [conflicts, setConflicts] = useState<any[]>([]);
+  const [initialFormValues, setInitialFormValues] = useState<z.infer<typeof atendimentoSchema> | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
   
   const { detectConflicts } = useAppointmentConflicts(atendimentos);
   const { toast } = useToast();
@@ -110,6 +112,8 @@ export default function Agenda() {
       setContextSlot({ date: initialDate, time: '08:00' });
       setEditingAtendimento(null);
       setSaveAndNew(false);
+      setInitialFormValues(null);
+      setHasChanges(true);
       atendimentoForm.reset({
         data: initialDate,
         hora: '08:00',
@@ -125,34 +129,66 @@ export default function Agenda() {
     }
   }, [location]);
 
-  // Verificar conflitos em tempo real quando data/hora mudam
+  // Verificar conflitos em tempo real quando data/hora mudam E detectar mudanças
   useEffect(() => {
-    const subscription = atendimentoForm.watch((value, { name }) => {
-      if (name === 'data' || name === 'hora') {
-        const data = value.data;
-        const hora = value.hora;
+    const subscription = atendimentoForm.watch((value) => {
+      // Detectar conflitos quando data/hora mudam
+      const data = value.data;
+      const hora = value.hora;
+      
+      if (data && hora) {
+        const localDate = new Date(data.getTime() - data.getTimezoneOffset() * 60000);
+        const dateStr = localDate.toISOString().split('T')[0];
+        const userTz = getBrowserTz();
+        const normalizedTime = normalizeTime(hora);
         
-        if (data && hora) {
-          const localDate = new Date(data.getTime() - data.getTimezoneOffset() * 60000);
-          const dateStr = localDate.toISOString().split('T')[0];
-          const userTz = getBrowserTz();
-          const normalizedTime = normalizeTime(hora);
-          
-          const conflictingAppointments = detectConflicts({
-            dateStr,
-            timeStr: normalizedTime,
-            currentAppointmentId: editingAtendimento || undefined,
-            userId: '',
-            timezone: userTz
-          });
-          
-          setConflicts(conflictingAppointments);
-        }
+        const conflictingAppointments = detectConflicts({
+          dateStr,
+          timeStr: normalizedTime,
+          currentAppointmentId: editingAtendimento || undefined,
+          userId: '',
+          timezone: userTz
+        });
+        
+        setConflicts(conflictingAppointments);
+      }
+      
+      // Detectar mudanças nos campos editáveis
+      if (editingAtendimento && initialFormValues) {
+        const currentValues = value as z.infer<typeof atendimentoSchema>;
+        
+        // Comparar campos editáveis
+        const dataChanged = currentValues.data?.toISOString() !== initialFormValues.data?.toISOString();
+        const horaChanged = currentValues.hora !== initialFormValues.hora;
+        const clienteChanged = currentValues.clienteId !== initialFormValues.clienteId;
+        const formaPagamentoChanged = currentValues.formaPagamento !== initialFormValues.formaPagamento;
+        const observacoesChanged = (currentValues.observacoes || '') !== (initialFormValues.observacoes || '');
+        
+        // Comparar serviços (quantidade, servico_id, valor)
+        const servicosChanged = JSON.stringify(currentValues.servicos) !== JSON.stringify(initialFormValues.servicos);
+        
+        const changed = dataChanged || horaChanged || clienteChanged || formaPagamentoChanged || 
+                       observacoesChanged || servicosChanged;
+        
+        console.info('[BW][EDIT] Change detection', { 
+          changed, 
+          dataChanged, 
+          horaChanged, 
+          clienteChanged,
+          formaPagamentoChanged,
+          observacoesChanged,
+          servicosChanged
+        });
+        
+        setHasChanges(changed);
+      } else {
+        // Novo agendamento - sempre permitir salvar
+        setHasChanges(true);
       }
     });
     
     return () => subscription.unsubscribe();
-  }, [editingAtendimento, atendimentos]);
+  }, [editingAtendimento, atendimentos, initialFormValues]);
 
   const getDefaultFormValues = () => {
     // Prioridade: contextSlot > hoje
@@ -192,6 +228,18 @@ export default function Agenda() {
   };
 
   const onSubmit = async (data: z.infer<typeof atendimentoSchema>) => {
+    console.info('[BW][EDIT][SUBMIT] Starting submit', { 
+      editing: editingAtendimento,
+      hasChanges,
+      data: {
+        clienteId: data.clienteId,
+        data: format(data.data, 'yyyy-MM-dd'),
+        hora: data.hora,
+        servicos: data.servicos.length,
+        status: data.status
+      }
+    });
+    
     setIsSubmitting(true);
     
     try {
@@ -222,32 +270,7 @@ export default function Agenda() {
       
       // Limpar conflitos se passou na validação
       setConflicts([]);
-      // Se estamos editando e APENAS o status mudou, usar a RPC segura
-      if (editingAtendimento && originalStatus !== data.status) {
-        const currentAtendimento = atendimentos.find(a => a.id === editingAtendimento);
-        
-        // Verificar se apenas o status foi alterado
-        const onlyStatusChanged = currentAtendimento && (
-          format(new Date(data.data), 'yyyy-MM-dd') === format(new Date(currentAtendimento.data), 'yyyy-MM-dd') &&
-          data.hora === currentAtendimento.hora &&
-          data.clienteId === currentAtendimento.cliente_id &&
-          data.formaPagamento === currentAtendimento.forma_pagamento &&
-          (data.observacoes || '') === (currentAtendimento.observacoes || '')
-        );
-        
-        if (onlyStatusChanged) {
-          console.info('[BW][FORM][submit] Status-only update detected', { 
-            id: editingAtendimento, 
-            from: originalStatus, 
-            to: data.status 
-          });
-          await updateStatus({ id: editingAtendimento, status: data.status });
-          setIsSubmitting(false);
-          return;
-        }
-      }
       
-      // Fluxo normal para outras alterações
       // Calcular valor total
       const valorTotal = data.servicos.reduce((sum, s) => sum + (s.valor * s.quantidade), 0);
       
@@ -264,9 +287,11 @@ export default function Agenda() {
       if (isPastAppointment && finalStatus !== 'cancelado') {
         // Se está no passado e não foi cancelado, status = realizado
         finalStatus = 'realizado';
-      } else if (!isPastAppointment && originalStatus === 'realizado' && data.status === 'realizado') {
-        // Se mudou de passado para futuro, ajustar para agendado
+        console.info('[BW][EDIT][SUBMIT] Past appointment, setting status to realizado');
+      } else if (!isPastAppointment && originalStatus === 'realizado') {
+        // Se estava no passado (realizado) e mudou para futuro, ajustar para agendado
         finalStatus = 'agendado';
+        console.info('[BW][EDIT][SUBMIT] Moved to future, setting status to agendado');
       }
       
       // Criar nome do serviço baseado nos serviços selecionados
@@ -298,12 +323,31 @@ export default function Agenda() {
         servicos: data.servicos
       };
 
+      console.info('[BW][EDIT][SUBMIT] Payload ready', { 
+        id: editingAtendimento,
+        finalStatus,
+        valorTotal,
+        isPastAppointment
+      });
+
       if (editingAtendimento) {
         await atualizarAtendimento(editingAtendimento, atendimentoData);
+        console.info('[BW][EDIT][SUBMIT] Update successful');
+        toast({
+          title: "Sucesso",
+          description: "Agendamento atualizado com sucesso."
+        });
         setEditingAtendimento(null);
         setOriginalStatus(null);
+        setInitialFormValues(null);
+        setHasChanges(false);
       } else {
         await adicionarAtendimento(atendimentoData);
+        console.info('[BW][EDIT][SUBMIT] Creation successful');
+        toast({
+          title: "Sucesso",
+          description: "Agendamento criado com sucesso."
+        });
       }
       
       // Comportamento "Salvar e novo" - manter contexto
@@ -314,14 +358,24 @@ export default function Agenda() {
           time: addMinutesToTime(contextSlot.time, 60)
         } : null;
         setContextSlot(nextSlot);
+        setInitialFormValues(null);
+        setHasChanges(true);
         atendimentoForm.reset(getDefaultFormValues());
       } else {
         atendimentoForm.reset(getDefaultFormValues());
         setContextSlot(null);
+        setInitialFormValues(null);
+        setHasChanges(false);
+        setConflicts([]);
         setOpenDialog(false);
       }
     } catch (error) {
-      console.error('Erro ao salvar agendamento:', error);
+      console.error('[BW][EDIT][SUBMIT] Error:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar. Tente novamente.",
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -337,6 +391,7 @@ export default function Agenda() {
   };
 
   const editAtendimento = async (atendimento: any) => {
+    console.info('[BW][EDIT] Opening edit modal', { id: atendimento.id, status: atendimento.status });
     setEditingAtendimento(atendimento.id);
     setOriginalStatus(atendimento.status);
     
@@ -382,7 +437,7 @@ export default function Agenda() {
       }];
     }
     
-    atendimentoForm.reset({
+    const formValues = {
       data: new Date(localParts.date + 'T00:00:00'),
       hora: localParts.time,
       clienteId: atendimento.cliente_id,
@@ -390,7 +445,13 @@ export default function Agenda() {
       formaPagamento: atendimento.forma_pagamento,
       observacoes: atendimento.observacoes || "",
       status: atendimento.status,
-    });
+    };
+    
+    // Salvar snapshot inicial para detectar mudanças
+    setInitialFormValues(formValues);
+    setHasChanges(false);
+    
+    atendimentoForm.reset(formValues);
     setContextSlot(null); // Limpar contexto ao editar
     setOpenDialog(true);
   };
@@ -403,6 +464,8 @@ export default function Agenda() {
   const handleNewAppointmentClick = () => {
     setEditingAtendimento(null);
     setSaveAndNew(false);
+    setInitialFormValues(null);
+    setHasChanges(true); // Novo agendamento sempre permite salvar
     
     // Se há um dia selecionado, usar como contexto
     if (selectedDayData) {
@@ -421,6 +484,8 @@ export default function Agenda() {
   const handleSlotClick = (date: Date, time: string) => {
     setEditingAtendimento(null);
     setSaveAndNew(false);
+    setInitialFormValues(null);
+    setHasChanges(true); // Novo agendamento sempre permite salvar
     setContextSlot({ date, time });
     atendimentoForm.reset(getDefaultFormValues());
     setOpenDialog(true);
@@ -442,6 +507,9 @@ export default function Agenda() {
             setEditingAtendimento(null);
             setContextSlot(null);
             setSaveAndNew(false);
+            setInitialFormValues(null);
+            setHasChanges(false);
+            setConflicts([]);
             atendimentoForm.reset(getDefaultFormValues());
           }
         }}>
@@ -449,6 +517,7 @@ export default function Agenda() {
             <Button onClick={() => {
               handleNewAppointmentClick();
               setOriginalStatus(null);
+              setConflicts([]);
             }}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Agendamento
@@ -668,7 +737,7 @@ export default function Agenda() {
                     <Button 
                       type="submit" 
                       className="flex-1"
-                      disabled={isSubmitting || isUpdatingStatus || conflicts.length > 0}
+                      disabled={!hasChanges || isSubmitting || isUpdatingStatus || conflicts.length > 0}
                     >
                       {(isSubmitting || isUpdatingStatus) ? 'Salvando...' : editingAtendimento ? 'Atualizar' : 'Salvar'}
                     </Button>
