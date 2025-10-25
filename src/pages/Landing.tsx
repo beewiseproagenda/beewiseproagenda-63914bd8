@@ -93,7 +93,7 @@ const Landing = () => {
             <div>
               <div className="space-y-8">
                 <div className="flex items-start gap-4">
-                  <Clock className="w-10 h-10 text-[hsl(var(--bw-yellow-dark))] mt-1" />
+                  <Clock className="w-12 h-12 flex-shrink-0 text-[hsl(var(--bw-yellow-dark))]" />
                   <div>
                     <h3 className="text-xl font-semibold text-[hsl(var(--bw-blue-dark))] mb-2">
                       Ganhe tempo
@@ -105,7 +105,7 @@ const Landing = () => {
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <CheckCircle className="w-10 h-10 text-[hsl(var(--bw-yellow-dark))] mt-1" />
+                  <CheckCircle className="w-12 h-12 flex-shrink-0 text-[hsl(var(--bw-yellow-dark))]" />
                   <div>
                     <h3 className="text-xl font-semibold text-[hsl(var(--bw-blue-dark))] mb-2">
                       Evite perdas de clientes
@@ -117,7 +117,7 @@ const Landing = () => {
                 </div>
 
                 <div className="flex items-start gap-4">
-                  <TrendingUp className="w-10 h-10 text-[hsl(var(--bw-yellow-dark))] mt-1" />
+                  <TrendingUp className="w-12 h-12 flex-shrink-0 text-[hsl(var(--bw-yellow-dark))]" />
                   <div>
                     <h3 className="text-xl font-semibold text-[hsl(var(--bw-blue-dark))] mb-2">
                       Visualize seus resultados
