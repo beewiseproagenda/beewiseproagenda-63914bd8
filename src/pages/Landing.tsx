@@ -2,36 +2,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar, DollarSign, BarChart3, Star, CheckCircle, Smartphone, Clock, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-
 const Landing = () => {
   const navigate = useNavigate();
-
-  return (
-    <div className="min-h-screen">
+  return <div className="min-h-screen">
       {/* Hero Section */}
       <section className="bg-[hsl(var(--bw-off-white))] py-20 px-4">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-center">
           <div className="text-center md:text-left">
-            <h1 className="text-4xl md:text-6xl font-bold text-[hsl(var(--bw-blue-dark))] mb-6">
-              BeeWise – Organização para quem empreende
-            </h1>
+            <h1 className="text-4xl md:text-6xl font-bold text-[hsl(var(--bw-blue-dark))] mb-6">BeeWise Organização para quem empreende</h1>
             <p className="text-xl text-[hsl(var(--bw-blue-dark))] opacity-80 mb-8">
               Agende, controle e prospere. Tudo em um só lugar.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start">
-              <Button 
-                size="lg" 
-                className="bg-[hsl(var(--bw-yellow-dark))] hover:bg-[hsl(var(--bw-yellow-dark))]/90 text-[hsl(var(--bw-blue-dark))] font-semibold"
-                onClick={() => navigate('/cadastro')}
-              >
+              <Button size="lg" className="bg-[hsl(var(--bw-yellow-dark))] hover:bg-[hsl(var(--bw-yellow-dark))]/90 text-[hsl(var(--bw-blue-dark))] font-semibold" onClick={() => navigate('/cadastro')}>
                 Começar agora
               </Button>
-              <Button 
-                variant="outline" 
-                size="lg"
-                className="border-[hsl(var(--bw-blue-dark))] text-[hsl(var(--bw-blue-dark))] hover:bg-[hsl(var(--bw-blue-dark))] hover:text-white"
-                onClick={() => navigate('/login')}
-              >
+              <Button variant="outline" size="lg" className="border-[hsl(var(--bw-blue-dark))] text-[hsl(var(--bw-blue-dark))] hover:bg-[hsl(var(--bw-blue-dark))] hover:text-white" onClick={() => navigate('/login')}>
                 Fazer Login
               </Button>
             </div>
@@ -161,29 +147,22 @@ const Landing = () => {
           </h2>
           
           <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Maria Silva",
-                role: "Esteticista",
-                content: "Revolucionou minha agenda! Agora tenho controle total dos meus atendimentos e finanças."
-              },
-              {
-                name: "João Santos",
-                role: "Personal Trainer",
-                content: "Interface super intuitiva. Meus clientes adoram a facilidade de agendamento."
-              },
-              {
-                name: "Ana Costa",
-                role: "Consultora",
-                content: "Finalmente posso visualizar meus lucros de forma clara. Recomendo para todos!"
-              }
-            ].map((testimonial, index) => (
-              <Card key={index} className="border-none shadow-lg bg-white">
+            {[{
+            name: "Maria Silva",
+            role: "Esteticista",
+            content: "Revolucionou minha agenda! Agora tenho controle total dos meus atendimentos e finanças."
+          }, {
+            name: "João Santos",
+            role: "Personal Trainer",
+            content: "Interface super intuitiva. Meus clientes adoram a facilidade de agendamento."
+          }, {
+            name: "Ana Costa",
+            role: "Consultora",
+            content: "Finalmente posso visualizar meus lucros de forma clara. Recomendo para todos!"
+          }].map((testimonial, index) => <Card key={index} className="border-none shadow-lg bg-white">
                 <CardContent className="p-6">
                   <div className="flex mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-5 h-5 fill-[hsl(var(--bw-yellow-dark))] text-[hsl(var(--bw-yellow-dark))]" />
-                    ))}
+                    {[...Array(5)].map((_, i) => <Star key={i} className="w-5 h-5 fill-[hsl(var(--bw-yellow-dark))] text-[hsl(var(--bw-yellow-dark))]" />)}
                   </div>
                   <p className="text-[hsl(var(--bw-blue-dark))] opacity-80 mb-4">
                     "{testimonial.content}"
@@ -197,8 +176,7 @@ const Landing = () => {
                     </p>
                   </div>
                 </CardContent>
-              </Card>
-            ))}
+              </Card>)}
           </div>
         </div>
       </section>
@@ -212,11 +190,7 @@ const Landing = () => {
           <p className="text-xl text-[hsl(var(--bw-blue-dark))] opacity-80 mb-8">
             Junte-se a milhares de profissionais que já descobriram o poder da organização inteligente.
           </p>
-          <Button 
-            size="lg" 
-            className="bg-[hsl(var(--bw-yellow-dark))] hover:bg-[hsl(var(--bw-yellow-dark))]/90 text-[hsl(var(--bw-blue-dark))] font-semibold text-lg px-8 py-4"
-            onClick={() => navigate('/cadastro')}
-          >
+          <Button size="lg" className="bg-[hsl(var(--bw-yellow-dark))] hover:bg-[hsl(var(--bw-yellow-dark))]/90 text-[hsl(var(--bw-blue-dark))] font-semibold text-lg px-8 py-4" onClick={() => navigate('/cadastro')}>
             Quero minha conta BeeWise agora
           </Button>
         </div>
@@ -231,8 +205,6 @@ const Landing = () => {
           </p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
