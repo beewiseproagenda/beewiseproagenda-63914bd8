@@ -153,9 +153,9 @@ const Landing = () => {
             role: "Fisioterapeuta",
             content: "Ficou tudo no lugar. Eu mesmo crio e ajusto meus agendamentos, marco recorrências e acompanho tudo no painel. O financeiro mostra o que entrou e o que falta. Gostei muito."
           }, {
-            name: "João Santos",
+            name: "Otávio Lima",
             role: "Personal Trainer",
-            content: "Interface super intuitiva. Meus clientes adoram a facilidade de agendamento."
+            content: "Troquei as planilhas pela BeeWise. Registro meus horários, edito preço e vejo a semana inteira de forma clara. No fim do mês, o resumo financeiro ajuda a fechar as contas. Facilitou meu dia."
           }, {
             name: "Ana Costa",
             role: "Consultora",
