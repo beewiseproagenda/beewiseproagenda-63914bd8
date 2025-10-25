@@ -75,23 +75,14 @@ export function useAuthAndSubscription() {
         };
       }
 
-      // Fallback to detailed subscription check for legacy data
-      const [subscriptionsResult, subscribersResult] = await Promise.all([
-        supabase
-          .from('subscriptions')
-          .select('status, plan_code, cancelled_at, next_charge_at')
-          .eq('user_id', user!.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from('subscribers')
-          .select('subscribed, subscription_tier, subscription_end')
-          .or(`user_id.eq.${user!.id},email.eq.${user!.email}`)
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      ]);
+      // Fallback to subscriptions table check
+      const subscriptionsResult = await supabase
+        .from('subscriptions')
+        .select('status, plan_code, cancelled_at, next_charge_at')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (subscriptionsResult.data) {
         const newSub = subscriptionsResult.data;
@@ -107,22 +98,6 @@ export function useAuthAndSubscription() {
           },
           trial,
           subscriptionStatus: isActive ? 'active' : newSub.status
-        };
-      }
-
-      if (subscribersResult.data) {
-        const legacySub = subscribersResult.data;
-        const isActive = legacySub.subscribed &&
-                        (!legacySub.subscription_end || new Date(legacySub.subscription_end) > new Date());
-        
-        return { 
-          sub: { 
-            active: isActive, 
-            plan: legacySub.subscription_tier as 'mensal' | 'anual',
-            status: legacySub.subscribed ? 'active' : 'inactive'
-          },
-          trial,
-          subscriptionStatus: isActive ? 'active' : 'none'
         };
       }
 

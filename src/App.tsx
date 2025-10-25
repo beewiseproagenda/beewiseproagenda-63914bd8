@@ -208,15 +208,6 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       
-      {/* FREEMIUM MODE: Redirect all subscription routes to dashboard */}
-      <Route path="/assinar" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/assinatura/retorno" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/assinatura/sucesso" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/subscription-success" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/subscription-return" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/payment/return" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/minha-assinatura" element={<Navigate to="/dashboard" replace />} />
-      
       {/* 404 */}
       <Route path="*" element={<NotFound />} />
     </Routes>

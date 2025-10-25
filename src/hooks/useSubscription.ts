@@ -6,7 +6,6 @@ import { useAuth } from './useAuth';
 export interface Plan {
   id: string;
   code: 'mensal' | 'anual';
-  mp_preapproval_plan_id: string;
   price_cents: number;
   interval: 'month' | 'year';
   is_active: boolean;
@@ -18,8 +17,7 @@ export interface Subscription {
   id: string;
   user_id: string;
   plan_code: 'mensal' | 'anual';
-  mp_preapproval_id: string | null;
-  status: 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected';
+  status: 'pending' | 'active' | 'paused' | 'cancelled' | 'expired';
   next_charge_at: string | null;
   started_at: string;
   cancelled_at: string | null;
@@ -72,7 +70,7 @@ export const useSubscription = () => {
       setLoading(true);
       console.log('[useSubscription] Buscando assinatura para usuário:', user.id, user.email);
       
-      // Verificar na tabela subscriptions (nova estrutura)
+      // Verificar na tabela subscriptions
       const { data: subscriptionsData, error: subscriptionsError } = await supabase
         .from('subscriptions')
         .select('*')
@@ -84,63 +82,21 @@ export const useSubscription = () => {
         console.error('[useSubscription] Erro ao buscar subscriptions:', subscriptionsError);
       }
 
-      // Verificar na tabela subscribers (estrutura legada)
-      const { data: subscribersData, error: subscribersError } = await supabase
-        .from('subscribers')
-        .select('*')
-        .or(`user_id.eq.${user.id},email.eq.${user.email}`)
-        .eq('subscribed', true)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (subscribersError) {
-        console.error('[useSubscription] Erro ao buscar subscribers:', subscribersError);
-      }
-
-      // Priorizar subscription ativa da tabela subscriptions
+      // Pegar a assinatura mais recente
       let subscription = null;
-      if (subscriptionsData?.[0]?.status === 'authorized') {
+      if (subscriptionsData?.[0]) {
         subscription = {
           ...subscriptionsData[0],
           plan_code: subscriptionsData[0].plan_code as 'mensal' | 'anual',
-          status: subscriptionsData[0].status as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected'
-        };
-      }
-      // Se não encontrou ativa na subscriptions, verificar subscribers
-      else if (subscribersData?.[0]?.subscribed) {
-        // Mapear subscriber para formato subscription
-        const subscriber = subscribersData[0];
-        subscription = {
-          id: subscriber.id,
-          user_id: user.id,
-          plan_code: (subscriber.subscription_tier === 'anual' ? 'anual' : 'mensal') as 'mensal' | 'anual',
-          mp_preapproval_id: subscriber.payment_id,
-          status: 'authorized' as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected',
-          next_charge_at: subscriber.subscription_end,
-          started_at: subscriber.created_at,
-          cancelled_at: null,
-          created_at: subscriber.created_at,
-          updated_at: subscriber.updated_at
-        };
-      }
-      // Se não encontrou ativa, pegar a mais recente da subscriptions para mostrar status
-      else if (subscriptionsData?.[0]) {
-        subscription = {
-          ...subscriptionsData[0],
-          plan_code: subscriptionsData[0].plan_code as 'mensal' | 'anual',
-          status: subscriptionsData[0].status as 'pending' | 'authorized' | 'paused' | 'cancelled' | 'rejected'
+          status: subscriptionsData[0].status as 'pending' | 'active' | 'paused' | 'cancelled' | 'expired'
         };
       }
       
       console.log('[useSubscription] Resultado da busca:', {
         hasSubscription: !!subscription,
         status: subscription?.status,
-        isActive: subscription?.status === 'authorized',
-        subscriptionData: subscription,
-        checkedTables: {
-          subscriptions: !!subscriptionsData?.[0],
-          subscribers: !!subscribersData?.[0]
-        }
+        isActive: subscription?.status === 'active',
+        subscriptionData: subscription
       });
       
       setCurrentSubscription(subscription);
@@ -157,58 +113,16 @@ export const useSubscription = () => {
 
     // Verificar se já tem assinatura ativa antes de criar nova
     await fetchCurrentSubscription();
-    if (currentSubscription?.status === 'authorized') {
+    if (currentSubscription?.status === 'active') {
       throw new Error('Você já possui uma assinatura ativa');
     }
 
-    try {
-      // garantir sessão válida
-      try { await supabase.auth.refreshSession(); } catch {}
-      const { data: s } = await supabase.auth.getSession();
-      if (!s?.session?.access_token) {
-        throw new Error('Faça login para assinar');
-      }
-
-      console.log('[createSubscription] token_present=true, plan=', planCode);
-      
-      const planValue = planCode === 'mensal' ? 'monthly' : 'annual';
-
-      const { data, error } = await supabase.functions.invoke('create-subscription', {
-        body: { plan: planValue, userEmail: s.session.user.email },
-        headers: {
-          'authorization': `Bearer ${s.session.access_token}`,
-          'Authorization': `Bearer ${s.session.access_token}`,
-          'x-origin': window.location.origin
-        }
-      });
-
-      if (error) {
-        console.error('[createSubscription] Edge function error:', error);
-        throw new Error(`Failed to create subscription: ${error.message}`);
-      }
-
-      console.log('[createSubscription] Response received:', { 
-        hasData: !!data,
-        hasInitPoint: !!data?.init_point
-      });
-
-      return data;
-    } catch (error) {
-      console.error('[createSubscription] Network/client error:', error);
-      
-      // Enhanced error handling
-      if (error.message?.includes('Failed to fetch')) {
-        throw new Error('Network error: Unable to connect to server. Please check your internet connection.');
-      } else if (error.message?.includes('Failed to send a request')) {
-        throw new Error('Request failed: The server is not responding. Please try again later.');
-      }
-      
-      throw error;
-    }
+    // Sistema de pagamento manual - não há criação automática
+    throw new Error('Sistema de assinatura em modo manual. Entre em contato para ativar sua assinatura.');
   };
 
   const cancelSubscription = async () => {
-    if (!currentSubscription?.mp_preapproval_id) {
+    if (!currentSubscription) {
       throw new Error('No active subscription to cancel');
     }
 
@@ -239,7 +153,7 @@ export const useSubscription = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'authorized':
+      case 'active':
         return 'Assinatura ativa ✅';
       case 'pending':
         return 'Processando...';
@@ -247,14 +161,14 @@ export const useSubscription = () => {
         return 'Assinatura pausada ⏸️';
       case 'cancelled':
         return 'Assinatura cancelada ❌';
-      case 'rejected':
-        return 'Assinatura rejeitada ❌';
+      case 'expired':
+        return 'Assinatura expirada ❌';
       default:
         return 'Status desconhecido';
     }
   };
 
-  const isActiveSubscription = currentSubscription?.status === 'authorized';
+  const isActiveSubscription = currentSubscription?.status === 'active';
 
   console.log('[useSubscription] Hook state:', {
     loading,

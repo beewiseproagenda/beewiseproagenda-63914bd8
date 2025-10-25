@@ -27,18 +27,6 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 
   // FREEMIUM MODE: Skip all subscription checks, only verify authentication
   if (FREEMIUM_MODE) {
-    // Redirect subscription-related pages to dashboard
-    if (path === '/assinar' || 
-        path.startsWith('/assinatura-') || 
-        path.startsWith('/assinatura/') ||
-        path.startsWith('/subscription/') ||
-        path === '/payment/return' ||
-        path === '/subscription-success' ||
-        path === '/subscription-return' ||
-        path === '/minha-assinatura') {
-      window.location.replace('/dashboard');
-      return null;
-    }
     // Allow access to all areas for authenticated users
     return <>{children}</>;
   }
@@ -46,16 +34,6 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   // ORIGINAL SUBSCRIPTION LOGIC (disabled when FREEMIUM_MODE=true)
   // Se tem assinatura ativa, sempre permitir acesso
   if (subscriptionStatus === 'active') {
-    // Se está em qualquer página de assinatura, hard redirect para dashboard
-    if (path === '/assinar' || 
-        path.startsWith('/assinatura-') || 
-        path.startsWith('/assinatura/') ||
-        path.startsWith('/subscription/') ||
-        path === '/payment/return' ||
-        path === '/subscription-success') {
-      window.location.replace('/dashboard');
-      return null;
-    }
     // Permitir acesso a todas as áreas protegidas
     return <>{children}</>;
   }

@@ -68,12 +68,12 @@ export const MySubscription = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'authorized':
+      case 'active':
         return <CheckCircle className="w-5 h-5 text-green-600" />;
       case 'pending':
         return <Clock className="w-5 h-5 text-orange-600" />;
       case 'cancelled':
-      case 'rejected':
+      case 'expired':
         return <XCircle className="w-5 h-5 text-red-600" />;
       default:
         return <AlertTriangle className="w-5 h-5 text-gray-600" />;
@@ -82,12 +82,12 @@ export const MySubscription = () => {
 
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'authorized':
+      case 'active':
         return 'default';
       case 'pending':
         return 'secondary';
       case 'cancelled':
-      case 'rejected':
+      case 'expired':
         return 'destructive';
       default:
         return 'outline';
@@ -232,7 +232,7 @@ export const MySubscription = () => {
             </div>
           )}
 
-          {(currentSubscription.status === 'cancelled' || currentSubscription.status === 'rejected') && (
+          {(currentSubscription.status === 'cancelled' || currentSubscription.status === 'expired') && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-start gap-3">
                 <XCircle className="w-5 h-5 text-red-600 mt-0.5" />
@@ -241,11 +241,8 @@ export const MySubscription = () => {
                     Assinatura inativa
                   </p>
                   <p className="text-sm text-red-700 mt-1">
-                    Para regularizar sua assinatura, clique no botão abaixo.
+                    Entre em contato para regularizar sua assinatura.
                   </p>
-                  <Button size="sm" className="mt-2" onClick={() => window.location.href = '/cadastro'}>
-                    Regularizar assinatura
-                  </Button>
                 </div>
               </div>
             </div>

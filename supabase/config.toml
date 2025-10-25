@@ -18,22 +18,10 @@ verify_jwt = true
 [functions.test-client-create-flow]
 verify_jwt = true
 
-[functions.mercadopago-webhook]
-verify_jwt = false
-
-[functions.secure-webhook]
-verify_jwt = false
-
-[functions.create-subscription]
-verify_jwt = true
-
 [functions.api-me]
 verify_jwt = false
 
 [functions.user-data]
-verify_jwt = false
-
-[functions.reconcile-subscriptions]
 verify_jwt = false
 
 [functions.auth-ping]
@@ -47,9 +35,6 @@ verify_jwt = false
 
 [functions.diag-digest-fix]
 verify_jwt = true
-
-[functions.mp-methods]
-verify_jwt = false
 
 [functions.validate-onboarding-token]
 verify_jwt = false

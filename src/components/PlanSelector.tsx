@@ -62,23 +62,13 @@ export const PlanSelector = () => {
 
     try {
       setIsCreating(true);
-      console.log('Creating subscription:', { selectedPlan, userId: user?.id });
-      
-      const result = await createSubscription(selectedPlan);
-      console.log('Subscription result:', result);
-      
-      if (result?.init_point) {
-        console.log('Redirecting to Mercado Pago:', result.init_point);
-        window.location.href = result.init_point;
-      } else {
-        throw new Error('No init_point received from server');
-      }
+      await createSubscription(selectedPlan);
     } catch (error) {
       console.error('Error creating subscription:', error);
       toast({
-        title: 'Erro',
-        description: error instanceof Error ? error.message : 'Erro ao criar assinatura. Tente novamente.',
-        variant: 'destructive',
+        title: 'Sistema de assinatura manual',
+        description: error instanceof Error ? error.message : 'Entre em contato para ativar sua assinatura.',
+        variant: 'default',
       });
     } finally {
       setIsCreating(false);
@@ -167,7 +157,7 @@ export const PlanSelector = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    Integração com Mercado Pago
+                    Controle financeiro completo
                   </div>
                 </div>
               </CardContent>
@@ -220,7 +210,7 @@ export const PlanSelector = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    Integração com Mercado Pago
+                    Controle financeiro completo
                   </div>
                 </div>
               </CardContent>
@@ -253,7 +243,7 @@ export const PlanSelector = () => {
         )}
         
         <p className="text-xs text-muted-foreground mt-2">
-          Você será redirecionado para o Mercado Pago para finalizar o pagamento
+          Entre em contato para ativar sua assinatura
         </p>
       </div>
 
@@ -269,7 +259,7 @@ export const PlanSelector = () => {
                   Aguardando confirmação do pagamento
                 </p>
               )}
-              {(currentSubscription.status === 'cancelled' || currentSubscription.status === 'rejected') && (
+              {currentSubscription.status === 'cancelled' && (
                 <p className="text-orange-600 mt-1">
                   Selecione um plano para regularizar sua assinatura
                 </p>
