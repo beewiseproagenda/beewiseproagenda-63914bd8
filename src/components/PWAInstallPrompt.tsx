@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Download, X, Wifi, WifiOff } from 'lucide-react';
 import { usePWA } from '@/hooks/usePWA';
 import { useToast } from '@/hooks/use-toast';
+import { PWAUpdateBanner } from './PWAUpdateBanner';
 
 export const PWAInstallPrompt = () => {
-  const { isInstallable, isInstalled, isOnline, installApp } = usePWA();
+  const { isInstallable, isInstalled, isOnline, installApp, updateAvailable, swVersion } = usePWA();
   const { toast } = useToast();
   const [showPrompt, setShowPrompt] = React.useState(false);
 
@@ -36,6 +37,11 @@ export const PWAInstallPrompt = () => {
       });
     }
   };
+
+  // Mostrar banner de atualização se disponível
+  if (updateAvailable) {
+    return <PWAUpdateBanner version={swVersion} />;
+  }
 
   if (!showPrompt || isInstalled) {
     return null;
