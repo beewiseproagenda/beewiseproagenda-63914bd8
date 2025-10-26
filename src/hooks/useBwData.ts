@@ -293,9 +293,10 @@ export function useBwData() {
       lucroLiquido: lucroAtual,
       totalDespesas: despesasMesAtual,
       historicoMensal,
-      variacaoFaturamento,
-      variacaoDespesas,
-      variacaoLucro,
+      projecaoMensal: [], // Not used in BW data
+      variacaoFaturamento: 0,
+      variacaoDespesas: 0,
+      variacaoLucro: 0
     };
   };
 

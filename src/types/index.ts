@@ -98,6 +98,13 @@ export interface DadosFinanceiros {
     agendado: number;
     despesas: number;
   }>;
+  projecaoMensal: Array<{
+    mes: string;
+    receitas: number;
+    despesas: number;
+    agendados: number;
+    lucro: number;
+  }>;
   variacaoFaturamento: number;
   variacaoDespesas: number;
   variacaoLucro: number;

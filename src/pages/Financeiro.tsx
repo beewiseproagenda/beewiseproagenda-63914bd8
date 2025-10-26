@@ -231,16 +231,25 @@ export default function Financeiro() {
     setOpenDespesaDialog(true);
   };
 
+  // Preparar dados para Gráfico 1 (Evolução - Últimos 4 meses)
   const chartData = dadosFinanceiros.historicoMensal.map(item => ({
-    ...item,
-    lucro: (item.realizado || 0) - item.despesas // Remove linha azul, só dados confirmados
+    mes: item.mes,
+    faturamento: item.realizado,
+    realizado: item.realizado,
+    agendado: item.agendado,
+    despesas: item.despesas,
+    lucro: item.realizado - item.despesas
   }));
 
-  // Dados de projeção separados dos dados históricos
-  const projecaoData = dadosFinanceiros.projecoesFuturas?.map(item => ({
-    ...item,
-    lucro: item.agendado - item.despesas,
-  })) || [];
+  // Preparar dados para Gráfico 2 (Projeções - Próximos 4 meses)
+  const projecaoData = dadosFinanceiros.projecaoMensal.map(item => ({
+    mes: item.mes,
+    faturamento: item.receitas,
+    realizado: item.receitas,
+    agendado: item.agendados,
+    despesas: item.despesas,
+    lucro: item.lucro
+  }));
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
@@ -946,9 +955,12 @@ export default function Financeiro() {
               <TrendingUp className="h-5 w-5" />
               Projeções (Próximos 4 Meses)
             </CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Mês corrente: valores reais (iguais ao Gráfico 1). Meses futuros: valores esperados.
+            </p>
           </CardHeader>
           <CardContent>
-            <FinancialChart data={projecaoData.slice(0, 4)} type="line" />
+            <FinancialChart data={projecaoData} type="line" />
           </CardContent>
         </Card>
       )}
