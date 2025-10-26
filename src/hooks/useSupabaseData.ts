@@ -617,8 +617,40 @@ export const useSupabaseData = () => {
   const removerReceita = async (id: string) => {
     if (!user) return;
 
-    console.log('[BW][FIN] Removendo receita:', id);
+    console.log('[BW][RECEITA_FIXA] Removendo receita:', id);
 
+    // First, get the receita to know its description for cleaning up financial_entries
+    const { data: receita } = await supabase
+      .from('receitas')
+      .select('descricao, tipo, recorrente')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (receita) {
+      // Remove all financial_entries related to this receita
+      const notePatterns = [
+        `Recorrente: ${receita.descricao}`,
+        `Fixa: ${receita.descricao}`
+      ];
+
+      console.log('[BW][RECEITA_FIXA] Removendo financial_entries com notes:', notePatterns);
+
+      for (const notePattern of notePatterns) {
+        const { error: deleteEntriesError } = await supabase
+          .from('financial_entries')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('kind', 'revenue')
+          .eq('note', notePattern);
+
+        if (deleteEntriesError) {
+          console.error('[BW][RECEITA_FIXA] Error deleting financial entries:', deleteEntriesError);
+        }
+      }
+    }
+
+    // Now delete the receita
     const { error } = await supabase
       .from('receitas')
       .delete()
@@ -629,8 +661,7 @@ export const useSupabaseData = () => {
     
     setReceitas(prev => prev.filter(r => r.id !== id));
     
-    // Rematerializar para limpar parcelas órfãs
-    await materializeFinancialRecurring();
+    // Refetch to update cards and charts
     await fetchReceitas();
     await fetchFinancialEntries();
     
