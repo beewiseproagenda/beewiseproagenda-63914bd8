@@ -68,6 +68,7 @@ export interface Receita {
   descricao: string;
   categoria: CategoriaReceita;
   formaPagamento: FormaPagamento;
+  tipo: 'fixa' | 'variavel';
   observacoes?: string;
   recorrente?: boolean;
   recorrencia?: {

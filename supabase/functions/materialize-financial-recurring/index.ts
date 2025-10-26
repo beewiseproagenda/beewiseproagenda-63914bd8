@@ -57,22 +57,80 @@ Deno.serve(async (req) => {
     let updated = 0;
 
     // ============================================
-    // RECEITAS RECORRENTES
+    // RECEITAS RECORRENTES ou TIPO=FIXA
     // ============================================
     const { data: receitasRecorrentes, error: receitasError } = await supabase
       .from('receitas')
       .select('*')
       .eq('user_id', user.id)
-      .eq('recorrente', true);
+      .or('recorrente.eq.true,tipo.eq.fixa');
 
     if (receitasError) {
       console.error('[BW][FIN_REC] Error fetching receitas:', receitasError);
       throw receitasError;
     }
 
-    console.log('[BW][FIN_REC] Found', receitasRecorrentes?.length || 0, 'recurring receitas');
+    console.log('[BW][RECEITA_FIXA] Found', receitasRecorrentes?.length || 0, 'recurring or fixed receitas');
 
     for (const receita of (receitasRecorrentes || [])) {
+      // Handle tipo=fixa (monthly fixed revenue)
+      if (receita.tipo === 'fixa') {
+        const receitaStartDate = new Date(receita.data);
+        const startDay = receitaStartDate.getDate();
+        const currentDate = new Date(Math.max(receitaStartDate.getTime(), startDate.getTime()));
+
+        console.log('[BW][RECEITA_FIXA] Processing fixed receita:', receita.id, 'day', startDay, 'from', currentDate.toISOString().split('T')[0]);
+
+        while (currentDate <= endDate) {
+          const targetDay = Math.min(startDay, new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate());
+          const occurrenceDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), targetDay);
+          
+          if (occurrenceDate >= receitaStartDate && occurrenceDate <= endDate) {
+            const dueDateStr = occurrenceDate.toISOString().split('T')[0];
+            
+            // Check if entry already exists
+            const { data: existing } = await supabase
+              .from('financial_entries')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('kind', 'revenue')
+              .eq('due_date', dueDateStr)
+              .eq('note', `Fixa: ${receita.descricao}`)
+              .maybeSingle();
+
+            if (!existing) {
+              // Create new entry
+              const { error: insertError } = await supabase
+                .from('financial_entries')
+                .insert({
+                  user_id: user.id,
+                  kind: 'revenue',
+                  status: 'expected',
+                  amount: receita.valor,
+                  due_date: dueDateStr,
+                  note: `Fixa: ${receita.descricao}`,
+                });
+
+              if (insertError) {
+                console.error('[BW][RECEITA_FIXA] Error creating fixed revenue entry:', insertError);
+              } else {
+                created++;
+                console.log('[BW][RECEITA_FIXA] Created fixed revenue entry for', dueDateStr);
+              }
+            }
+          }
+          
+          // Move to next month
+          currentDate.setMonth(currentDate.getMonth() + 1);
+          
+          // Safety break for infinite loops
+          if (currentDate.getFullYear() > endDate.getFullYear() + 1) break;
+        }
+        
+        continue; // Skip recurrence logic for tipo=fixa
+      }
+
+      // Handle recorrente=true (existing logic)
       const rec = receita.recorrencia as { tipo: string; dia: number };
       if (!rec) continue;
 
@@ -154,22 +212,80 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // DESPESAS RECORRENTES
+    // DESPESAS RECORRENTES ou TIPO=FIXA
     // ============================================
     const { data: despesasRecorrentes, error: despesasError } = await supabase
       .from('despesas')
       .select('*')
       .eq('user_id', user.id)
-      .eq('recorrente', true);
+      .or('recorrente.eq.true,tipo.eq.fixa');
 
     if (despesasError) {
       console.error('[BW][FIN_REC] Error fetching despesas:', despesasError);
       throw despesasError;
     }
 
-    console.log('[BW][FIN_REC] Found', despesasRecorrentes?.length || 0, 'recurring despesas');
+    console.log('[BW][RECEITA_FIXA] Found', despesasRecorrentes?.length || 0, 'recurring or fixed despesas');
 
     for (const despesa of (despesasRecorrentes || [])) {
+      // Handle tipo=fixa (monthly fixed expense)
+      if (despesa.tipo === 'fixa') {
+        const despesaStartDate = new Date(despesa.data);
+        const startDay = despesaStartDate.getDate();
+        const currentDate = new Date(Math.max(despesaStartDate.getTime(), startDate.getTime()));
+
+        console.log('[BW][RECEITA_FIXA] Processing fixed despesa:', despesa.id, 'day', startDay, 'from', currentDate.toISOString().split('T')[0]);
+
+        while (currentDate <= endDate) {
+          const targetDay = Math.min(startDay, new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate());
+          const occurrenceDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), targetDay);
+          
+          if (occurrenceDate >= despesaStartDate && occurrenceDate <= endDate) {
+            const dueDateStr = occurrenceDate.toISOString().split('T')[0];
+            
+            // Check if entry already exists
+            const { data: existing } = await supabase
+              .from('financial_entries')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('kind', 'expense')
+              .eq('due_date', dueDateStr)
+              .eq('note', `Fixa: ${despesa.descricao}`)
+              .maybeSingle();
+
+            if (!existing) {
+              // Create new entry
+              const { error: insertError } = await supabase
+                .from('financial_entries')
+                .insert({
+                  user_id: user.id,
+                  kind: 'expense',
+                  status: 'expected',
+                  amount: despesa.valor,
+                  due_date: dueDateStr,
+                  note: `Fixa: ${despesa.descricao}`,
+                });
+
+              if (insertError) {
+                console.error('[BW][RECEITA_FIXA] Error creating fixed expense entry:', insertError);
+              } else {
+                created++;
+                console.log('[BW][RECEITA_FIXA] Created fixed expense entry for', dueDateStr);
+              }
+            }
+          }
+          
+          // Move to next month
+          currentDate.setMonth(currentDate.getMonth() + 1);
+          
+          // Safety break for infinite loops
+          if (currentDate.getFullYear() > endDate.getFullYear() + 1) break;
+        }
+        
+        continue; // Skip recurrence logic for tipo=fixa
+      }
+
+      // Handle recorrente=true (existing logic)
       const rec = despesa.recorrencia as { tipo: string; dia: number };
       if (!rec) continue;
 

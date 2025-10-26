@@ -543,7 +543,7 @@ export const useSupabaseData = () => {
   const adicionarReceita = async (receitaData: Omit<Receita, 'id' | 'user_id' | 'created_at'>) => {
     if (!user) return;
 
-    console.log('[BW][FIN] Adicionando receita:', receitaData);
+    console.log('[BW][RECEITA_FIXA] Adicionando receita:', receitaData);
 
     const { data, error } = await supabase
       .from('receitas')
@@ -555,9 +555,12 @@ export const useSupabaseData = () => {
     
     setReceitas(prev => [...prev, data]);
     
-    // If recurring, materialize future entries
-    if (receitaData.recorrente) {
-      console.log('[BW][FIN] Materializando receita recorrente');
+    // If recurring OR tipo=fixa, materialize future entries
+    if (receitaData.recorrente || receitaData.tipo === 'fixa') {
+      console.log('[BW][RECEITA_FIXA] Materializando receita', { 
+        recorrente: receitaData.recorrente, 
+        tipo: receitaData.tipo 
+      });
       await materializeFinancialRecurring();
     }
     
@@ -576,7 +579,7 @@ export const useSupabaseData = () => {
   const atualizarReceita = async (id: string, receitaData: Partial<Receita>) => {
     if (!user) return;
 
-    console.log('[BW][FIN] Atualizando receita:', { id, receitaData });
+    console.log('[BW][RECEITA_FIXA] Atualizando receita:', { id, receitaData });
 
     const { data, error } = await supabase
       .from('receitas')
@@ -590,9 +593,12 @@ export const useSupabaseData = () => {
     
     setReceitas(prev => prev.map(r => r.id === id ? data : r));
     
-    // If recurring, rematerialize future entries
-    if (data.recorrente) {
-      console.log('[BW][FIN] Rematerializando receita recorrente');
+    // If recurring OR tipo=fixa, rematerialize future entries
+    if (data.recorrente || data.tipo === 'fixa') {
+      console.log('[BW][RECEITA_FIXA] Rematerializando receita', { 
+        recorrente: data.recorrente, 
+        tipo: data.tipo 
+      });
       await materializeFinancialRecurring();
     }
     
