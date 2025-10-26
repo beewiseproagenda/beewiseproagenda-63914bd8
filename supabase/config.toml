@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.log-rpc-usage]
 verify_jwt = false
+
+[functions.materialize-financial-recurring]
+verify_jwt = true
+
+[functions.fix-date-offset]
+verify_jwt = true
