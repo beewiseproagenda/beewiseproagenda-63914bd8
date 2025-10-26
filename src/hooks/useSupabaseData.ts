@@ -460,6 +460,11 @@ export const useSupabaseData = () => {
     
     setDespesas(prev => [...prev, data]);
     
+    // If recurring, materialize future entries
+    if (despesaData.recorrente) {
+      await materializeFinancialRecurring();
+    }
+    
     // Refetch financial entries to update projections
     await fetchFinancialEntries();
     
@@ -485,6 +490,11 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setDespesas(prev => prev.map(d => d.id === id ? data : d));
+    
+    // If recurring, rematerialize future entries
+    if (data.recorrente) {
+      await materializeFinancialRecurring();
+    }
     
     // Refetch financial entries to update projections
     await fetchFinancialEntries();
@@ -531,6 +541,11 @@ export const useSupabaseData = () => {
     
     setReceitas(prev => [...prev, data]);
     
+    // If recurring, materialize future entries
+    if (receitaData.recorrente) {
+      await materializeFinancialRecurring();
+    }
+    
     // Refetch financial entries to update projections
     await fetchFinancialEntries();
     
@@ -556,6 +571,11 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setReceitas(prev => prev.map(r => r.id === id ? data : r));
+    
+    // If recurring, rematerialize future entries
+    if (data.recorrente) {
+      await materializeFinancialRecurring();
+    }
     
     // Refetch financial entries to update projections
     await fetchFinancialEntries();
@@ -895,6 +915,24 @@ export const useSupabaseData = () => {
     }
   };
 
+  const materializeFinancialRecurring = async () => {
+    try {
+      console.log('[BW][FIN_REC] Materializing financial recurring entries');
+      const { error } = await supabase.functions.invoke('materialize-financial-recurring', {
+        body: {}
+      });
+      if (error) {
+        console.error('Erro ao materializar recorrências financeiras:', error);
+      } else {
+        console.log('[BW][FIN_REC] Financial recurring materialization complete');
+        // Refetch financial entries after materialization
+        await fetchFinancialEntries();
+      }
+    } catch (err) {
+      console.error('Erro ao chamar materialize-financial-recurring:', err);
+    }
+  };
+
   return {
     // Data
     clientes,
@@ -934,6 +972,7 @@ export const useSupabaseData = () => {
     calcularDadosFinanceiros,
     
     // Recurring appointments
-    materializeRecurringAppointments
+    materializeRecurringAppointments,
+    materializeFinancialRecurring
   };
 };
