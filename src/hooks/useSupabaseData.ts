@@ -691,36 +691,45 @@ export const useSupabaseData = () => {
   const removerReceita = async (id: string) => {
     if (!user) return;
 
-    console.log('[BW][FIN_SYNC] Removing receita:', id);
+    console.log('[BW][FIN_SYNC] ===== REMOVING RECEITA =====');
+    console.log('[BW][FIN_SYNC] Receita ID:', id);
 
     // First, get the receita to know its description for cleaning up financial_entries
-    const { data: receita } = await supabase
+    const { data: receita, error: fetchError } = await supabase
       .from('receitas')
       .select('descricao, tipo, recorrente')
       .eq('id', id)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('[BW][FIN_SYNC] Error fetching receita:', fetchError);
+      throw fetchError;
+    }
 
     if (receita) {
-      // Remove all financial_entries related to this receita
-      const notePatterns = [
-        `Recorrente: ${receita.descricao}`,
-        `Fixa: ${receita.descricao}`
-      ];
+      console.log('[BW][FIN_SYNC] Receita details:', { descricao: receita.descricao, tipo: receita.tipo, recorrente: receita.recorrente });
 
-      console.log('[BW][FIN_SYNC] Removing financial_entries with notes:', notePatterns);
+      // Remove ALL financial_entries related to this receita (using ILIKE for case-insensitive pattern matching)
+      // This catches all entries regardless of exact format
+      const descricao = receita.descricao;
+      
+      // Delete entries with notes containing the description
+      const { data: deletedEntries, error: deleteEntriesError } = await supabase
+        .from('financial_entries')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('kind', 'revenue')
+        .or(`note.ilike.%Recorrente: ${descricao}%,note.ilike.%Fixa: ${descricao}%,note.ilike.%${descricao}%`)
+        .select('id, note, amount, due_date');
 
-      for (const notePattern of notePatterns) {
-        const { error: deleteEntriesError } = await supabase
-          .from('financial_entries')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('kind', 'revenue')
-          .eq('note', notePattern);
-
-        if (deleteEntriesError) {
-          console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
-        }
+      if (deleteEntriesError) {
+        console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
+      } else {
+        console.log('[BW][FIN_SYNC] Deleted financial_entries:', deletedEntries?.length || 0);
+        deletedEntries?.forEach(entry => {
+          console.log('[BW][FIN_SYNC] Deleted entry:', { note: entry.note, amount: entry.amount, due_date: entry.due_date });
+        });
       }
     }
 
@@ -731,15 +740,29 @@ export const useSupabaseData = () => {
       .eq('id', id)
       .eq('user_id', user.id);
 
-    if (error) throw error;
+    if (error) {
+      console.error('[BW][FIN_SYNC] Error deleting receita:', error);
+      throw error;
+    }
     
+    console.log('[BW][FIN_SYNC] Receita deleted from database');
+    
+    // Update local state immediately
     setReceitas(prev => prev.filter(r => r.id !== id));
     
-    // SYNC: Invalidate and reload ALL
-    await fetchReceitas();
-    await fetchFinancialEntries();
+    // CRITICAL: Run cleanup to remove any orphaned entries
+    console.log('[BW][FIN_SYNC] Running cleanup to remove orphans...');
+    await cleanupOrphanEntries();
     
-    console.log('[BW][FIN_SYNC] Receita removed, data reloaded');
+    // CRITICAL: Reload financial data to update cards and charts
+    console.log('[BW][FIN_SYNC] Reloading financial data...');
+    await Promise.all([
+      fetchReceitas(),
+      fetchFinancialEntries()
+    ]);
+    
+    console.log('[BW][FIN_SYNC] Financial data reloaded. Current financial_entries count:', financialEntries.length);
+    console.log('[BW][FIN_SYNC] ===== RECEITA REMOVAL COMPLETE =====');
     
     toast({
       title: "Sucesso",
