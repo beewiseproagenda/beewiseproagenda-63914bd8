@@ -32,9 +32,24 @@ Deno.serve(async (req) => {
 
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
+    
+    console.log('[BW][CLEANUP] Today:', todayStr);
 
-    // 1. Remove future expected entries that don't have a valid recurrence anymore
-    // (Receitas/Despesas that were deleted or changed from tipo=fixa/recorrente to tipo=variavel)
+    // 1. Remove ALL future expected entries (projeções antigas)
+    console.log('[BW][CLEANUP] Step 1: Removing all future expected entries (old projections)');
+    
+    const { data: futureExpected, error: futureError } = await supabaseClient
+      .from('financial_entries')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('status', 'expected')
+      .gte('due_date', todayStr)
+      .select('id');
+    
+    const futureRemovedCount = futureExpected?.length || 0;
+    console.log('[BW][CLEANUP] Removed future expected entries:', futureRemovedCount);
+
+    // 2. Build valid recurring/fixed notes from current active receitas/despesas
     const { data: receitas } = await supabaseClient
       .from('receitas')
       .select('id, descricao, tipo, recorrente')
@@ -58,51 +73,9 @@ Deno.serve(async (req) => {
       if ((d as any).tipo === 'fixa') validRecurringNotes.add(`Fixa: ${d.descricao}`);
     });
 
-    console.log('[BW][CLEANUP] Valid recurring notes:', Array.from(validRecurringNotes));
+    console.log('[BW][CLEANUP] Valid recurring/fixed notes:', Array.from(validRecurringNotes));
 
-    // Get all future expected entries
-    const { data: futureEntries } = await supabaseClient
-      .from('financial_entries')
-      .select('id, note, due_date, kind, amount')
-      .eq('user_id', user.id)
-      .eq('status', 'expected')
-      .gte('due_date', todayStr);
-
-    let orphanCount = 0;
-    const entriesToDelete: string[] = [];
-
-    futureEntries?.forEach(entry => {
-      const note = entry.note || '';
-      const isRecurringNote = note.startsWith('Recorrente: ') || note.startsWith('Fixa: ');
-      
-      if (isRecurringNote && !validRecurringNotes.has(note)) {
-        // This is an orphan entry (source was deleted or changed)
-        entriesToDelete.push(entry.id);
-        orphanCount++;
-        console.log('[BW][CLEANUP] Found orphan entry:', {
-          id: entry.id,
-          note,
-          due_date: entry.due_date,
-          amount: entry.amount
-        });
-      }
-    });
-
-    // Delete orphan entries
-    if (entriesToDelete.length > 0) {
-      const { error: deleteError } = await supabaseClient
-        .from('financial_entries')
-        .delete()
-        .in('id', entriesToDelete);
-
-      if (deleteError) {
-        console.error('[BW][CLEANUP] Error deleting orphans:', deleteError);
-      } else {
-        console.log('[BW][CLEANUP] Deleted orphan entries:', entriesToDelete.length);
-      }
-    }
-
-    // 2. Deduplicate by (note, due_date) - keep most recent
+    // 3. Deduplicate by (note, due_date, kind) - keep most recent
     const { data: allEntries } = await supabaseClient
       .from('financial_entries')
       .select('id, note, due_date, kind, created_at')
@@ -138,12 +111,18 @@ Deno.serve(async (req) => {
       }
     }
 
+    console.log('[BW][CLEANUP] === CLEANUP SUMMARY ===');
+    console.log('[BW][CLEANUP] Future expected removed:', futureRemovedCount);
+    console.log('[BW][CLEANUP] Duplicates removed:', duplicateCount);
+    console.log('[BW][CLEANUP] Total cleaned:', futureRemovedCount + duplicateCount);
+
     return new Response(
       JSON.stringify({
         success: true,
-        orphans_removed: orphanCount,
+        future_removed: futureRemovedCount,
         duplicates_removed: duplicateCount,
-        message: `Cleanup complete: ${orphanCount} orphans + ${duplicateCount} duplicates removed`
+        total_removed: futureRemovedCount + duplicateCount,
+        message: `Cleanup complete: ${futureRemovedCount} future projections + ${duplicateCount} duplicates removed`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

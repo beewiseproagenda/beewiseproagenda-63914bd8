@@ -348,6 +348,8 @@ export const useSupabaseData = () => {
   const atualizarAtendimento = async (id: string, atendimentoData: any) => {
     if (!user) return;
 
+    console.log('[BW][FIN_SYNC] Updating atendimento:', { id, atendimentoData });
+
     // Extrair servicos do atendimentoData
     const { servicos, ...atendimentoBase } = atendimentoData;
 
@@ -371,8 +373,11 @@ export const useSupabaseData = () => {
     
     setAtendimentos(prev => prev.map(a => a.id === id ? data : a));
     
-    // Refetch para atualizar cards e gráficos
+    // SYNC: Invalidate and reload ALL
+    await fetchAtendimentos();
     await fetchFinancialEntries();
+    
+    console.log('[BW][FIN_SYNC] Atendimento updated, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -382,6 +387,8 @@ export const useSupabaseData = () => {
 
   const removerAtendimento = async (id: string) => {
     if (!user) return;
+
+    console.log('[BW][FIN_SYNC] Removing atendimento:', id);
 
     const { error } = await supabase
       .from('atendimentos')
@@ -393,8 +400,11 @@ export const useSupabaseData = () => {
     
     setAtendimentos(prev => prev.filter(a => a.id !== id));
     
-    // Refetch para atualizar cards e gráficos imediatamente
+    // SYNC: Invalidate and reload ALL
+    await fetchAtendimentos();
     await fetchFinancialEntries();
+    
+    console.log('[BW][FIN_SYNC] Atendimento removed, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -465,7 +475,7 @@ export const useSupabaseData = () => {
   const adicionarDespesa = async (despesaData: Omit<Despesa, 'id' | 'user_id' | 'created_at'>) => {
     if (!user) return;
 
-    console.log('[BW][FIN] Adicionando despesa:', despesaData);
+    console.log('[BW][FIN_SYNC] Adding despesa:', despesaData);
 
     const { data, error } = await supabase
       .from('despesas')
@@ -477,15 +487,21 @@ export const useSupabaseData = () => {
     
     setDespesas(prev => [...prev, data]);
     
-    // If recurring, materialize future entries
-    if (despesaData.recorrente) {
-      console.log('[BW][FIN] Materializando despesa recorrente');
+    // If recurring OR tipo=fixa, materialize future entries
+    const tipoValue = (despesaData as any).tipo;
+    if (despesaData.recorrente || tipoValue === 'fixa') {
+      console.log('[BW][FIN_SYNC] Materializing recurring/fixed despesa', { 
+        recorrente: despesaData.recorrente, 
+        tipo: tipoValue
+      });
       await materializeFinancialRecurring();
     }
     
-    // Refetch para atualizar cards e gráficos
+    // SYNC: Invalidate and reload ALL
     await fetchDespesas();
     await fetchFinancialEntries();
+    
+    console.log('[BW][FIN_SYNC] Despesa added, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -498,7 +514,7 @@ export const useSupabaseData = () => {
   const atualizarDespesa = async (id: string, despesaData: Partial<Despesa>) => {
     if (!user) return;
 
-    console.log('[BW][FIN] Atualizando despesa:', { id, despesaData });
+    console.log('[BW][FIN_SYNC] Updating despesa:', { id, despesaData });
 
     const { data, error } = await supabase
       .from('despesas')
@@ -512,15 +528,21 @@ export const useSupabaseData = () => {
     
     setDespesas(prev => prev.map(d => d.id === id ? data : d));
     
-    // If recurring, rematerialize future entries
-    if (data.recorrente) {
-      console.log('[BW][FIN] Rematerializando despesa recorrente');
+    // If recurring OR tipo=fixa, rematerialize future entries
+    const tipoValue = (data as any).tipo;
+    if (data.recorrente || tipoValue === 'fixa') {
+      console.log('[BW][FIN_SYNC] Rematerializing recurring/fixed despesa', { 
+        recorrente: data.recorrente, 
+        tipo: tipoValue
+      });
       await materializeFinancialRecurring();
     }
     
-    // Refetch para atualizar cards e gráficos
+    // SYNC: Invalidate and reload ALL
     await fetchDespesas();
     await fetchFinancialEntries();
+    
+    console.log('[BW][FIN_SYNC] Despesa updated, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -531,8 +553,40 @@ export const useSupabaseData = () => {
   const removerDespesa = async (id: string) => {
     if (!user) return;
 
-    console.log('[BW][FIN] Removendo despesa:', id);
+    console.log('[BW][FIN_SYNC] Removing despesa:', id);
 
+    // First, get the despesa to know its description for cleaning up financial_entries
+    const { data: despesa } = await supabase
+      .from('despesas')
+      .select('descricao, tipo, recorrente')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (despesa) {
+      // Remove all financial_entries related to this despesa
+      const notePatterns = [
+        `Recorrente: ${despesa.descricao}`,
+        `Fixa: ${despesa.descricao}`
+      ];
+
+      console.log('[BW][FIN_SYNC] Removing financial_entries with notes:', notePatterns);
+
+      for (const notePattern of notePatterns) {
+        const { error: deleteEntriesError } = await supabase
+          .from('financial_entries')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('kind', 'expense')
+          .eq('note', notePattern);
+
+        if (deleteEntriesError) {
+          console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
+        }
+      }
+    }
+
+    // Now delete the despesa
     const { error } = await supabase
       .from('despesas')
       .delete()
@@ -543,10 +597,11 @@ export const useSupabaseData = () => {
     
     setDespesas(prev => prev.filter(d => d.id !== id));
     
-    // Rematerializar para limpar parcelas órfãs
-    await materializeFinancialRecurring();
+    // SYNC: Invalidate and reload ALL
     await fetchDespesas();
     await fetchFinancialEntries();
+    
+    console.log('[BW][FIN_SYNC] Despesa removed, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -558,7 +613,7 @@ export const useSupabaseData = () => {
   const adicionarReceita = async (receitaData: Omit<Receita, 'id' | 'user_id' | 'created_at'>) => {
     if (!user) return;
 
-    console.log('[BW][RECEITA_FIXA] Adicionando receita:', receitaData);
+    console.log('[BW][FIN_SYNC] Adding receita:', receitaData);
 
     const { data, error } = await supabase
       .from('receitas')
@@ -573,16 +628,18 @@ export const useSupabaseData = () => {
     // If recurring OR tipo=fixa, materialize future entries
     const tipoValue = (receitaData as any).tipo;
     if (receitaData.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][RECEITA_FIXA] Materializando receita', { 
+      console.log('[BW][FIN_SYNC] Materializing recurring/fixed receita', { 
         recorrente: receitaData.recorrente, 
         tipo: tipoValue
       });
       await materializeFinancialRecurring();
     }
     
-    // Refetch para atualizar cards e gráficos
+    // SYNC: Invalidate and reload ALL
     await fetchReceitas();
     await fetchFinancialEntries();
+    
+    console.log('[BW][FIN_SYNC] Receita added, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -595,7 +652,7 @@ export const useSupabaseData = () => {
   const atualizarReceita = async (id: string, receitaData: Partial<Receita>) => {
     if (!user) return;
 
-    console.log('[BW][RECEITA_FIXA] Atualizando receita:', { id, receitaData });
+    console.log('[BW][FIN_SYNC] Updating receita:', { id, receitaData });
 
     const { data, error } = await supabase
       .from('receitas')
@@ -612,16 +669,18 @@ export const useSupabaseData = () => {
     // If recurring OR tipo=fixa, rematerialize future entries
     const tipoValue = (data as any).tipo;
     if (data.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][RECEITA_FIXA] Rematerializando receita', { 
+      console.log('[BW][FIN_SYNC] Rematerializing recurring/fixed receita', { 
         recorrente: data.recorrente, 
         tipo: tipoValue
       });
       await materializeFinancialRecurring();
     }
     
-    // Refetch para atualizar cards e gráficos
+    // SYNC: Invalidate and reload ALL
     await fetchReceitas();
     await fetchFinancialEntries();
+    
+    console.log('[BW][FIN_SYNC] Receita updated, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -632,7 +691,7 @@ export const useSupabaseData = () => {
   const removerReceita = async (id: string) => {
     if (!user) return;
 
-    console.log('[BW][RECEITA_FIXA] Removendo receita:', id);
+    console.log('[BW][FIN_SYNC] Removing receita:', id);
 
     // First, get the receita to know its description for cleaning up financial_entries
     const { data: receita } = await supabase
@@ -649,7 +708,7 @@ export const useSupabaseData = () => {
         `Fixa: ${receita.descricao}`
       ];
 
-      console.log('[BW][RECEITA_FIXA] Removendo financial_entries com notes:', notePatterns);
+      console.log('[BW][FIN_SYNC] Removing financial_entries with notes:', notePatterns);
 
       for (const notePattern of notePatterns) {
         const { error: deleteEntriesError } = await supabase
@@ -660,7 +719,7 @@ export const useSupabaseData = () => {
           .eq('note', notePattern);
 
         if (deleteEntriesError) {
-          console.error('[BW][RECEITA_FIXA] Error deleting financial entries:', deleteEntriesError);
+          console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
         }
       }
     }
@@ -676,9 +735,11 @@ export const useSupabaseData = () => {
     
     setReceitas(prev => prev.filter(r => r.id !== id));
     
-    // Refetch to update cards and charts
+    // SYNC: Invalidate and reload ALL
     await fetchReceitas();
     await fetchFinancialEntries();
+    
+    console.log('[BW][FIN_SYNC] Receita removed, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -743,10 +804,10 @@ export const useSupabaseData = () => {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
     
-    console.log('[BW][SYNC] ========== Início dos cálculos (fonte canônica) ==========');
-    console.log('[BW][SYNC] TZ:', APP_TZ, 'Hoje:', today.toISOString());
-    console.log('[BW][SYNC] Financial entries total:', financialEntries.length);
-    console.log('[BW][SYNC] Atendimentos total:', atendimentos.length);
+    console.log('[BW][FIN_SYNC] ========== INÍCIO CÁLCULO FINANCEIRO ==========');
+    console.log('[BW][FIN_SYNC] TZ:', APP_TZ, 'Hoje:', today.toISOString());
+    console.log('[BW][FIN_SYNC] Financial entries total:', financialEntries.length);
+    console.log('[BW][FIN_SYNC] Atendimentos total:', atendimentos.length);
     
     // Helper to parse DATE as local (prevent -1 day bug)
     const parseLocalDate = (dateStr: string): Date => {
@@ -783,7 +844,7 @@ export const useSupabaseData = () => {
     const faturamentoMesAtual = finEntriesReceitasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
     const totalDespesas = finEntriesDespesasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
     
-    console.log('[BW][SYNC] Mês corrente:', { 
+    console.log('[BW][FIN_SYNC] Mês corrente:', { 
       periodo: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`,
       receitasCount: finEntriesReceitasMesAtual.length, 
       faturamento: faturamentoMesAtual.toFixed(2), 
@@ -797,7 +858,7 @@ export const useSupabaseData = () => {
     // ============================================
     const historicoMensal = [];
     
-    console.log('[BW][SYNC] ========== Gráfico 1 - Histórico ==========');
+    console.log('[BW][FIN_SYNC] ========== Gráfico 1 - Histórico ==========');
     
     // Get exactly 4 months: 3 past months + current month
     for (let i = 3; i >= 0; i--) {
@@ -854,7 +915,7 @@ export const useSupabaseData = () => {
         despesas: despesasTotalMes
       });
       
-      console.log(`[BW][SYNC] Gráfico 1 - ${mesLabel}:`, {
+      console.log(`[BW][FIN_SYNC] Gráfico 1 - ${mesLabel}:`, {
         receitas: realizadoMes.toFixed(2),
         agendados: agendadoMes.toFixed(2),
         despesas: despesasTotalMes.toFixed(2),
@@ -871,7 +932,7 @@ export const useSupabaseData = () => {
     // ============================================
     const projecaoMensal = [];
     
-    console.log('[BW][SYNC] ========== Gráfico 2 - Projeções ==========');
+    console.log('[BW][FIN_SYNC] ========== Gráfico 2 - Projeções ==========');
     
     // Próximos 4 meses (incluindo mês corrente)
     for (let i = 0; i <= 3; i++) {
@@ -902,7 +963,7 @@ export const useSupabaseData = () => {
         });
         agendadosProj = atendimentosAgendadosMesAtual.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
         
-        console.log(`[BW][SYNC] Gráfico 2 - ${mesLabel} (MESMA LÓGICA G1):`, {
+        console.log(`[BW][FIN_SYNC] Gráfico 2 - ${mesLabel} (MESMA LÓGICA G1):`, {
           receitas: receitasProj.toFixed(2),
           despesas: despesasProj.toFixed(2),
           agendados: agendadosProj.toFixed(2),
@@ -944,7 +1005,7 @@ export const useSupabaseData = () => {
         });
         agendadosProj = atendimentosFuturos.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
         
-        console.log(`[BW][SYNC] Gráfico 2 - ${mesLabel} (expected):`, {
+        console.log(`[BW][FIN_SYNC] Gráfico 2 - ${mesLabel} (expected):`, {
           receitas: receitasProj.toFixed(2),
           despesas: despesasProj.toFixed(2),
           agendados: agendadosProj.toFixed(2),
@@ -963,7 +1024,7 @@ export const useSupabaseData = () => {
       });
     }
 
-    console.log('[BW][SYNC] ========== Fim dos cálculos ==========');
+    console.log('[BW][FIN_SYNC] ========== FIM CÁLCULO FINANCEIRO ==========');
 
     const faturamentoMediaMensal = historicoMensal.slice(0, 4).reduce((sum, m) => sum + m.realizado, 0) / 4;
     const lucroLiquido = faturamentoMesAtual - totalDespesas;
