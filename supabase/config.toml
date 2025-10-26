@@ -47,3 +47,6 @@ verify_jwt = true
 
 [functions.fix-date-offset]
 verify_jwt = true
+
+[functions.cleanup-orphan-entries]
+verify_jwt = true

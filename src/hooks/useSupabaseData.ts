@@ -279,6 +279,9 @@ export const useSupabaseData = () => {
       
       setAtendimentos(prev => [...prev, newAtendimento]);
       
+      // Refetch para atualizar cards e gráficos
+      await fetchFinancialEntries();
+      
       toast({
         title: "Sucesso",
         description: "Atendimento agendado com sucesso"
@@ -302,6 +305,10 @@ export const useSupabaseData = () => {
       }
       
       setAtendimentos(prev => [...prev, data]);
+      
+      // Refetch para atualizar cards e gráficos
+      await fetchFinancialEntries();
+      
       toast({
         title: "Sucesso",
         description: "Atendimento agendado com sucesso"
@@ -363,6 +370,10 @@ export const useSupabaseData = () => {
     }
     
     setAtendimentos(prev => prev.map(a => a.id === id ? data : a));
+    
+    // Refetch para atualizar cards e gráficos
+    await fetchFinancialEntries();
+    
     toast({
       title: "Sucesso",
       description: "Atendimento atualizado com sucesso"
@@ -381,6 +392,10 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setAtendimentos(prev => prev.filter(a => a.id !== id));
+    
+    // Refetch para atualizar cards e gráficos imediatamente
+    await fetchFinancialEntries();
+    
     toast({
       title: "Sucesso",
       description: "Atendimento removido com sucesso"
@@ -721,15 +736,17 @@ export const useSupabaseData = () => {
     return valor;
   };
 
-  // Financial calculations
+  // Financial calculations - EXCLUSIVE SOURCE: financial_entries + atendimentos
   const calcularDadosFinanceiros = () => {
     const APP_TZ = 'America/Sao_Paulo';
     const today = new Date();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
     
-    console.log('[BW][FIN] ========== Início dos cálculos ==========');
-    console.log('[BW][FIN] TZ:', APP_TZ, 'Hoje:', today.toISOString());
+    console.log('[BW][SYNC] ========== Início dos cálculos (fonte canônica) ==========');
+    console.log('[BW][SYNC] TZ:', APP_TZ, 'Hoje:', today.toISOString());
+    console.log('[BW][SYNC] Financial entries total:', financialEntries.length);
+    console.log('[BW][SYNC] Atendimentos total:', atendimentos.length);
     
     // Helper to parse DATE as local (prevent -1 day bug)
     const parseLocalDate = (dateStr: string): Date => {
@@ -738,48 +755,49 @@ export const useSupabaseData = () => {
     };
     
     // ============================================
-    // CURRENT MONTH DATA - USE RECEITAS TABLE (not atendimentos)
+    // CURRENT MONTH DATA - USE financial_entries (expected + confirmed)
     // ============================================
+    const firstDayCurrentMonth = new Date(currentYear, currentMonth, 1);
+    const lastDayCurrentMonth = new Date(currentYear, currentMonth + 1, 0);
+    const firstDayStr = firstDayCurrentMonth.toISOString().split('T')[0];
+    const lastDayStr = lastDayCurrentMonth.toISOString().split('T')[0];
     
-    // RECEITAS do mês atual (confirmed revenues from receitas table)
-    const receitasMesAtual = receitas.filter(r => {
-      const dataReceita = parseLocalDate(r.data);
-      return dataReceita.getMonth() === currentMonth &&
-             dataReceita.getFullYear() === currentYear &&
-             dataReceita <= today;
+    // RECEITAS do mês atual (expected + confirmed from financial_entries)
+    const finEntriesReceitasMesAtual = financialEntries.filter(fe => {
+      return fe.kind === 'revenue' &&
+             (fe.status === 'expected' || fe.status === 'confirmed') &&
+             fe.due_date >= firstDayStr &&
+             fe.due_date <= lastDayStr &&
+             parseLocalDate(fe.due_date) <= today;
     });
     
-    // DESPESAS do mês atual
-    const despesasMesAtual = despesas.filter(d => {
-      const dataDespesa = parseLocalDate(d.data);
-      return dataDespesa.getMonth() === currentMonth &&
-             dataDespesa.getFullYear() === currentYear &&
-             dataDespesa <= today;
+    // DESPESAS do mês atual (expected + confirmed from financial_entries)
+    const finEntriesDespesasMesAtual = financialEntries.filter(fe => {
+      return fe.kind === 'expense' &&
+             (fe.status === 'expected' || fe.status === 'confirmed') &&
+             fe.due_date >= firstDayStr &&
+             fe.due_date <= lastDayStr &&
+             parseLocalDate(fe.due_date) <= today;
     });
 
-    const faturamentoMesAtual = receitasMesAtual.reduce((sum, r) => sum + Number(r.valor), 0);
-    const totalDespesas = despesasMesAtual.reduce((sum, d) => sum + Number(d.valor), 0);
-
-    // Add recurring expenses to current month (only for current month and before)
-    const despesasRecorrentesMesAtual = despesas
-      .filter(d => d.recorrente && parseLocalDate(d.data) <= today)
-      .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, currentMonth, currentYear), 0);
-
-    const totalDespesasComRecorrencia = totalDespesas + despesasRecorrentesMesAtual;
+    const faturamentoMesAtual = finEntriesReceitasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
+    const totalDespesas = finEntriesDespesasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
     
-    console.log('[BW][FIN] Mês corrente:', { 
+    console.log('[BW][SYNC] Mês corrente:', { 
       periodo: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`,
-      receitasCount: receitasMesAtual.length, 
+      receitasCount: finEntriesReceitasMesAtual.length, 
       faturamento: faturamentoMesAtual.toFixed(2), 
-      despesasCount: despesasMesAtual.length,
-      despesas: totalDespesasComRecorrencia.toFixed(2),
-      lucro: (faturamentoMesAtual - totalDespesasComRecorrencia).toFixed(2)
+      despesasCount: finEntriesDespesasMesAtual.length,
+      despesas: totalDespesas.toFixed(2),
+      lucro: (faturamentoMesAtual - totalDespesas).toFixed(2)
     });
 
     // ============================================
-    // HISTORICAL DATA - USE RECEITAS/DESPESAS TABLES + AGENDADOS FROM ATENDIMENTOS
+    // GRÁFICO 1 - HISTÓRICO (Últimos 4 meses) - USE financial_entries + atendimentos
     // ============================================
     const historicoMensal = [];
+    
+    console.log('[BW][SYNC] ========== Gráfico 1 - Histórico ==========');
     
     // Get exactly 4 months: 3 past months + current month
     for (let i = 3; i >= 0; i--) {
@@ -788,12 +806,19 @@ export const useSupabaseData = () => {
       const year = date.getFullYear();
       const isCurrentMonth = month === currentMonth && year === currentYear;
       
-      // RECEITAS do mês (confirmed revenues)
-      const receitasMes = receitas.filter(r => {
-        const dataReceita = parseLocalDate(r.data);
-        return dataReceita.getMonth() === month &&
-               dataReceita.getFullYear() === year &&
-               (!isCurrentMonth || dataReceita <= today);
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const firstDayMonthStr = firstDay.toISOString().split('T')[0];
+      const lastDayMonthStr = lastDay.toISOString().split('T')[0];
+      
+      // RECEITAS do mês (expected + confirmed from financial_entries)
+      const finEntriesReceitasMes = financialEntries.filter(fe => {
+        const dueDate = parseLocalDate(fe.due_date);
+        return fe.kind === 'revenue' &&
+               (fe.status === 'expected' || fe.status === 'confirmed') &&
+               fe.due_date >= firstDayMonthStr &&
+               fe.due_date <= lastDayMonthStr &&
+               (!isCurrentMonth || dueDate <= today);
       });
       
       // AGENDADOS do mês (scheduled appointments by data local)
@@ -805,22 +830,19 @@ export const useSupabaseData = () => {
                (!isCurrentMonth || dataAtendimento <= today);
       });
 
-      // DESPESAS do mês
-      const despesasMes = despesas.filter(d => {
-        const dataDespesa = parseLocalDate(d.data);
-        return dataDespesa.getMonth() === month &&
-               dataDespesa.getFullYear() === year &&
-               (!isCurrentMonth || dataDespesa <= today);
+      // DESPESAS do mês (expected + confirmed from financial_entries)
+      const finEntriesDespesasMes = financialEntries.filter(fe => {
+        const dueDate = parseLocalDate(fe.due_date);
+        return fe.kind === 'expense' &&
+               (fe.status === 'expected' || fe.status === 'confirmed') &&
+               fe.due_date >= firstDayMonthStr &&
+               fe.due_date <= lastDayMonthStr &&
+               (!isCurrentMonth || dueDate <= today);
       });
 
-      // Add recurring expenses for this month
-      const despesasRecorrentesMes = despesas
-        .filter(d => d.recorrente && parseLocalDate(d.data) <= new Date(year, month + 1, 0))
-        .reduce((sum, d) => sum + calcularRecorrenciaFutura(d, month, year), 0);
-
-      const realizadoMes = receitasMes.reduce((sum, r) => sum + Number(r.valor), 0);
+      const realizadoMes = finEntriesReceitasMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
       const agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
-      const despesasTotalMes = despesasMes.reduce((sum, d) => sum + Number(d.valor), 0) + despesasRecorrentesMes;
+      const despesasTotalMes = finEntriesDespesasMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
 
       const mesLabel = date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
       
@@ -832,13 +854,13 @@ export const useSupabaseData = () => {
         despesas: despesasTotalMes
       });
       
-      console.log(`[BW][FIN] Gráfico 1 - ${mesLabel}:`, {
+      console.log(`[BW][SYNC] Gráfico 1 - ${mesLabel}:`, {
         receitas: realizadoMes.toFixed(2),
         agendados: agendadoMes.toFixed(2),
         despesas: despesasTotalMes.toFixed(2),
-        receitasCount: receitasMes.length,
+        receitasCount: finEntriesReceitasMes.length,
         agendadosCount: atendimentosAgendadosMes.length,
-        despesasCount: despesasMes.length
+        despesasCount: finEntriesDespesasMes.length
       });
     }
 
@@ -849,7 +871,7 @@ export const useSupabaseData = () => {
     // ============================================
     const projecaoMensal = [];
     
-    console.log('[BW][FIN] ========== Gráfico 2 - Projeções ==========');
+    console.log('[BW][SYNC] ========== Gráfico 2 - Projeções ==========');
     
     // Próximos 4 meses (incluindo mês corrente)
     for (let i = 0; i <= 3; i++) {
@@ -867,8 +889,8 @@ export const useSupabaseData = () => {
         // ============================================
         // MÊS CORRENTE: usar EXATAMENTE a mesma lógica do Gráfico 1
         // ============================================
-        receitasProj = receitasMesAtual.reduce((sum, r) => sum + Number(r.valor), 0);
-        despesasProj = totalDespesasComRecorrencia;
+        receitasProj = faturamentoMesAtual;
+        despesasProj = totalDespesas;
         
         // Agendados do mês corrente (mesma lógica do histórico)
         const atendimentosAgendadosMesAtual = atendimentos.filter(a => {
@@ -880,7 +902,7 @@ export const useSupabaseData = () => {
         });
         agendadosProj = atendimentosAgendadosMesAtual.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
         
-        console.log(`[BW][FIN] Gráfico 2 - ${mesLabel} (MESMA LÓGICA G1):`, {
+        console.log(`[BW][SYNC] Gráfico 2 - ${mesLabel} (MESMA LÓGICA G1):`, {
           receitas: receitasProj.toFixed(2),
           despesas: despesasProj.toFixed(2),
           agendados: agendadosProj.toFixed(2),
@@ -888,19 +910,19 @@ export const useSupabaseData = () => {
         });
       } else {
         // ============================================
-        // MESES FUTUROS: usar financial_entries expected
+        // MESES FUTUROS: usar financial_entries expected apenas
         // ============================================
         const firstDay = new Date(futureYear, futureMonth, 1);
         const lastDay = new Date(futureYear, futureMonth + 1, 0);
-        const firstDayStr = firstDay.toISOString().split('T')[0];
-        const lastDayStr = lastDay.toISOString().split('T')[0];
+        const firstDayMonthStr = firstDay.toISOString().split('T')[0];
+        const lastDayMonthStr = lastDay.toISOString().split('T')[0];
         
         // Receitas futuras (financial_entries expected)
         const finEntriesReceitas = financialEntries.filter(fe => 
           fe.kind === 'revenue' &&
           fe.status === 'expected' &&
-          fe.due_date >= firstDayStr &&
-          fe.due_date <= lastDayStr
+          fe.due_date >= firstDayMonthStr &&
+          fe.due_date <= lastDayMonthStr
         );
         receitasProj = finEntriesReceitas.reduce((sum, fe) => sum + Number(fe.amount), 0);
         
@@ -908,8 +930,8 @@ export const useSupabaseData = () => {
         const finEntriesDespesas = financialEntries.filter(fe => 
           fe.kind === 'expense' &&
           fe.status === 'expected' &&
-          fe.due_date >= firstDayStr &&
-          fe.due_date <= lastDayStr
+          fe.due_date >= firstDayMonthStr &&
+          fe.due_date <= lastDayMonthStr
         );
         despesasProj = finEntriesDespesas.reduce((sum, fe) => sum + Number(fe.amount), 0);
         
@@ -922,7 +944,7 @@ export const useSupabaseData = () => {
         });
         agendadosProj = atendimentosFuturos.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
         
-        console.log(`[BW][FIN] Gráfico 2 - ${mesLabel} (expected):`, {
+        console.log(`[BW][SYNC] Gráfico 2 - ${mesLabel} (expected):`, {
           receitas: receitasProj.toFixed(2),
           despesas: despesasProj.toFixed(2),
           agendados: agendadosProj.toFixed(2),
@@ -941,10 +963,10 @@ export const useSupabaseData = () => {
       });
     }
 
-    console.log('[BW][FIN] ========== Fim dos cálculos ==========');
+    console.log('[BW][SYNC] ========== Fim dos cálculos ==========');
 
     const faturamentoMediaMensal = historicoMensal.slice(0, 4).reduce((sum, m) => sum + m.realizado, 0) / 4;
-    const lucroLiquido = faturamentoMesAtual - totalDespesasComRecorrencia;
+    const lucroLiquido = faturamentoMesAtual - totalDespesas;
     const projecaoProximoMes = projecaoMensal[1]?.receitas || 0; // Próximo mês (não corrente)
 
     return {
@@ -952,7 +974,7 @@ export const useSupabaseData = () => {
       faturamentoMediaMensal,
       projecaoProximoMes,
       lucroLiquido,
-      totalDespesas: totalDespesasComRecorrencia,
+      totalDespesas,
       historicoMensal, // Gráfico 1 - Últimos 4 meses
       projecaoMensal, // Gráfico 2 - Próximos 4 meses (incluindo corrente)
       variacaoFaturamento: 0,
@@ -998,6 +1020,36 @@ export const useSupabaseData = () => {
     }
   };
 
+  const cleanupOrphanEntries = async () => {
+    try {
+      console.log('[BW][SYNC] Starting cleanup of orphan financial entries');
+      const { data, error } = await supabase.functions.invoke('cleanup-orphan-entries', {
+        body: {}
+      });
+      if (error) {
+        console.error('[BW][SYNC] Error cleaning up orphan entries:', error);
+      } else {
+        console.log('[BW][SYNC] Cleanup complete:', data);
+        // Refetch financial entries after cleanup
+        await fetchFinancialEntries();
+      }
+    } catch (err) {
+      console.error('[BW][SYNC] Error calling cleanup-orphan-entries:', err);
+    }
+  };
+
+  // Run cleanup on mount (idempotent) - only once when data is loaded
+  useEffect(() => {
+    if (user && financialEntries.length > 0) {
+      const hasRunCleanup = sessionStorage.getItem('bw_cleanup_done');
+      if (!hasRunCleanup) {
+        console.log('[BW][SYNC] Running initial cleanup check');
+        cleanupOrphanEntries();
+        sessionStorage.setItem('bw_cleanup_done', 'true');
+      }
+    }
+  }, [user?.id]);
+
   return {
     // Data
     clientes,
@@ -1038,6 +1090,7 @@ export const useSupabaseData = () => {
     
     // Recurring appointments
     materializeRecurringAppointments,
-    materializeFinancialRecurring
+    materializeFinancialRecurring,
+    cleanupOrphanEntries
   };
 };
