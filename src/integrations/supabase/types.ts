@@ -502,6 +502,7 @@ export type Database = {
           observacoes: string | null
           recorrencia: Json | null
           recorrente: boolean | null
+          tipo: string
           user_id: string
           valor: number
         }
@@ -515,6 +516,7 @@ export type Database = {
           observacoes?: string | null
           recorrencia?: Json | null
           recorrente?: boolean | null
+          tipo?: string
           user_id: string
           valor: number
         }
@@ -528,6 +530,7 @@ export type Database = {
           observacoes?: string | null
           recorrencia?: Json | null
           recorrente?: boolean | null
+          tipo?: string
           user_id?: string
           valor?: number
         }

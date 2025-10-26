@@ -556,10 +556,11 @@ export const useSupabaseData = () => {
     setReceitas(prev => [...prev, data]);
     
     // If recurring OR tipo=fixa, materialize future entries
-    if (receitaData.recorrente || receitaData.tipo === 'fixa') {
+    const tipoValue = (receitaData as any).tipo;
+    if (receitaData.recorrente || tipoValue === 'fixa') {
       console.log('[BW][RECEITA_FIXA] Materializando receita', { 
         recorrente: receitaData.recorrente, 
-        tipo: receitaData.tipo 
+        tipo: tipoValue
       });
       await materializeFinancialRecurring();
     }
@@ -594,10 +595,11 @@ export const useSupabaseData = () => {
     setReceitas(prev => prev.map(r => r.id === id ? data : r));
     
     // If recurring OR tipo=fixa, rematerialize future entries
-    if (data.recorrente || data.tipo === 'fixa') {
+    const tipoValue = (data as any).tipo;
+    if (data.recorrente || tipoValue === 'fixa') {
       console.log('[BW][RECEITA_FIXA] Rematerializando receita', { 
         recorrente: data.recorrente, 
-        tipo: data.tipo 
+        tipo: tipoValue
       });
       await materializeFinancialRecurring();
     }
