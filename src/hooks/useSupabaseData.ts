@@ -1174,26 +1174,26 @@ export const useSupabaseData = () => {
         });
       } else {
         // ============================================
-        // MESES FUTUROS: usar financial_entries expected apenas
+        // MESES FUTUROS: usar financial_entries expected E confirmed (lançamentos futuros não recorrentes)
         // ============================================
         const firstDay = new Date(futureYear, futureMonth, 1);
         const lastDay = new Date(futureYear, futureMonth + 1, 0);
         const firstDayMonthStr = firstDay.toISOString().split('T')[0];
         const lastDayMonthStr = lastDay.toISOString().split('T')[0];
         
-        // Receitas futuras (financial_entries expected)
+        // Receitas futuras (financial_entries: expected=recorrentes + confirmed=não recorrentes futuros)
         const finEntriesReceitas = financialEntries.filter(fe => 
           fe.kind === 'revenue' &&
-          fe.status === 'expected' &&
+          (fe.status === 'expected' || fe.status === 'confirmed') &&
           fe.due_date >= firstDayMonthStr &&
           fe.due_date <= lastDayMonthStr
         );
         receitasProj = finEntriesReceitas.reduce((sum, fe) => sum + Number(fe.amount), 0);
         
-        // Despesas futuras (financial_entries expected)
+        // Despesas futuras (financial_entries: expected=recorrentes + confirmed=não recorrentes futuros)
         const finEntriesDespesas = financialEntries.filter(fe => 
           fe.kind === 'expense' &&
-          fe.status === 'expected' &&
+          (fe.status === 'expected' || fe.status === 'confirmed') &&
           fe.due_date >= firstDayMonthStr &&
           fe.due_date <= lastDayMonthStr
         );
