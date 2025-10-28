@@ -1026,7 +1026,12 @@ export const useSupabaseData = () => {
       
       const realizadoMes = receitaAgendaMes + receitaFinanceirasMes;
       
-    // AZUL (Agendado/Previsto) = Atendimentos AGENDADOS + financial_entries (expected) + FUTURE OCCURRENCES from recurring rules
+    // AZUL (Agendado/Previsto) = SOMENTE Atendimentos AGENDADOS + FUTURE OCCURRENCES from recurring rules
+      // Usar Set para deduplicação: evitar contar mesma ocorrência duas vezes
+      const occurrencesSet = new Set<string>();
+      let agendadoMes = 0;
+      
+      // 1. Atendimentos agendados já materializados
       const atendimentosAgendadosMes = atendimentos.filter(a => {
         const dataAtendimento = parseLocalDate(a.data);
         return a.status === 'agendado' &&
@@ -1034,26 +1039,27 @@ export const useSupabaseData = () => {
                dataAtendimento.getFullYear() === year &&
                (!isCurrentMonth || dataAtendimento <= today);
       });
-      let agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
       
-      // Add financial_entries with status=expected (recorrentes do Financeiro - AZUL)
-      const finEntriesExpectedMes = financialEntries.filter(fe => {
-        const dueDate = parseLocalDate(fe.due_date);
-        return (fe.kind === 'revenue' || fe.kind === 'expense') &&
-               fe.status === 'expected' &&
-               fe.due_date >= firstDayMonthStr &&
-               fe.due_date <= lastDayMonthStr &&
-               (!isCurrentMonth || dueDate <= today);
+      atendimentosAgendadosMes.forEach(a => {
+        const occurrenceKey = a.recurring_rule_id 
+          ? `${a.recurring_rule_id}#${a.data}` 
+          : `appointment#${a.id}`;
+        if (!occurrencesSet.has(occurrenceKey)) {
+          occurrencesSet.add(occurrenceKey);
+          agendadoMes += Number(a.valor_total || a.valor);
+        }
       });
-      const agendadoFinanceiroMes = finEntriesExpectedMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
-      agendadoMes += agendadoFinanceiroMes;
 
-      // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
+      // 2. Expansão de ocorrências futuras de recurring rules (apenas se não já materializada)
       recurringRules.forEach(rule => {
         const occurrences = expandRecurringOccurrences(rule, 12);
         occurrences.forEach(occ => {
           if (occ.date.getMonth() === month && occ.date.getFullYear() === year) {
-            agendadoMes += occ.amount;
+            const occurrenceKey = `${rule.id}#${occ.date.toISOString().split('T')[0]}`;
+            if (!occurrencesSet.has(occurrenceKey)) {
+              occurrencesSet.add(occurrenceKey);
+              agendadoMes += occ.amount;
+            }
           }
         });
       });
@@ -1121,7 +1127,12 @@ export const useSupabaseData = () => {
         receitasProj = faturamentoMesAtual; // Verde
         despesasProj = totalDespesas;
         
-        // Agendados do mês corrente (mesma lógica do histórico) + financial_entries (expected) + FUTURE OCCURRENCES from recurring rules
+        // Agendados do mês corrente - SOMENTE atendimentos agendados + recurring rules
+        // Usar Set para deduplicação
+        const occurrencesSetCurrent = new Set<string>();
+        agendadosProj = 0;
+        
+        // 1. Atendimentos agendados já materializados
         const atendimentosAgendadosMesAtual = atendimentos.filter(a => {
           const dataAtendimento = parseLocalDate(a.data);
           return a.status === 'agendado' &&
@@ -1129,26 +1140,27 @@ export const useSupabaseData = () => {
                  dataAtendimento.getFullYear() === currentYear &&
                  dataAtendimento <= today;
         });
-        agendadosProj = atendimentosAgendadosMesAtual.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
         
-        // Add financial_entries with status=expected (recorrentes do Financeiro - AZUL)
-        const finEntriesExpectedMesAtual = financialEntries.filter(fe => {
-          const dueDate = parseLocalDate(fe.due_date);
-          return (fe.kind === 'revenue' || fe.kind === 'expense') &&
-                 fe.status === 'expected' &&
-                 fe.due_date >= firstDayStr &&
-                 fe.due_date <= lastDayStr &&
-                 dueDate <= today;
+        atendimentosAgendadosMesAtual.forEach(a => {
+          const occurrenceKey = a.recurring_rule_id 
+            ? `${a.recurring_rule_id}#${a.data}` 
+            : `appointment#${a.id}`;
+          if (!occurrencesSetCurrent.has(occurrenceKey)) {
+            occurrencesSetCurrent.add(occurrenceKey);
+            agendadosProj += Number(a.valor_total || a.valor);
+          }
         });
-        const agendadoFinanceiroMesAtual = finEntriesExpectedMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
-        agendadosProj += agendadoFinanceiroMesAtual;
         
-        // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
+        // 2. Expansão de ocorrências futuras de recurring rules
         recurringRules.forEach(rule => {
           const occurrences = expandRecurringOccurrences(rule, 12);
           occurrences.forEach(occ => {
             if (occ.date.getMonth() === currentMonth && occ.date.getFullYear() === currentYear) {
-              agendadosProj += occ.amount;
+              const occurrenceKey = `${rule.id}#${occ.date.toISOString().split('T')[0]}`;
+              if (!occurrencesSetCurrent.has(occurrenceKey)) {
+                occurrencesSetCurrent.add(occurrenceKey);
+                agendadosProj += occ.amount;
+              }
             }
           });
         });
@@ -1187,31 +1199,39 @@ export const useSupabaseData = () => {
         );
         despesasProj = finEntriesDespesas.reduce((sum, fe) => sum + Number(fe.amount), 0);
         
-        // Agendados futuros (por data local) + financial_entries (expected) + FUTURE OCCURRENCES from recurring rules
+        // Agendados futuros - SOMENTE atendimentos agendados + recurring rules
+        // Usar Set para deduplicação
+        const occurrencesSetFuture = new Set<string>();
+        agendadosProj = 0;
+        
+        // 1. Atendimentos agendados já materializados
         const atendimentosFuturos = atendimentos.filter(a => {
           const dataAtendimento = parseLocalDate(a.data);
           return a.status === 'agendado' &&
                  dataAtendimento >= firstDay &&
                  dataAtendimento <= lastDay;
         });
-        agendadosProj = atendimentosFuturos.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
         
-        // Add financial_entries with status=expected (recorrentes do Financeiro - AZUL)
-        const finEntriesExpectedFuturos = financialEntries.filter(fe => 
-          (fe.kind === 'revenue' || fe.kind === 'expense') &&
-          fe.status === 'expected' &&
-          fe.due_date >= firstDayMonthStr &&
-          fe.due_date <= lastDayMonthStr
-        );
-        const agendadoFinanceiroFuturo = finEntriesExpectedFuturos.reduce((sum, fe) => sum + Number(fe.amount), 0);
-        agendadosProj += agendadoFinanceiroFuturo;
+        atendimentosFuturos.forEach(a => {
+          const occurrenceKey = a.recurring_rule_id 
+            ? `${a.recurring_rule_id}#${a.data}` 
+            : `appointment#${a.id}`;
+          if (!occurrencesSetFuture.has(occurrenceKey)) {
+            occurrencesSetFuture.add(occurrenceKey);
+            agendadosProj += Number(a.valor_total || a.valor);
+          }
+        });
         
-        // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
+        // 2. Expansão de ocorrências futuras de recurring rules
         recurringRules.forEach(rule => {
           const occurrences = expandRecurringOccurrences(rule, 12);
           occurrences.forEach(occ => {
             if (occ.date >= firstDay && occ.date <= lastDay) {
-              agendadosProj += occ.amount;
+              const occurrenceKey = `${rule.id}#${occ.date.toISOString().split('T')[0]}`;
+              if (!occurrencesSetFuture.has(occurrenceKey)) {
+                occurrencesSetFuture.add(occurrenceKey);
+                agendadosProj += occ.amount;
+              }
             }
           });
         });
