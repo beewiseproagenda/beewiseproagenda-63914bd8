@@ -999,27 +999,73 @@ export const useSupabaseData = () => {
     });
     const receitaAgendaMesAtual = atendimentosRealizadosMesAtual.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
     
+    // RECEITAS do mês atual (expected + confirmed from financial_entries que não são de atendimentos)
+    // CRITICAL: Filter out orphaned entries
     const finEntriesReceitasMesAtual = financialEntries.filter(fe => {
-      return fe.kind === 'revenue' &&
+      const isInMonth = fe.kind === 'revenue' &&
              (fe.status === 'expected' || fe.status === 'confirmed') &&
              fe.due_date >= firstDayStr &&
              fe.due_date <= lastDayStr &&
              parseLocalDate(fe.due_date) <= today;
+      
+      if (!isInMonth) return false;
+      
+      // Check if this is an orphaned entry
+      if (fe.note && (fe.note.startsWith('Recorrente:') || fe.note.startsWith('Fixa:'))) {
+        const descricao = fe.note.replace(/^(Recorrente|Fixa): /, '');
+        const hasParent = receitas.some(r => r.descricao === descricao);
+        if (!hasParent) {
+          console.log('[BW][FIN_SYNC] ORPHAN REVENUE ENTRY DETECTED:', fe.id, fe.note, 'Amount:', fe.amount);
+          return false; // Skip orphaned entries
+        }
+      }
+      
+      return true;
     });
     const receitaFinanceirasMesAtual = finEntriesReceitasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
     
     const faturamentoMesAtual = receitaAgendaMesAtual + receitaFinanceirasMesAtual;
     
+    console.log('[BW][FIN_SYNC] === RECEITAS MÊS ATUAL ===');
+    console.log('[BW][FIN_SYNC] Receita agenda:', receitaAgendaMesAtual);
+    console.log('[BW][FIN_SYNC] Receita financeiras entries:', receitaFinanceirasMesAtual);
+    console.log('[BW][FIN_SYNC] Total receitas entries found:', finEntriesReceitasMesAtual.length);
+    finEntriesReceitasMesAtual.forEach(fe => {
+      console.log('[BW][FIN_SYNC] - Receita:', fe.note, 'Amount:', fe.amount, 'Status:', fe.status, 'Due:', fe.due_date);
+    });
+    
     // DESPESAS do mês atual (expected + confirmed from financial_entries)
+    // CRITICAL: Filter out orphaned entries (those without valid parent in despesas table)
     const finEntriesDespesasMesAtual = financialEntries.filter(fe => {
-      return fe.kind === 'expense' &&
+      const isInMonth = fe.kind === 'expense' &&
              (fe.status === 'expected' || fe.status === 'confirmed') &&
              fe.due_date >= firstDayStr &&
              fe.due_date <= lastDayStr &&
              parseLocalDate(fe.due_date) <= today;
+      
+      if (!isInMonth) return false;
+      
+      // Check if this is an orphaned entry (has note pattern but parent despesa doesn't exist)
+      if (fe.note && (fe.note.startsWith('Recorrente:') || fe.note.startsWith('Fixa:'))) {
+        const descricao = fe.note.replace(/^(Recorrente|Fixa): /, '');
+        const hasParent = despesas.some(d => d.descricao === descricao);
+        if (!hasParent) {
+          console.log('[BW][FIN_SYNC] ORPHAN EXPENSE ENTRY DETECTED:', fe.id, fe.note, 'Amount:', fe.amount);
+          return false; // Skip orphaned entries
+        }
+      }
+      
+      return true;
     });
 
     const totalDespesas = finEntriesDespesasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
+    
+    console.log('[BW][FIN_SYNC] === DESPESAS MÊS ATUAL ===');
+    console.log('[BW][FIN_SYNC] Total despesas entries found:', finEntriesDespesasMesAtual.length);
+    console.log('[BW][FIN_SYNC] Total despesas amount:', totalDespesas);
+    finEntriesDespesasMesAtual.forEach(fe => {
+      console.log('[BW][FIN_SYNC] - Despesa:', fe.note, 'Amount:', fe.amount, 'Status:', fe.status, 'Due:', fe.due_date);
+    });
     
     console.log('[BW][FIN_SYNC] Mês corrente:', { 
       periodo: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`,
@@ -1061,13 +1107,26 @@ export const useSupabaseData = () => {
       });
       const receitaAgendaMes = atendimentosRealizadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
       
+      // RECEITAS do mês (from financial_entries: expected + confirmed, SEM atendimentos pois já considerados acima via Verde)
+      // CRITICAL: Filter out orphaned entries
       const finEntriesReceitasMes = financialEntries.filter(fe => {
         const dueDate = parseLocalDate(fe.due_date);
-        return fe.kind === 'revenue' &&
+        const isInMonth = fe.kind === 'revenue' &&
                (fe.status === 'expected' || fe.status === 'confirmed') &&
                fe.due_date >= firstDayMonthStr &&
                fe.due_date <= lastDayMonthStr &&
                (!isCurrentMonth || dueDate <= today);
+        
+        if (!isInMonth) return false;
+        
+        // Check if this is an orphaned entry
+        if (fe.note && (fe.note.startsWith('Recorrente:') || fe.note.startsWith('Fixa:'))) {
+          const descricao = fe.note.replace(/^(Recorrente|Fixa): /, '');
+          const hasParent = receitas.some(r => r.descricao === descricao);
+          if (!hasParent) return false;
+        }
+        
+        return true;
       });
       const receitaFinanceirasMes = finEntriesReceitasMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
       
@@ -1112,13 +1171,27 @@ export const useSupabaseData = () => {
       });
 
       // DESPESAS do mês (expected + confirmed from financial_entries)
+      // CRITICAL: Filter out orphaned entries
       const finEntriesDespesasMes = financialEntries.filter(fe => {
         const dueDate = parseLocalDate(fe.due_date);
-        return fe.kind === 'expense' &&
+        const isInMonth = fe.kind === 'expense' &&
                (fe.status === 'expected' || fe.status === 'confirmed') &&
                fe.due_date >= firstDayMonthStr &&
                fe.due_date <= lastDayMonthStr &&
                (!isCurrentMonth || dueDate <= today);
+        
+        if (!isInMonth) return false;
+        
+        // Check if this is an orphaned entry
+        if (fe.note && (fe.note.startsWith('Recorrente:') || fe.note.startsWith('Fixa:'))) {
+          const descricao = fe.note.replace(/^(Recorrente|Fixa): /, '');
+          const hasParent = despesas.some(d => d.descricao === descricao);
+          if (!hasParent) {
+            return false; // Skip orphaned entries
+          }
+        }
+        
+        return true;
       });
       const despesasTotalMes = finEntriesDespesasMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
 
@@ -1229,21 +1302,43 @@ export const useSupabaseData = () => {
         const lastDayMonthStr = lastDay.toISOString().split('T')[0];
         
         // Receitas futuras (financial_entries: expected=recorrentes + confirmed=não recorrentes futuros)
-        const finEntriesReceitas = financialEntries.filter(fe => 
-          fe.kind === 'revenue' &&
-          (fe.status === 'expected' || fe.status === 'confirmed') &&
-          fe.due_date >= firstDayMonthStr &&
-          fe.due_date <= lastDayMonthStr
-        );
+        const finEntriesReceitas = financialEntries.filter(fe => {
+          const isInMonth = fe.kind === 'revenue' &&
+            (fe.status === 'expected' || fe.status === 'confirmed') &&
+            fe.due_date >= firstDayMonthStr &&
+            fe.due_date <= lastDayMonthStr;
+          
+          if (!isInMonth) return false;
+          
+          // Check if this is an orphaned entry
+          if (fe.note && (fe.note.startsWith('Recorrente:') || fe.note.startsWith('Fixa:'))) {
+            const descricao = fe.note.replace(/^(Recorrente|Fixa): /, '');
+            const hasParent = receitas.some(r => r.descricao === descricao);
+            if (!hasParent) return false;
+          }
+          
+          return true;
+        });
         receitasProj = finEntriesReceitas.reduce((sum, fe) => sum + Number(fe.amount), 0);
         
         // Despesas futuras (financial_entries: expected=recorrentes + confirmed=não recorrentes futuros)
-        const finEntriesDespesas = financialEntries.filter(fe => 
-          fe.kind === 'expense' &&
-          (fe.status === 'expected' || fe.status === 'confirmed') &&
-          fe.due_date >= firstDayMonthStr &&
-          fe.due_date <= lastDayMonthStr
-        );
+        const finEntriesDespesas = financialEntries.filter(fe => {
+          const isInMonth = fe.kind === 'expense' &&
+            (fe.status === 'expected' || fe.status === 'confirmed') &&
+            fe.due_date >= firstDayMonthStr &&
+            fe.due_date <= lastDayMonthStr;
+          
+          if (!isInMonth) return false;
+          
+          // Check if this is an orphaned entry
+          if (fe.note && (fe.note.startsWith('Recorrente:') || fe.note.startsWith('Fixa:'))) {
+            const descricao = fe.note.replace(/^(Recorrente|Fixa): /, '');
+            const hasParent = despesas.some(d => d.descricao === descricao);
+            if (!hasParent) return false;
+          }
+          
+          return true;
+        });
         despesasProj = finEntriesDespesas.reduce((sum, fe) => sum + Number(fe.amount), 0);
         
         // Agendados futuros - SOMENTE atendimentos agendados + recurring rules
