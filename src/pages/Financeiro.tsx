@@ -27,7 +27,6 @@ const receitaSchema = z.object({
   descricao: z.string().min(1, "Descrição é obrigatória"),
   categoria: z.enum(['servico_prestado', 'atendimento', 'consultoria', 'curso', 'produto', 'outros']),
   formaPagamento: z.enum(['dinheiro', 'pix', 'cartao_debito', 'cartao_credito', 'transferencia', 'outro']),
-  tipo: z.enum(['fixa', 'variavel']),
   observacoes: z.string().optional(),
   recorrente: z.boolean().optional(),
   recorrencia: z.object({
@@ -41,7 +40,6 @@ const despesaSchema = z.object({
   valor: z.number().min(0.01, "Valor deve ser maior que zero"),
   descricao: z.string().min(1, "Descrição é obrigatória"),
   categoria: z.enum(['aluguel', 'internet', 'marketing', 'equipamentos', 'transporte', 'alimentacao', 'sistema', 'aplicativos', 'servico_contratado', 'outros']),
-  tipo: z.enum(['fixa', 'variavel']),
   observacoes: z.string().optional(),
   recorrente: z.boolean().optional(),
   recorrencia: z.object({
@@ -66,7 +64,6 @@ export default function Financeiro() {
       descricao: "",
       categoria: "servico_prestado",
       formaPagamento: "pix",
-      tipo: "variavel",
       observacoes: "",
       recorrente: false,
     },
@@ -79,7 +76,6 @@ export default function Financeiro() {
       valor: undefined,
       descricao: "",
       categoria: "outros",
-      tipo: "variavel",
       observacoes: "",
       recorrente: false,
     },
@@ -153,7 +149,7 @@ export default function Financeiro() {
         descricao: data.descricao,
         categoria: data.categoria,
         forma_pagamento: data.formaPagamento,
-        tipo: data.tipo,
+        tipo: data.recorrente ? 'fixa' : 'variavel', // Recorrente = fixa, Único = variavel
         observacoes: data.observacoes || "",
         recorrente: data.recorrente || false,
         recorrencia: data.recorrente ? data.recorrencia : null,
@@ -188,7 +184,7 @@ export default function Financeiro() {
         valor: data.valor,
         descricao: data.descricao,
         categoria: data.categoria,
-        tipo: data.tipo,
+        tipo: data.recorrente ? 'fixa' : 'variavel', // Recorrente = fixa, Único = variavel
         observacoes: data.observacoes || "",
         recorrente: data.recorrente || false,
         recorrencia: data.recorrente ? data.recorrencia : null,
@@ -216,8 +212,9 @@ export default function Financeiro() {
       descricao: receita.descricao,
       categoria: receita.categoria,
       formaPagamento: receita.forma_pagamento,
-      tipo: receita.tipo || "variavel",
       observacoes: receita.observacoes || "",
+      recorrente: receita.recorrente || false,
+      recorrencia: receita.recorrencia || undefined,
     });
     setOpenReceitaDialog(true);
   };
@@ -229,8 +226,9 @@ export default function Financeiro() {
       valor: despesa.valor,
       descricao: despesa.descricao,
       categoria: despesa.categoria,
-      tipo: despesa.tipo,
       observacoes: despesa.observacoes || "",
+      recorrente: despesa.recorrente || false,
+      recorrencia: despesa.recorrencia || undefined,
     });
     setOpenDespesaDialog(true);
   };
@@ -425,33 +423,6 @@ export default function Financeiro() {
                               </SelectContent>
                             </Select>
                             <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={receitaForm.control}
-                        name="tipo"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tipo</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione o tipo" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="fixa">Fixa</SelectItem>
-                                <SelectItem value="variavel">Variável</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            {field.value === 'fixa' && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Serão criadas previsões mensais (status <em>expected</em>) até 180 dias à frente.
-                              </p>
-                            )}
                           </FormItem>
                         )}
                       />
@@ -730,28 +701,6 @@ export default function Financeiro() {
                                 <SelectItem value="aplicativos">Aplicativos</SelectItem>
                                 <SelectItem value="servico_contratado">Serviço Contratado</SelectItem>
                                 <SelectItem value="outros">Outros</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={despesaForm.control}
-                        name="tipo"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tipo</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecione o tipo" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="fixa">Fixa</SelectItem>
-                                <SelectItem value="variavel">Variável</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />

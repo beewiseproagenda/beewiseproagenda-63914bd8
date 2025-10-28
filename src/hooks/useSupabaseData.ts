@@ -505,14 +505,31 @@ export const useSupabaseData = () => {
     
     setDespesas(prev => [...prev, data]);
     
-    // If recurring OR tipo=fixa, materialize future entries
+    // If recurring OR tipo=fixa, materialize future entries (previsto/Azul)
     const tipoValue = (despesaData as any).tipo;
     if (despesaData.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][FIN_SYNC] Materializing recurring/fixed despesa', { 
+      console.log('[BW][FIN_SYNC] Materializing recurring/fixed despesa (AZUL)', { 
         recorrente: despesaData.recorrente, 
         tipo: tipoValue
       });
       await materializeFinancialRecurring();
+    } else {
+      // Lançamento único (não recorrente): criar entrada confirmed imediatamente (realizado/Vermelha)
+      console.log('[BW][FIN_SYNC] Creating single confirmed expense entry (VERMELHA)');
+      const { error: entryError } = await supabase
+        .from('financial_entries')
+        .insert({
+          user_id: user.id,
+          kind: 'expense',
+          status: 'confirmed',
+          amount: despesaData.valor,
+          due_date: despesaData.data,
+          note: despesaData.descricao,
+        });
+      
+      if (entryError) {
+        console.error('[BW][FIN_SYNC] Error creating confirmed expense entry:', entryError);
+      }
     }
     
     // SYNC: Invalidate and reload ALL
@@ -643,14 +660,31 @@ export const useSupabaseData = () => {
     
     setReceitas(prev => [...prev, data]);
     
-    // If recurring OR tipo=fixa, materialize future entries
+    // If recurring OR tipo=fixa, materialize future entries (previsto/Azul)
     const tipoValue = (receitaData as any).tipo;
     if (receitaData.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][FIN_SYNC] Materializing recurring/fixed receita', { 
+      console.log('[BW][FIN_SYNC] Materializing recurring/fixed receita (AZUL)', { 
         recorrente: receitaData.recorrente, 
         tipo: tipoValue
       });
       await materializeFinancialRecurring();
+    } else {
+      // Lançamento único (não recorrente): criar entrada confirmed imediatamente (realizado/Verde)
+      console.log('[BW][FIN_SYNC] Creating single confirmed revenue entry (VERDE)');
+      const { error: entryError } = await supabase
+        .from('financial_entries')
+        .insert({
+          user_id: user.id,
+          kind: 'revenue',
+          status: 'confirmed',
+          amount: receitaData.valor,
+          due_date: receitaData.data,
+          note: receitaData.descricao,
+        });
+      
+      if (entryError) {
+        console.error('[BW][FIN_SYNC] Error creating confirmed revenue entry:', entryError);
+      }
     }
     
     // SYNC: Invalidate and reload ALL
@@ -992,7 +1026,7 @@ export const useSupabaseData = () => {
       
       const realizadoMes = receitaAgendaMes + receitaFinanceirasMes;
       
-      // AZUL (Agendado/Previsto) = Atendimentos AGENDADOS + FUTURE OCCURRENCES from recurring rules
+    // AZUL (Agendado/Previsto) = Atendimentos AGENDADOS + financial_entries (expected) + FUTURE OCCURRENCES from recurring rules
       const atendimentosAgendadosMes = atendimentos.filter(a => {
         const dataAtendimento = parseLocalDate(a.data);
         return a.status === 'agendado' &&
@@ -1001,6 +1035,18 @@ export const useSupabaseData = () => {
                (!isCurrentMonth || dataAtendimento <= today);
       });
       let agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+      
+      // Add financial_entries with status=expected (recorrentes do Financeiro - AZUL)
+      const finEntriesExpectedMes = financialEntries.filter(fe => {
+        const dueDate = parseLocalDate(fe.due_date);
+        return (fe.kind === 'revenue' || fe.kind === 'expense') &&
+               fe.status === 'expected' &&
+               fe.due_date >= firstDayMonthStr &&
+               fe.due_date <= lastDayMonthStr &&
+               (!isCurrentMonth || dueDate <= today);
+      });
+      const agendadoFinanceiroMes = finEntriesExpectedMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
+      agendadoMes += agendadoFinanceiroMes;
 
       // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
       recurringRules.forEach(rule => {
@@ -1075,7 +1121,7 @@ export const useSupabaseData = () => {
         receitasProj = faturamentoMesAtual; // Verde
         despesasProj = totalDespesas;
         
-        // Agendados do mês corrente (mesma lógica do histórico) + FUTURE OCCURRENCES from recurring rules
+        // Agendados do mês corrente (mesma lógica do histórico) + financial_entries (expected) + FUTURE OCCURRENCES from recurring rules
         const atendimentosAgendadosMesAtual = atendimentos.filter(a => {
           const dataAtendimento = parseLocalDate(a.data);
           return a.status === 'agendado' &&
@@ -1084,6 +1130,18 @@ export const useSupabaseData = () => {
                  dataAtendimento <= today;
         });
         agendadosProj = atendimentosAgendadosMesAtual.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+        
+        // Add financial_entries with status=expected (recorrentes do Financeiro - AZUL)
+        const finEntriesExpectedMesAtual = financialEntries.filter(fe => {
+          const dueDate = parseLocalDate(fe.due_date);
+          return (fe.kind === 'revenue' || fe.kind === 'expense') &&
+                 fe.status === 'expected' &&
+                 fe.due_date >= firstDayStr &&
+                 fe.due_date <= lastDayStr &&
+                 dueDate <= today;
+        });
+        const agendadoFinanceiroMesAtual = finEntriesExpectedMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
+        agendadosProj += agendadoFinanceiroMesAtual;
         
         // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
         recurringRules.forEach(rule => {
@@ -1129,7 +1187,7 @@ export const useSupabaseData = () => {
         );
         despesasProj = finEntriesDespesas.reduce((sum, fe) => sum + Number(fe.amount), 0);
         
-        // Agendados futuros (por data local) + FUTURE OCCURRENCES from recurring rules
+        // Agendados futuros (por data local) + financial_entries (expected) + FUTURE OCCURRENCES from recurring rules
         const atendimentosFuturos = atendimentos.filter(a => {
           const dataAtendimento = parseLocalDate(a.data);
           return a.status === 'agendado' &&
@@ -1137,6 +1195,16 @@ export const useSupabaseData = () => {
                  dataAtendimento <= lastDay;
         });
         agendadosProj = atendimentosFuturos.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+        
+        // Add financial_entries with status=expected (recorrentes do Financeiro - AZUL)
+        const finEntriesExpectedFuturos = financialEntries.filter(fe => 
+          (fe.kind === 'revenue' || fe.kind === 'expense') &&
+          fe.status === 'expected' &&
+          fe.due_date >= firstDayMonthStr &&
+          fe.due_date <= lastDayMonthStr
+        );
+        const agendadoFinanceiroFuturo = finEntriesExpectedFuturos.reduce((sum, fe) => sum + Number(fe.amount), 0);
+        agendadosProj += agendadoFinanceiroFuturo;
         
         // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
         recurringRules.forEach(rule => {
