@@ -12,6 +12,7 @@ export type ServicoPacote = Tables<'servicos_pacotes'>;
 export type Despesa = Tables<'despesas'>;
 export type Receita = Tables<'receitas'>;
 export type FinancialEntry = Tables<'financial_entries'>;
+export type RecurringRule = Tables<'recurring_rules'>;
 
 export const useSupabaseData = () => {
   const { user } = useAuth();
@@ -23,6 +24,7 @@ export const useSupabaseData = () => {
   const [despesas, setDespesas] = useState<Despesa[]>([]);
   const [receitas, setReceitas] = useState<Receita[]>([]);
   const [financialEntries, setFinancialEntries] = useState<FinancialEntry[]>([]);
+  const [recurringRules, setRecurringRules] = useState<RecurringRule[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch all data when user changes
@@ -37,6 +39,7 @@ export const useSupabaseData = () => {
       setDespesas([]);
       setReceitas([]);
       setFinancialEntries([]);
+      setRecurringRules([]);
       setLoading(false);
     }
   }, [user]);
@@ -52,7 +55,8 @@ export const useSupabaseData = () => {
         fetchServicosPacotes(),
         fetchDespesas(),
         fetchReceitas(),
-        fetchFinancialEntries()
+        fetchFinancialEntries(),
+        fetchRecurringRules()
       ]);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -159,6 +163,20 @@ export const useSupabaseData = () => {
 
     if (error) throw error;
     setFinancialEntries(data || []);
+  };
+
+  const fetchRecurringRules = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('recurring_rules')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('active', true)
+      .order('start_date', { ascending: false });
+
+    if (error) throw error;
+    setRecurringRules(data || []);
   };
 
   // Cliente functions
@@ -831,11 +849,56 @@ export const useSupabaseData = () => {
     console.log('[BW][FIN_SYNC] TZ:', APP_TZ, 'Hoje:', today.toISOString());
     console.log('[BW][FIN_SYNC] Financial entries total:', financialEntries.length);
     console.log('[BW][FIN_SYNC] Atendimentos total:', atendimentos.length);
+    console.log('[BW][FIN_SYNC] Recurring rules total:', recurringRules.length);
     
     // Helper to parse DATE as local (prevent -1 day bug)
     const parseLocalDate = (dateStr: string): Date => {
       const [year, month, day] = dateStr.split('-').map(Number);
       return new Date(year, month - 1, day);
+    };
+    
+    // Helper to expand recurring rule occurrences (for Azul series only)
+    const expandRecurringOccurrences = (rule: RecurringRule, maxMonths: number = 12): Array<{ date: Date; amount: number }> => {
+      const occurrences: Array<{ date: Date; amount: number }> = [];
+      const startDate = parseLocalDate(rule.start_date);
+      const endDate = rule.end_date ? parseLocalDate(rule.end_date) : new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
+      const maxDate = new Date(today.getFullYear(), today.getMonth() + maxMonths, today.getDate());
+      const limitDate = endDate < maxDate ? endDate : maxDate;
+      
+      if (rule.recurrence_type === 'weekly' && rule.weekdays) {
+        // Weekly recurrences
+        let currentDate = new Date(startDate);
+        let occurrenceCount = 0;
+        const maxOccurrences = rule.occurrences_limit || 100;
+        
+        while (currentDate <= limitDate && occurrenceCount < maxOccurrences) {
+          const dayOfWeek = currentDate.getDay();
+          if (rule.weekdays.includes(dayOfWeek)) {
+            if (currentDate >= today) {
+              occurrences.push({ date: new Date(currentDate), amount: Number(rule.amount || 0) });
+              occurrenceCount++;
+            }
+          }
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      } else if (rule.recurrence_type === 'monthly' && rule.day_of_month) {
+        // Monthly recurrences
+        let currentDate = new Date(startDate);
+        let occurrenceCount = 0;
+        const maxOccurrences = rule.occurrences_limit || 36;
+        
+        while (currentDate <= limitDate && occurrenceCount < maxOccurrences) {
+          const targetDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), rule.day_of_month);
+          if (targetDate >= startDate && targetDate >= today && targetDate <= limitDate) {
+            occurrences.push({ date: new Date(targetDate), amount: Number(rule.amount || 0) });
+            occurrenceCount++;
+          }
+          currentDate.setMonth(currentDate.getMonth() + (rule.interval_months || 1));
+        }
+      }
+      
+      console.log(`[BW][FIN_SYNC] Expanded rule ${rule.id.slice(0, 8)}... (${rule.title}): ${occurrences.length} future occurrences`);
+      return occurrences;
     };
     
     // ============================================
@@ -929,7 +992,7 @@ export const useSupabaseData = () => {
       
       const realizadoMes = receitaAgendaMes + receitaFinanceirasMes;
       
-      // AZUL (Agendado/Previsto) = Atendimentos AGENDADOS
+      // AZUL (Agendado/Previsto) = Atendimentos AGENDADOS + FUTURE OCCURRENCES from recurring rules
       const atendimentosAgendadosMes = atendimentos.filter(a => {
         const dataAtendimento = parseLocalDate(a.data);
         return a.status === 'agendado' &&
@@ -937,7 +1000,17 @@ export const useSupabaseData = () => {
                dataAtendimento.getFullYear() === year &&
                (!isCurrentMonth || dataAtendimento <= today);
       });
-      const agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+      let agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+
+      // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
+      recurringRules.forEach(rule => {
+        const occurrences = expandRecurringOccurrences(rule, 12);
+        occurrences.forEach(occ => {
+          if (occ.date.getMonth() === month && occ.date.getFullYear() === year) {
+            agendadoMes += occ.amount;
+          }
+        });
+      });
 
       // DESPESAS do mês (expected + confirmed from financial_entries)
       const finEntriesDespesasMes = financialEntries.filter(fe => {
@@ -1002,7 +1075,7 @@ export const useSupabaseData = () => {
         receitasProj = faturamentoMesAtual; // Verde
         despesasProj = totalDespesas;
         
-        // Agendados do mês corrente (mesma lógica do histórico)
+        // Agendados do mês corrente (mesma lógica do histórico) + FUTURE OCCURRENCES from recurring rules
         const atendimentosAgendadosMesAtual = atendimentos.filter(a => {
           const dataAtendimento = parseLocalDate(a.data);
           return a.status === 'agendado' &&
@@ -1011,6 +1084,16 @@ export const useSupabaseData = () => {
                  dataAtendimento <= today;
         });
         agendadosProj = atendimentosAgendadosMesAtual.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+        
+        // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
+        recurringRules.forEach(rule => {
+          const occurrences = expandRecurringOccurrences(rule, 12);
+          occurrences.forEach(occ => {
+            if (occ.date.getMonth() === currentMonth && occ.date.getFullYear() === currentYear) {
+              agendadosProj += occ.amount;
+            }
+          });
+        });
         
         console.log(`[BW][FIN_SYNC] Gráfico 2 - ${mesLabel} (CORRENTE = G1):`, {
           receitas: receitasProj.toFixed(2),
@@ -1046,7 +1129,7 @@ export const useSupabaseData = () => {
         );
         despesasProj = finEntriesDespesas.reduce((sum, fe) => sum + Number(fe.amount), 0);
         
-        // Agendados futuros (por data local)
+        // Agendados futuros (por data local) + FUTURE OCCURRENCES from recurring rules
         const atendimentosFuturos = atendimentos.filter(a => {
           const dataAtendimento = parseLocalDate(a.data);
           return a.status === 'agendado' &&
@@ -1054,6 +1137,16 @@ export const useSupabaseData = () => {
                  dataAtendimento <= lastDay;
         });
         agendadosProj = atendimentosFuturos.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+        
+        // Add future occurrences from recurring rules (only for AZUL, never for VERDE)
+        recurringRules.forEach(rule => {
+          const occurrences = expandRecurringOccurrences(rule, 12);
+          occurrences.forEach(occ => {
+            if (occ.date >= firstDay && occ.date <= lastDay) {
+              agendadosProj += occ.amount;
+            }
+          });
+        });
         
         console.log(`[BW][FIN_SYNC] Gráfico 2 - ${mesLabel} (expected):`, {
           receitas: receitasProj.toFixed(2),
@@ -1169,6 +1262,7 @@ export const useSupabaseData = () => {
     despesas,
     receitas,
     financialEntries,
+    recurringRules,
     loading,
     
     // Cliente functions
