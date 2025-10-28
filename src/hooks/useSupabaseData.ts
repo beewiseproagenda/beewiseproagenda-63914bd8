@@ -232,7 +232,23 @@ export const useSupabaseData = () => {
     if (!user) return;
 
     try {
-      // Primeiro, remover todos os atendimentos associados ao cliente
+      console.log('[BW][FIN_SYNC] ===== CLIENTE REMOVAL START =====');
+      console.log('[BW][FIN_SYNC] Removing cliente:', id);
+      
+      // First, deactivate/remove any recurring rules for this client
+      const { error: recurringError } = await supabase
+        .from('recurring_rules')
+        .delete()
+        .eq('client_id', id)
+        .eq('user_id', user.id);
+      
+      if (recurringError) {
+        console.error('[BW][FIN_SYNC] Error removing recurring rules:', recurringError);
+      } else {
+        console.log('[BW][FIN_SYNC] Recurring rules removed for client');
+      }
+      
+      // Second, remove all atendimentos associated with the client
       const { error: atendimentosError } = await supabase
         .from('atendimentos')
         .delete()
@@ -241,7 +257,7 @@ export const useSupabaseData = () => {
 
       if (atendimentosError) throw atendimentosError;
 
-      // Depois, remover o cliente
+      // Finally, remove the cliente
       const { error: clienteError } = await supabase
         .from('clientes')
         .delete()
@@ -250,9 +266,24 @@ export const useSupabaseData = () => {
 
       if (clienteError) throw clienteError;
       
-      // Atualizar o estado local
+      // Update local state immediately
       setClientes(prev => prev.filter(c => c.id !== id));
       setAtendimentos(prev => prev.filter(a => a.cliente_id !== id));
+      
+      // CRITICAL: Run cleanup to remove any orphaned entries
+      console.log('[BW][FIN_SYNC] Running cleanup to remove orphans...');
+      await cleanupOrphanEntries();
+      
+      // Reload all data to update cards and charts
+      console.log('[BW][FIN_SYNC] Reloading data...');
+      await Promise.all([
+        fetchClientes(),
+        fetchAtendimentos(),
+        fetchFinancialEntries(),
+        fetchRecurringRules()
+      ]);
+      
+      console.log('[BW][FIN_SYNC] ===== CLIENTE REMOVAL COMPLETE =====');
       
       toast({
         title: "Sucesso",
@@ -417,6 +448,10 @@ export const useSupabaseData = () => {
     if (error) throw error;
     
     setAtendimentos(prev => prev.filter(a => a.id !== id));
+    
+    // CRITICAL: Run cleanup to remove any orphaned financial entries
+    console.log('[BW][FIN_SYNC] Running cleanup to remove orphans...');
+    await cleanupOrphanEntries();
     
     // SYNC: Invalidate and reload ALL
     await fetchAtendimentos();
@@ -588,6 +623,7 @@ export const useSupabaseData = () => {
   const removerDespesa = async (id: string) => {
     if (!user) return;
 
+    console.log('[BW][FIN_SYNC] ===== DESPESA REMOVAL START =====');
     console.log('[BW][FIN_SYNC] Removing despesa:', id);
 
     // First, get the despesa to know its description for cleaning up financial_entries
@@ -630,13 +666,24 @@ export const useSupabaseData = () => {
 
     if (error) throw error;
     
+    console.log('[BW][FIN_SYNC] Despesa deleted from database');
+    
+    // Update local state immediately
     setDespesas(prev => prev.filter(d => d.id !== id));
     
-    // SYNC: Invalidate and reload ALL
-    await fetchDespesas();
-    await fetchFinancialEntries();
+    // CRITICAL: Run cleanup to remove any orphaned entries
+    console.log('[BW][FIN_SYNC] Running cleanup to remove orphans...');
+    await cleanupOrphanEntries();
     
-    console.log('[BW][FIN_SYNC] Despesa removed, data reloaded');
+    // CRITICAL: Reload financial data to update cards and charts
+    console.log('[BW][FIN_SYNC] Reloading financial data...');
+    await Promise.all([
+      fetchDespesas(),
+      fetchFinancialEntries()
+    ]);
+    
+    console.log('[BW][FIN_SYNC] Financial data reloaded. Current financial_entries count:', financialEntries.length);
+    console.log('[BW][FIN_SYNC] ===== DESPESA REMOVAL COMPLETE =====');
     
     toast({
       title: "Sucesso",
