@@ -50,3 +50,6 @@ verify_jwt = true
 
 [functions.cleanup-orphan-entries]
 verify_jwt = true
+
+[functions.update-past-appointments]
+verify_jwt = false

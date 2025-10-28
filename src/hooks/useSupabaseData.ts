@@ -839,14 +839,22 @@ export const useSupabaseData = () => {
     };
     
     // ============================================
-    // CURRENT MONTH DATA - USE financial_entries (expected + confirmed)
+    // CURRENT MONTH DATA - USE atendimentos (realizado) + financial_entries
     // ============================================
     const firstDayCurrentMonth = new Date(currentYear, currentMonth, 1);
     const lastDayCurrentMonth = new Date(currentYear, currentMonth + 1, 0);
     const firstDayStr = firstDayCurrentMonth.toISOString().split('T')[0];
     const lastDayStr = lastDayCurrentMonth.toISOString().split('T')[0];
     
-    // RECEITAS do mês atual (expected + confirmed from financial_entries)
+    // RECEITAS do mês atual: Atendimentos REALIZADOS + financial_entries
+    const atendimentosRealizadosMesAtual = atendimentos.filter(a => {
+      const dataAtendimento = parseLocalDate(a.data);
+      return a.status === 'realizado' &&
+             dataAtendimento.getMonth() === currentMonth &&
+             dataAtendimento.getFullYear() === currentYear;
+    });
+    const receitaAgendaMesAtual = atendimentosRealizadosMesAtual.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+    
     const finEntriesReceitasMesAtual = financialEntries.filter(fe => {
       return fe.kind === 'revenue' &&
              (fe.status === 'expected' || fe.status === 'confirmed') &&
@@ -854,6 +862,9 @@ export const useSupabaseData = () => {
              fe.due_date <= lastDayStr &&
              parseLocalDate(fe.due_date) <= today;
     });
+    const receitaFinanceirasMesAtual = finEntriesReceitasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
+    
+    const faturamentoMesAtual = receitaAgendaMesAtual + receitaFinanceirasMesAtual;
     
     // DESPESAS do mês atual (expected + confirmed from financial_entries)
     const finEntriesDespesasMesAtual = financialEntries.filter(fe => {
@@ -864,13 +875,15 @@ export const useSupabaseData = () => {
              parseLocalDate(fe.due_date) <= today;
     });
 
-    const faturamentoMesAtual = finEntriesReceitasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
     const totalDespesas = finEntriesDespesasMesAtual.reduce((sum, fe) => sum + Number(fe.amount), 0);
     
     console.log('[BW][FIN_SYNC] Mês corrente:', { 
       periodo: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`,
-      receitasCount: finEntriesReceitasMesAtual.length, 
-      faturamento: faturamentoMesAtual.toFixed(2), 
+      receitaAgenda: receitaAgendaMesAtual.toFixed(2),
+      atendimentosRealizadosCount: atendimentosRealizadosMesAtual.length,
+      receitaFinanceiras: receitaFinanceirasMesAtual.toFixed(2),
+      finEntriesCount: finEntriesReceitasMesAtual.length,
+      faturamentoTotal: faturamentoMesAtual.toFixed(2), 
       despesasCount: finEntriesDespesasMesAtual.length,
       despesas: totalDespesas.toFixed(2),
       lucro: (faturamentoMesAtual - totalDespesas).toFixed(2)
@@ -895,7 +908,15 @@ export const useSupabaseData = () => {
       const firstDayMonthStr = firstDay.toISOString().split('T')[0];
       const lastDayMonthStr = lastDay.toISOString().split('T')[0];
       
-      // RECEITAS do mês (expected + confirmed from financial_entries)
+      // VERDE (Receita Realizada) = Atendimentos REALIZADOS + financial_entries
+      const atendimentosRealizadosMes = atendimentos.filter(a => {
+        const dataAtendimento = parseLocalDate(a.data);
+        return a.status === 'realizado' &&
+               dataAtendimento.getMonth() === month &&
+               dataAtendimento.getFullYear() === year;
+      });
+      const receitaAgendaMes = atendimentosRealizadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
+      
       const finEntriesReceitasMes = financialEntries.filter(fe => {
         const dueDate = parseLocalDate(fe.due_date);
         return fe.kind === 'revenue' &&
@@ -904,8 +925,11 @@ export const useSupabaseData = () => {
                fe.due_date <= lastDayMonthStr &&
                (!isCurrentMonth || dueDate <= today);
       });
+      const receitaFinanceirasMes = finEntriesReceitasMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
       
-      // AGENDADOS do mês (scheduled appointments by data local)
+      const realizadoMes = receitaAgendaMes + receitaFinanceirasMes;
+      
+      // AZUL (Agendado/Previsto) = Atendimentos AGENDADOS
       const atendimentosAgendadosMes = atendimentos.filter(a => {
         const dataAtendimento = parseLocalDate(a.data);
         return a.status === 'agendado' &&
@@ -913,6 +937,7 @@ export const useSupabaseData = () => {
                dataAtendimento.getFullYear() === year &&
                (!isCurrentMonth || dataAtendimento <= today);
       });
+      const agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
 
       // DESPESAS do mês (expected + confirmed from financial_entries)
       const finEntriesDespesasMes = financialEntries.filter(fe => {
@@ -923,9 +948,6 @@ export const useSupabaseData = () => {
                fe.due_date <= lastDayMonthStr &&
                (!isCurrentMonth || dueDate <= today);
       });
-
-      const realizadoMes = finEntriesReceitasMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
-      const agendadoMes = atendimentosAgendadosMes.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
       const despesasTotalMes = finEntriesDespesasMes.reduce((sum, fe) => sum + Number(fe.amount), 0);
 
       const mesLabel = date.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
@@ -939,12 +961,15 @@ export const useSupabaseData = () => {
       });
       
       console.log(`[BW][FIN_SYNC] Gráfico 1 - ${mesLabel}:`, {
-        receitas: realizadoMes.toFixed(2),
+        receitaAgenda: receitaAgendaMes.toFixed(2),
+        atendimentosRealizadosCount: atendimentosRealizadosMes.length,
+        receitaFinanceiras: receitaFinanceirasMes.toFixed(2),
+        realizadoTotal: realizadoMes.toFixed(2),
         agendados: agendadoMes.toFixed(2),
-        despesas: despesasTotalMes.toFixed(2),
-        receitasCount: finEntriesReceitasMes.length,
         agendadosCount: atendimentosAgendadosMes.length,
-        despesasCount: finEntriesDespesasMes.length
+        despesas: despesasTotalMes.toFixed(2),
+        finEntriesReceitasCount: finEntriesReceitasMes.length,
+        finEntriesDespesasCount: finEntriesDespesasMes.length
       });
     }
 
@@ -973,7 +998,8 @@ export const useSupabaseData = () => {
         // ============================================
         // MÊS CORRENTE: usar EXATAMENTE a mesma lógica do Gráfico 1
         // ============================================
-        receitasProj = faturamentoMesAtual;
+        // Usar os mesmos valores já calculados (faturamentoMesAtual, totalDespesas)
+        receitasProj = faturamentoMesAtual; // Verde
         despesasProj = totalDespesas;
         
         // Agendados do mês corrente (mesma lógica do histórico)
@@ -986,11 +1012,12 @@ export const useSupabaseData = () => {
         });
         agendadosProj = atendimentosAgendadosMesAtual.reduce((sum, a) => sum + Number(a.valor_total || a.valor), 0);
         
-        console.log(`[BW][FIN_SYNC] Gráfico 2 - ${mesLabel} (MESMA LÓGICA G1):`, {
+        console.log(`[BW][FIN_SYNC] Gráfico 2 - ${mesLabel} (CORRENTE = G1):`, {
           receitas: receitasProj.toFixed(2),
           despesas: despesasProj.toFixed(2),
           agendados: agendadosProj.toFixed(2),
-          match: 'Deve ser IGUAL ao Gráfico 1'
+          agendadosCount: atendimentosAgendadosMesAtual.length,
+          note: 'Deve ser IGUAL ao Gráfico 1 para mês corrente'
         });
       } else {
         // ============================================

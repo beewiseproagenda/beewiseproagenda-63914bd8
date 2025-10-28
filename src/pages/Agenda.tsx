@@ -32,6 +32,8 @@ import { fmtAptDate, fmtAptTime } from "@/lib/appointments/format";
 import { useAppointmentConflicts } from "@/hooks/useAppointmentConflicts";
 import { AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useTimezoneDetection } from "@/hooks/useTimezoneDetection";
+import { useAutoStatusUpdate } from "@/hooks/useAutoStatusUpdate";
 
 const atendimentoSchema = z.object({
   data: z.date(),
@@ -75,6 +77,15 @@ export default function Agenda() {
   const { detectConflicts } = useAppointmentConflicts(atendimentos);
   const { toast } = useToast();
   
+  // Timezone detection
+  const timezoneInfo = useTimezoneDetection();
+  
+  // Auto status update hook
+  const { updatePastAppointments } = useAutoStatusUpdate(atendimentos, async () => {
+    console.log('[BW][AGENDA] Auto-update triggered, refreshing data...');
+    await materializeRecurringAppointments();
+  });
+  
   const { run: updateStatus, loading: isUpdatingStatus } = useUpdateAppointmentStatus({
     onSuccess: async () => {
       await materializeRecurringAppointments();
@@ -84,9 +95,10 @@ export default function Agenda() {
     }
   });
 
-  // Materialize recurring appointments on mount
+  // Materialize recurring appointments on mount + run auto-update
   useEffect(() => {
     materializeRecurringAppointments();
+    updatePastAppointments();
   }, []);
 
   // Detectar hash na URL para abrir edição automática
