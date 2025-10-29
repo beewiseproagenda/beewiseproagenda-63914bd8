@@ -528,7 +528,7 @@ export const useSupabaseData = () => {
   const adicionarDespesa = async (despesaData: Omit<Despesa, 'id' | 'user_id' | 'created_at'>) => {
     if (!user) return;
 
-    console.log('[BW][FIN_SYNC] Adding despesa:', despesaData);
+    console.log('[BW][FIN_GRANULAR] Adding despesa:', despesaData);
 
     const { data, error } = await supabase
       .from('despesas')
@@ -543,14 +543,15 @@ export const useSupabaseData = () => {
     // If recurring OR tipo=fixa, materialize future entries (previsto/Azul)
     const tipoValue = (despesaData as any).tipo;
     if (despesaData.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][FIN_SYNC] Materializing recurring/fixed despesa (AZUL)', { 
+      console.log('[BW][FIN_GRANULAR] Materializing recurring/fixed despesa', { 
         recorrente: despesaData.recorrente, 
         tipo: tipoValue
       });
       await materializeFinancialRecurring();
     } else {
-      // Lançamento único (não recorrente): criar entrada confirmed imediatamente (realizado/Vermelha)
-      console.log('[BW][FIN_SYNC] Creating single confirmed expense entry (VERMELHA)');
+      // Lançamento único: criar entrada no MÊS DA DATA (competência exata)
+      // Note format: FINANCE_ID:<uuid>|<descricao>
+      console.log('[BW][FIN_GRANULAR] Creating single confirmed expense entry with ID:', data.id);
       const { error: entryError } = await supabase
         .from('financial_entries')
         .insert({
@@ -559,11 +560,11 @@ export const useSupabaseData = () => {
           status: 'confirmed',
           amount: despesaData.valor,
           due_date: despesaData.data,
-          note: despesaData.descricao,
+          note: `FINANCE_ID:${data.id}|${despesaData.descricao}`,
         });
       
       if (entryError) {
-        console.error('[BW][FIN_SYNC] Error creating confirmed expense entry:', entryError);
+        console.error('[BW][FIN_GRANULAR] Error creating confirmed expense entry:', entryError);
       }
     }
     
@@ -571,7 +572,7 @@ export const useSupabaseData = () => {
     await fetchDespesas();
     await fetchFinancialEntries();
     
-    console.log('[BW][FIN_SYNC] Despesa added, data reloaded');
+    console.log('[BW][FIN_GRANULAR] Despesa added, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -584,7 +585,7 @@ export const useSupabaseData = () => {
   const atualizarDespesa = async (id: string, despesaData: Partial<Despesa>) => {
     if (!user) return;
 
-    console.log('[BW][FIN_SYNC] Updating despesa:', { id, despesaData });
+    console.log('[BW][FIN_GRANULAR] Updating despesa by ID:', id, despesaData);
 
     // Get original despesa to check if date/month changed
     const { data: originalDespesa } = await supabase
@@ -593,6 +594,11 @@ export const useSupabaseData = () => {
       .eq('id', id)
       .eq('user_id', user.id)
       .single();
+
+    if (!originalDespesa) {
+      console.error('[BW][FIN_GRANULAR] Original despesa not found');
+      return;
+    }
 
     const { data, error } = await supabase
       .from('despesas')
@@ -604,28 +610,73 @@ export const useSupabaseData = () => {
 
     if (error) throw error;
     
-    // Check if date changed and month changed
-    if (originalDespesa && despesaData.data && originalDespesa.data !== despesaData.data) {
+    // GRANULAR UPDATE: if date changed, apply delta to OLD and NEW monthKey
+    if (despesaData.data && originalDespesa.data !== despesaData.data) {
       const oldMonth = new Date(originalDespesa.data).getMonth();
       const oldYear = new Date(originalDespesa.data).getFullYear();
       const newMonth = new Date(despesaData.data).getMonth();
       const newYear = new Date(despesaData.data).getFullYear();
       
       if (oldMonth !== newMonth || oldYear !== newYear) {
-        console.log('[BW][FIN_SYNC] Date changed and month changed - cleaning up old month entries');
+        console.log('[BW][FIN_GRANULAR] Date changed - moving from month', `${oldYear}-${oldMonth+1}`, 'to', `${newYear}-${newMonth+1}`);
         
-        // Delete old financial entries related to this despesa from old month
+        // Delete entries in OLD monthKey using canonical ID
         const { error: deleteError } = await supabase
           .from('financial_entries')
           .delete()
           .eq('user_id', user.id)
           .eq('kind', 'expense')
-          .ilike('note', `%${originalDespesa.descricao}%`);
+          .ilike('note', `FINANCE_ID:${id}|%`);
         
         if (deleteError) {
-          console.error('[BW][FIN_SYNC] Error deleting old entries:', deleteError);
+          console.error('[BW][FIN_GRANULAR] Error deleting old month entries:', deleteError);
+        } else {
+          console.log('[BW][FIN_GRANULAR] Removed entry from old monthKey');
+        }
+        
+        // Create new entry in NEW monthKey
+        const newAmount = despesaData.valor !== undefined ? despesaData.valor : originalDespesa.valor;
+        const newDescricao = despesaData.descricao || originalDespesa.descricao;
+        
+        const { error: insertError } = await supabase
+          .from('financial_entries')
+          .insert({
+            user_id: user.id,
+            kind: 'expense',
+            status: 'confirmed',
+            amount: newAmount,
+            due_date: despesaData.data,
+            note: `FINANCE_ID:${id}|${newDescricao}`,
+          });
+        
+        if (insertError) {
+          console.error('[BW][FIN_GRANULAR] Error creating new month entry:', insertError);
+        } else {
+          console.log('[BW][FIN_GRANULAR] Created entry in new monthKey');
+        }
+      } else {
+        // Same month - just update amount if changed
+        if (despesaData.valor !== undefined && despesaData.valor !== originalDespesa.valor) {
+          console.log('[BW][FIN_GRANULAR] Same month, updating amount from', originalDespesa.valor, 'to', despesaData.valor);
+          
+          await supabase
+            .from('financial_entries')
+            .update({ amount: despesaData.valor })
+            .eq('user_id', user.id)
+            .eq('kind', 'expense')
+            .ilike('note', `FINANCE_ID:${id}|%`);
         }
       }
+    } else if (despesaData.valor !== undefined && despesaData.valor !== originalDespesa.valor) {
+      // Only value changed, same date
+      console.log('[BW][FIN_GRANULAR] Updating only amount');
+      
+      await supabase
+        .from('financial_entries')
+        .update({ amount: despesaData.valor })
+        .eq('user_id', user.id)
+        .eq('kind', 'expense')
+        .ilike('note', `FINANCE_ID:${id}|%`);
     }
     
     setDespesas(prev => prev.map(d => d.id === id ? data : d));
@@ -633,7 +684,7 @@ export const useSupabaseData = () => {
     // If recurring OR tipo=fixa, rematerialize future entries
     const tipoValue = (data as any).tipo;
     if (data.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][FIN_SYNC] Rematerializing recurring/fixed despesa', { 
+      console.log('[BW][FIN_GRANULAR] Rematerializing recurring/fixed despesa', { 
         recorrente: data.recorrente, 
         tipo: tipoValue
       });
@@ -644,7 +695,7 @@ export const useSupabaseData = () => {
     await fetchDespesas();
     await fetchFinancialEntries();
     
-    console.log('[BW][FIN_SYNC] Despesa updated, data reloaded');
+    console.log('[BW][FIN_GRANULAR] Despesa updated, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -655,75 +706,22 @@ export const useSupabaseData = () => {
   const removerDespesa = async (id: string) => {
     if (!user) return;
 
-    console.log('[BW][FIN_SYNC] ===== DESPESA REMOVAL START =====');
-    console.log('[BW][FIN_SYNC] Removing despesa:', id);
+    console.log('[BW][FIN_GRANULAR] ===== DESPESA REMOVAL START (BY ID) =====');
+    console.log('[BW][FIN_GRANULAR] Removing despesa ID:', id);
 
-    // First, get the despesa to know its details for granular cleanup
-    const { data: despesa, error: fetchError } = await supabase
-      .from('despesas')
-      .select('descricao, tipo, recorrente, data, valor')
-      .eq('id', id)
+    // GRANULAR REMOVAL by canonical ID
+    // Delete financial_entries using FINANCE_ID:<uuid> pattern
+    const { error: deleteEntriesError } = await supabase
+      .from('financial_entries')
+      .delete()
       .eq('user_id', user.id)
-      .maybeSingle();
+      .eq('kind', 'expense')
+      .ilike('note', `FINANCE_ID:${id}|%`);
 
-    if (fetchError) {
-      console.error('[BW][FIN_SYNC] Error fetching despesa:', fetchError);
-      throw fetchError;
-    }
-
-    if (despesa) {
-      console.log('[BW][FIN_SYNC] Despesa details:', { 
-        descricao: despesa.descricao, 
-        tipo: despesa.tipo, 
-        recorrente: despesa.recorrente,
-        data: despesa.data,
-        valor: despesa.valor
-      });
-
-      // GRANULAR REMOVAL: Only remove financial_entries for THIS specific despesa
-      // Match by: kind=expense + note pattern + exact date + exact amount
-      const descricao = despesa.descricao;
-      const dueDate = despesa.data; // competencia date
-      const amount = despesa.valor;
-      
-      // Build a unique note pattern that identifies THIS despesa
-      // Note format is typically "Despesa fixa: <descricao>" or "Despesa variável: <descricao>"
-      const notePattern = `%${descricao}%`;
-      
-      // Find matching entries with exact date and amount to be GRANULAR
-      const { data: matchingEntries } = await supabase
-        .from('financial_entries')
-        .select('id, note, amount, due_date')
-        .eq('user_id', user.id)
-        .eq('kind', 'expense')
-        .eq('due_date', dueDate)
-        .eq('amount', amount)
-        .ilike('note', notePattern);
-      
-      console.log('[BW][FIN_SYNC] Found matching financial_entries (granular):', matchingEntries?.length || 0);
-      matchingEntries?.forEach(entry => {
-        console.log('[BW][FIN_SYNC] Will delete entry:', { 
-          id: entry.id, 
-          note: entry.note, 
-          amount: entry.amount, 
-          due_date: entry.due_date 
-        });
-      });
-      
-      // Delete only the exact matches (this specific despesa's entry)
-      if (matchingEntries && matchingEntries.length > 0) {
-        const idsToDelete = matchingEntries.map(e => e.id);
-        const { error: deleteEntriesError } = await supabase
-          .from('financial_entries')
-          .delete()
-          .in('id', idsToDelete);
-
-        if (deleteEntriesError) {
-          console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
-        } else {
-          console.log('[BW][FIN_SYNC] Successfully deleted specific entries (count:', idsToDelete.length, ')');
-        }
-      }
+    if (deleteEntriesError) {
+      console.error('[BW][FIN_GRANULAR] Error deleting financial entries by ID:', deleteEntriesError);
+    } else {
+      console.log('[BW][FIN_GRANULAR] Deleted financial entries for despesa ID:', id);
     }
 
     // Now delete the despesa
@@ -735,24 +733,23 @@ export const useSupabaseData = () => {
 
     if (error) throw error;
     
-    console.log('[BW][FIN_SYNC] Despesa deleted from database');
+    console.log('[BW][FIN_GRANULAR] Despesa deleted from database');
     
     // Update local state immediately
     setDespesas(prev => prev.filter(d => d.id !== id));
     
     // CRITICAL: Run cleanup to remove any orphaned entries
-    console.log('[BW][FIN_SYNC] Running cleanup to remove orphans...');
+    console.log('[BW][FIN_GRANULAR] Running cleanup to remove orphans...');
     await cleanupOrphanEntries();
     
     // CRITICAL: Reload financial data to update cards and charts
-    console.log('[BW][FIN_SYNC] Reloading financial data...');
+    console.log('[BW][FIN_GRANULAR] Reloading financial data...');
     await Promise.all([
       fetchDespesas(),
       fetchFinancialEntries()
     ]);
     
-    console.log('[BW][FIN_SYNC] Financial data reloaded. Current financial_entries count:', financialEntries.length);
-    console.log('[BW][FIN_SYNC] ===== DESPESA REMOVAL COMPLETE =====');
+    console.log('[BW][FIN_GRANULAR] ===== DESPESA REMOVAL COMPLETE =====');
     
     toast({
       title: "Sucesso",
@@ -764,7 +761,7 @@ export const useSupabaseData = () => {
   const adicionarReceita = async (receitaData: Omit<Receita, 'id' | 'user_id' | 'created_at'>) => {
     if (!user) return;
 
-    console.log('[BW][FIN_SYNC] Adding receita:', receitaData);
+    console.log('[BW][FIN_GRANULAR] Adding receita:', receitaData);
 
     const { data, error } = await supabase
       .from('receitas')
@@ -779,14 +776,15 @@ export const useSupabaseData = () => {
     // If recurring OR tipo=fixa, materialize future entries (previsto/Azul)
     const tipoValue = (receitaData as any).tipo;
     if (receitaData.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][FIN_SYNC] Materializing recurring/fixed receita (AZUL)', { 
+      console.log('[BW][FIN_GRANULAR] Materializing recurring/fixed receita', { 
         recorrente: receitaData.recorrente, 
         tipo: tipoValue
       });
       await materializeFinancialRecurring();
     } else {
-      // Lançamento único (não recorrente): criar entrada confirmed imediatamente (realizado/Verde)
-      console.log('[BW][FIN_SYNC] Creating single confirmed revenue entry (VERDE)');
+      // Lançamento único: criar entrada no MÊS DA DATA (competência exata)
+      // Note format: FINANCE_ID:<uuid>|<descricao>
+      console.log('[BW][FIN_GRANULAR] Creating single confirmed revenue entry with ID:', data.id);
       const { error: entryError } = await supabase
         .from('financial_entries')
         .insert({
@@ -795,11 +793,11 @@ export const useSupabaseData = () => {
           status: 'confirmed',
           amount: receitaData.valor,
           due_date: receitaData.data,
-          note: receitaData.descricao,
+          note: `FINANCE_ID:${data.id}|${receitaData.descricao}`,
         });
       
       if (entryError) {
-        console.error('[BW][FIN_SYNC] Error creating confirmed revenue entry:', entryError);
+        console.error('[BW][FIN_GRANULAR] Error creating confirmed revenue entry:', entryError);
       }
     }
     
@@ -807,7 +805,7 @@ export const useSupabaseData = () => {
     await fetchReceitas();
     await fetchFinancialEntries();
     
-    console.log('[BW][FIN_SYNC] Receita added, data reloaded');
+    console.log('[BW][FIN_GRANULAR] Receita added, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -820,7 +818,7 @@ export const useSupabaseData = () => {
   const atualizarReceita = async (id: string, receitaData: Partial<Receita>) => {
     if (!user) return;
 
-    console.log('[BW][FIN_SYNC] Updating receita:', { id, receitaData });
+    console.log('[BW][FIN_GRANULAR] Updating receita by ID:', id, receitaData);
 
     // Get original receita to check if date/month changed
     const { data: originalReceita } = await supabase
@@ -829,6 +827,11 @@ export const useSupabaseData = () => {
       .eq('id', id)
       .eq('user_id', user.id)
       .single();
+
+    if (!originalReceita) {
+      console.error('[BW][FIN_GRANULAR] Original receita not found');
+      return;
+    }
 
     const { data, error } = await supabase
       .from('receitas')
@@ -840,28 +843,73 @@ export const useSupabaseData = () => {
 
     if (error) throw error;
     
-    // Check if date changed and month changed
-    if (originalReceita && receitaData.data && originalReceita.data !== receitaData.data) {
+    // GRANULAR UPDATE: if date changed, apply delta to OLD and NEW monthKey
+    if (receitaData.data && originalReceita.data !== receitaData.data) {
       const oldMonth = new Date(originalReceita.data).getMonth();
       const oldYear = new Date(originalReceita.data).getFullYear();
       const newMonth = new Date(receitaData.data).getMonth();
       const newYear = new Date(receitaData.data).getFullYear();
       
       if (oldMonth !== newMonth || oldYear !== newYear) {
-        console.log('[BW][FIN_SYNC] Date changed and month changed - cleaning up old month entries');
+        console.log('[BW][FIN_GRANULAR] Date changed - moving from month', `${oldYear}-${oldMonth+1}`, 'to', `${newYear}-${newMonth+1}`);
         
-        // Delete old financial entries related to this receita from old month
+        // Delete entries in OLD monthKey using canonical ID
         const { error: deleteError } = await supabase
           .from('financial_entries')
           .delete()
           .eq('user_id', user.id)
           .eq('kind', 'revenue')
-          .ilike('note', `%${originalReceita.descricao}%`);
+          .ilike('note', `FINANCE_ID:${id}|%`);
         
         if (deleteError) {
-          console.error('[BW][FIN_SYNC] Error deleting old entries:', deleteError);
+          console.error('[BW][FIN_GRANULAR] Error deleting old month entries:', deleteError);
+        } else {
+          console.log('[BW][FIN_GRANULAR] Removed entry from old monthKey');
+        }
+        
+        // Create new entry in NEW monthKey
+        const newAmount = receitaData.valor !== undefined ? receitaData.valor : originalReceita.valor;
+        const newDescricao = receitaData.descricao || originalReceita.descricao;
+        
+        const { error: insertError } = await supabase
+          .from('financial_entries')
+          .insert({
+            user_id: user.id,
+            kind: 'revenue',
+            status: 'confirmed',
+            amount: newAmount,
+            due_date: receitaData.data,
+            note: `FINANCE_ID:${id}|${newDescricao}`,
+          });
+        
+        if (insertError) {
+          console.error('[BW][FIN_GRANULAR] Error creating new month entry:', insertError);
+        } else {
+          console.log('[BW][FIN_GRANULAR] Created entry in new monthKey');
+        }
+      } else {
+        // Same month - just update amount if changed
+        if (receitaData.valor !== undefined && receitaData.valor !== originalReceita.valor) {
+          console.log('[BW][FIN_GRANULAR] Same month, updating amount from', originalReceita.valor, 'to', receitaData.valor);
+          
+          await supabase
+            .from('financial_entries')
+            .update({ amount: receitaData.valor })
+            .eq('user_id', user.id)
+            .eq('kind', 'revenue')
+            .ilike('note', `FINANCE_ID:${id}|%`);
         }
       }
+    } else if (receitaData.valor !== undefined && receitaData.valor !== originalReceita.valor) {
+      // Only value changed, same date
+      console.log('[BW][FIN_GRANULAR] Updating only amount');
+      
+      await supabase
+        .from('financial_entries')
+        .update({ amount: receitaData.valor })
+        .eq('user_id', user.id)
+        .eq('kind', 'revenue')
+        .ilike('note', `FINANCE_ID:${id}|%`);
     }
     
     setReceitas(prev => prev.map(r => r.id === id ? data : r));
@@ -869,7 +917,7 @@ export const useSupabaseData = () => {
     // If recurring OR tipo=fixa, rematerialize future entries
     const tipoValue = (data as any).tipo;
     if (data.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][FIN_SYNC] Rematerializing recurring/fixed receita', { 
+      console.log('[BW][FIN_GRANULAR] Rematerializing recurring/fixed receita', { 
         recorrente: data.recorrente, 
         tipo: tipoValue
       });
@@ -880,7 +928,7 @@ export const useSupabaseData = () => {
     await fetchReceitas();
     await fetchFinancialEntries();
     
-    console.log('[BW][FIN_SYNC] Receita updated, data reloaded');
+    console.log('[BW][FIN_GRANULAR] Receita updated, data reloaded');
     
     toast({
       title: "Sucesso",
@@ -891,74 +939,22 @@ export const useSupabaseData = () => {
   const removerReceita = async (id: string) => {
     if (!user) return;
 
-    console.log('[BW][FIN_SYNC] ===== REMOVING RECEITA =====');
-    console.log('[BW][FIN_SYNC] Receita ID:', id);
+    console.log('[BW][FIN_GRANULAR] ===== RECEITA REMOVAL START (BY ID) =====');
+    console.log('[BW][FIN_GRANULAR] Removing receita ID:', id);
 
-    // First, get the receita to know its details for granular cleanup
-    const { data: receita, error: fetchError } = await supabase
-      .from('receitas')
-      .select('descricao, tipo, recorrente, data, valor')
-      .eq('id', id)
+    // GRANULAR REMOVAL by canonical ID
+    // Delete financial_entries using FINANCE_ID:<uuid> pattern
+    const { error: deleteEntriesError } = await supabase
+      .from('financial_entries')
+      .delete()
       .eq('user_id', user.id)
-      .maybeSingle();
+      .eq('kind', 'revenue')
+      .ilike('note', `FINANCE_ID:${id}|%`);
 
-    if (fetchError) {
-      console.error('[BW][FIN_SYNC] Error fetching receita:', fetchError);
-      throw fetchError;
-    }
-
-    if (receita) {
-      console.log('[BW][FIN_SYNC] Receita details:', { 
-        descricao: receita.descricao, 
-        tipo: receita.tipo, 
-        recorrente: receita.recorrente,
-        data: receita.data,
-        valor: receita.valor
-      });
-
-      // GRANULAR REMOVAL: Only remove financial_entries for THIS specific receita
-      // Match by: kind=revenue + note pattern + exact date + exact amount
-      const descricao = receita.descricao;
-      const dueDate = receita.data; // competencia date
-      const amount = receita.valor;
-      
-      // Build a unique note pattern that identifies THIS receita
-      const notePattern = `%${descricao}%`;
-      
-      // Find matching entries with exact date and amount to be GRANULAR
-      const { data: matchingEntries } = await supabase
-        .from('financial_entries')
-        .select('id, note, amount, due_date')
-        .eq('user_id', user.id)
-        .eq('kind', 'revenue')
-        .eq('due_date', dueDate)
-        .eq('amount', amount)
-        .ilike('note', notePattern);
-      
-      console.log('[BW][FIN_SYNC] Found matching financial_entries (granular):', matchingEntries?.length || 0);
-      matchingEntries?.forEach(entry => {
-        console.log('[BW][FIN_SYNC] Will delete entry:', { 
-          id: entry.id, 
-          note: entry.note, 
-          amount: entry.amount, 
-          due_date: entry.due_date 
-        });
-      });
-      
-      // Delete only the exact matches (this specific receita's entry)
-      if (matchingEntries && matchingEntries.length > 0) {
-        const idsToDelete = matchingEntries.map(e => e.id);
-        const { error: deleteEntriesError } = await supabase
-          .from('financial_entries')
-          .delete()
-          .in('id', idsToDelete);
-
-        if (deleteEntriesError) {
-          console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
-        } else {
-          console.log('[BW][FIN_SYNC] Successfully deleted specific entries (count:', idsToDelete.length, ')');
-        }
-      }
+    if (deleteEntriesError) {
+      console.error('[BW][FIN_GRANULAR] Error deleting financial entries by ID:', deleteEntriesError);
+    } else {
+      console.log('[BW][FIN_GRANULAR] Deleted financial entries for receita ID:', id);
     }
 
     // Now delete the receita
@@ -969,28 +965,27 @@ export const useSupabaseData = () => {
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('[BW][FIN_SYNC] Error deleting receita:', error);
+      console.error('[BW][FIN_GRANULAR] Error deleting receita:', error);
       throw error;
     }
     
-    console.log('[BW][FIN_SYNC] Receita deleted from database');
+    console.log('[BW][FIN_GRANULAR] Receita deleted from database');
     
     // Update local state immediately
     setReceitas(prev => prev.filter(r => r.id !== id));
     
     // CRITICAL: Run cleanup to remove any orphaned entries
-    console.log('[BW][FIN_SYNC] Running cleanup to remove orphans...');
+    console.log('[BW][FIN_GRANULAR] Running cleanup to remove orphans...');
     await cleanupOrphanEntries();
     
     // CRITICAL: Reload financial data to update cards and charts
-    console.log('[BW][FIN_SYNC] Reloading financial data...');
+    console.log('[BW][FIN_GRANULAR] Reloading financial data...');
     await Promise.all([
       fetchReceitas(),
       fetchFinancialEntries()
     ]);
     
-    console.log('[BW][FIN_SYNC] Financial data reloaded. Current financial_entries count:', financialEntries.length);
-    console.log('[BW][FIN_SYNC] ===== RECEITA REMOVAL COMPLETE =====');
+    console.log('[BW][FIN_GRANULAR] ===== RECEITA REMOVAL COMPLETE =====');
     
     toast({
       title: "Sucesso",
