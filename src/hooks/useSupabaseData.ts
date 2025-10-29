@@ -586,6 +586,14 @@ export const useSupabaseData = () => {
 
     console.log('[BW][FIN_SYNC] Updating despesa:', { id, despesaData });
 
+    // Get original despesa to check if date/month changed
+    const { data: originalDespesa } = await supabase
+      .from('despesas')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
     const { data, error } = await supabase
       .from('despesas')
       .update(despesaData)
@@ -595,6 +603,30 @@ export const useSupabaseData = () => {
       .single();
 
     if (error) throw error;
+    
+    // Check if date changed and month changed
+    if (originalDespesa && despesaData.data && originalDespesa.data !== despesaData.data) {
+      const oldMonth = new Date(originalDespesa.data).getMonth();
+      const oldYear = new Date(originalDespesa.data).getFullYear();
+      const newMonth = new Date(despesaData.data).getMonth();
+      const newYear = new Date(despesaData.data).getFullYear();
+      
+      if (oldMonth !== newMonth || oldYear !== newYear) {
+        console.log('[BW][FIN_SYNC] Date changed and month changed - cleaning up old month entries');
+        
+        // Delete old financial entries related to this despesa from old month
+        const { error: deleteError } = await supabase
+          .from('financial_entries')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('kind', 'expense')
+          .ilike('note', `%${originalDespesa.descricao}%`);
+        
+        if (deleteError) {
+          console.error('[BW][FIN_SYNC] Error deleting old entries:', deleteError);
+        }
+      }
+    }
     
     setDespesas(prev => prev.map(d => d.id === id ? data : d));
     
@@ -753,6 +785,14 @@ export const useSupabaseData = () => {
 
     console.log('[BW][FIN_SYNC] Updating receita:', { id, receitaData });
 
+    // Get original receita to check if date/month changed
+    const { data: originalReceita } = await supabase
+      .from('receitas')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+
     const { data, error } = await supabase
       .from('receitas')
       .update(receitaData)
@@ -762,6 +802,30 @@ export const useSupabaseData = () => {
       .single();
 
     if (error) throw error;
+    
+    // Check if date changed and month changed
+    if (originalReceita && receitaData.data && originalReceita.data !== receitaData.data) {
+      const oldMonth = new Date(originalReceita.data).getMonth();
+      const oldYear = new Date(originalReceita.data).getFullYear();
+      const newMonth = new Date(receitaData.data).getMonth();
+      const newYear = new Date(receitaData.data).getFullYear();
+      
+      if (oldMonth !== newMonth || oldYear !== newYear) {
+        console.log('[BW][FIN_SYNC] Date changed and month changed - cleaning up old month entries');
+        
+        // Delete old financial entries related to this receita from old month
+        const { error: deleteError } = await supabase
+          .from('financial_entries')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('kind', 'revenue')
+          .ilike('note', `%${originalReceita.descricao}%`);
+        
+        if (deleteError) {
+          console.error('[BW][FIN_SYNC] Error deleting old entries:', deleteError);
+        }
+      }
+    }
     
     setReceitas(prev => prev.map(r => r.id === id ? data : r));
     
