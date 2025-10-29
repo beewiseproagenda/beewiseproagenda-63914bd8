@@ -659,33 +659,50 @@ export const useSupabaseData = () => {
     console.log('[BW][FIN_SYNC] Removing despesa:', id);
 
     // First, get the despesa to know its description for cleaning up financial_entries
-    const { data: despesa } = await supabase
+    const { data: despesa, error: fetchError } = await supabase
       .from('despesas')
       .select('descricao, tipo, recorrente')
       .eq('id', id)
       .eq('user_id', user.id)
-      .single();
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('[BW][FIN_SYNC] Error fetching despesa:', fetchError);
+      throw fetchError;
+    }
 
     if (despesa) {
-      // Remove all financial_entries related to this despesa
-      const notePatterns = [
-        `Recorrente: ${despesa.descricao}`,
-        `Fixa: ${despesa.descricao}`
-      ];
+      console.log('[BW][FIN_SYNC] Despesa details:', { descricao: despesa.descricao, tipo: despesa.tipo, recorrente: despesa.recorrente });
 
-      console.log('[BW][FIN_SYNC] Removing financial_entries with notes:', notePatterns);
+      // Remove ALL financial_entries related to this despesa
+      // Strategy: delete all expense entries where the note contains the description
+      const descricao = despesa.descricao;
+      
+      // First, find all matching entries to log them
+      const { data: matchingEntries } = await supabase
+        .from('financial_entries')
+        .select('id, note, amount, due_date')
+        .eq('user_id', user.id)
+        .eq('kind', 'expense')
+        .ilike('note', `%${descricao}%`);
+      
+      console.log('[BW][FIN_SYNC] Found matching financial_entries:', matchingEntries?.length || 0);
+      matchingEntries?.forEach(entry => {
+        console.log('[BW][FIN_SYNC] Will delete entry:', { id: entry.id, note: entry.note, amount: entry.amount, due_date: entry.due_date });
+      });
+      
+      // Now delete them
+      const { error: deleteEntriesError } = await supabase
+        .from('financial_entries')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('kind', 'expense')
+        .ilike('note', `%${descricao}%`);
 
-      for (const notePattern of notePatterns) {
-        const { error: deleteEntriesError } = await supabase
-          .from('financial_entries')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('kind', 'expense')
-          .eq('note', notePattern);
-
-        if (deleteEntriesError) {
-          console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
-        }
+      if (deleteEntriesError) {
+        console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
+      } else {
+        console.log('[BW][FIN_SYNC] Successfully deleted all matching entries');
       }
     }
 
@@ -873,26 +890,35 @@ export const useSupabaseData = () => {
     if (receita) {
       console.log('[BW][FIN_SYNC] Receita details:', { descricao: receita.descricao, tipo: receita.tipo, recorrente: receita.recorrente });
 
-      // Remove ALL financial_entries related to this receita (using ILIKE for case-insensitive pattern matching)
-      // This catches all entries regardless of exact format
+      // Remove ALL financial_entries related to this receita
+      // Strategy: delete all revenue entries where the note contains the description
       const descricao = receita.descricao;
       
-      // Delete entries with notes containing the description
-      const { data: deletedEntries, error: deleteEntriesError } = await supabase
+      // First, find all matching entries to log them
+      const { data: matchingEntries } = await supabase
+        .from('financial_entries')
+        .select('id, note, amount, due_date')
+        .eq('user_id', user.id)
+        .eq('kind', 'revenue')
+        .ilike('note', `%${descricao}%`);
+      
+      console.log('[BW][FIN_SYNC] Found matching financial_entries:', matchingEntries?.length || 0);
+      matchingEntries?.forEach(entry => {
+        console.log('[BW][FIN_SYNC] Will delete entry:', { id: entry.id, note: entry.note, amount: entry.amount, due_date: entry.due_date });
+      });
+      
+      // Now delete them
+      const { error: deleteEntriesError } = await supabase
         .from('financial_entries')
         .delete()
         .eq('user_id', user.id)
         .eq('kind', 'revenue')
-        .or(`note.ilike.%Recorrente: ${descricao}%,note.ilike.%Fixa: ${descricao}%,note.ilike.%${descricao}%`)
-        .select('id, note, amount, due_date');
+        .ilike('note', `%${descricao}%`);
 
       if (deleteEntriesError) {
         console.error('[BW][FIN_SYNC] Error deleting financial entries:', deleteEntriesError);
       } else {
-        console.log('[BW][FIN_SYNC] Deleted financial_entries:', deletedEntries?.length || 0);
-        deletedEntries?.forEach(entry => {
-          console.log('[BW][FIN_SYNC] Deleted entry:', { note: entry.note, amount: entry.amount, due_date: entry.due_date });
-        });
+        console.log('[BW][FIN_SYNC] Successfully deleted all matching entries');
       }
     }
 
