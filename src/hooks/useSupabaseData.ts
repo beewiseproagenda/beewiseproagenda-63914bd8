@@ -610,88 +610,112 @@ export const useSupabaseData = () => {
 
     if (error) throw error;
     
-    // GRANULAR UPDATE: if date changed, apply delta to OLD and NEW monthKey
-    if (despesaData.data && originalDespesa.data !== despesaData.data) {
-      const oldMonth = new Date(originalDespesa.data).getMonth();
-      const oldYear = new Date(originalDespesa.data).getFullYear();
-      const newMonth = new Date(despesaData.data).getMonth();
-      const newYear = new Date(despesaData.data).getFullYear();
+    setDespesas(prev => prev.map(d => d.id === id ? data : d));
+    
+    // Check if it's recurring or fixed
+    const tipoValue = (data as any).tipo;
+    const isRecurringOrFixed = data.recorrente || tipoValue === 'fixa';
+    
+    if (isRecurringOrFixed) {
+      // For recurring/fixed: DELETE ALL related entries (canonical ID + legacy format) then rematerialize
+      console.log('[BW][FIN_GRANULAR] Recurring/fixed despesa - deleting all entries before rematerialization');
       
-      if (oldMonth !== newMonth || oldYear !== newYear) {
-        console.log('[BW][FIN_GRANULAR] Date changed - moving from month', `${oldYear}-${oldMonth+1}`, 'to', `${newYear}-${newMonth+1}`);
-        
-        // Delete entries in OLD monthKey using canonical ID
-        const { error: deleteError } = await supabase
-          .from('financial_entries')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('kind', 'expense')
-          .ilike('note', `FINANCE_ID:${id}|%`);
-        
-        if (deleteError) {
-          console.error('[BW][FIN_GRANULAR] Error deleting old month entries:', deleteError);
-        } else {
-          console.log('[BW][FIN_GRANULAR] Removed entry from old monthKey');
-        }
-        
-        // Create new entry in NEW monthKey
-        const newAmount = despesaData.valor !== undefined ? despesaData.valor : originalDespesa.valor;
-        const newDescricao = despesaData.descricao || originalDespesa.descricao;
-        
-        const { error: insertError } = await supabase
-          .from('financial_entries')
-          .insert({
-            user_id: user.id,
-            kind: 'expense',
-            status: 'confirmed',
-            amount: newAmount,
-            due_date: despesaData.data,
-            note: `FINANCE_ID:${id}|${newDescricao}`,
-          });
-        
-        if (insertError) {
-          console.error('[BW][FIN_GRANULAR] Error creating new month entry:', insertError);
-        } else {
-          console.log('[BW][FIN_GRANULAR] Created entry in new monthKey');
-        }
-      } else {
-        // Same month - just update amount if changed
-        if (despesaData.valor !== undefined && despesaData.valor !== originalDespesa.valor) {
-          console.log('[BW][FIN_GRANULAR] Same month, updating amount from', originalDespesa.valor, 'to', despesaData.valor);
-          
-          await supabase
-            .from('financial_entries')
-            .update({ amount: despesaData.valor })
-            .eq('user_id', user.id)
-            .eq('kind', 'expense')
-            .ilike('note', `FINANCE_ID:${id}|%`);
-        }
-      }
-    } else if (despesaData.valor !== undefined && despesaData.valor !== originalDespesa.valor) {
-      // Only value changed, same date
-      console.log('[BW][FIN_GRANULAR] Updating only amount');
+      const descricao = despesaData.descricao || originalDespesa.descricao;
       
+      // Delete entries with canonical ID
       await supabase
         .from('financial_entries')
-        .update({ amount: despesaData.valor })
+        .delete()
         .eq('user_id', user.id)
         .eq('kind', 'expense')
         .ilike('note', `FINANCE_ID:${id}|%`);
-    }
-    
-    setDespesas(prev => prev.map(d => d.id === id ? data : d));
-    
-    // If recurring OR tipo=fixa, rematerialize future entries
-    const tipoValue = (data as any).tipo;
-    if (data.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][FIN_GRANULAR] Rematerializing recurring/fixed despesa', { 
-        recorrente: data.recorrente, 
-        tipo: tipoValue
-      });
+      
+      // Delete entries with legacy format (Recorrente: or Fixa:)
+      await supabase
+        .from('financial_entries')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('kind', 'expense')
+        .or(`note.ilike.Recorrente: ${descricao}%,note.ilike.Fixa: ${descricao}%`);
+      
+      console.log('[BW][FIN_GRANULAR] Deleted all related entries, calling materializeFinancialRecurring');
       await materializeFinancialRecurring();
+    } else {
+      // For single/non-recurring: UPDATE the specific entry (no rematerialization needed)
+      console.log('[BW][FIN_GRANULAR] Single despesa - updating entry directly');
+      
+      // Check if date changed
+      if (despesaData.data && originalDespesa.data !== despesaData.data) {
+        const oldMonth = new Date(originalDespesa.data).getMonth();
+        const oldYear = new Date(originalDespesa.data).getFullYear();
+        const newMonth = new Date(despesaData.data).getMonth();
+        const newYear = new Date(despesaData.data).getFullYear();
+        
+        if (oldMonth !== newMonth || oldYear !== newYear) {
+          // Month changed: DELETE old entry, CREATE new entry
+          console.log('[BW][FIN_GRANULAR] Date changed - moving from month', `${oldYear}-${oldMonth+1}`, 'to', `${newYear}-${newMonth+1}`);
+          
+          await supabase
+            .from('financial_entries')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('kind', 'expense')
+            .ilike('note', `FINANCE_ID:${id}|%`);
+          
+          const newAmount = despesaData.valor !== undefined ? despesaData.valor : originalDespesa.valor;
+          const newDescricao = despesaData.descricao || originalDespesa.descricao;
+          
+          await supabase
+            .from('financial_entries')
+            .insert({
+              user_id: user.id,
+              kind: 'expense',
+              status: 'confirmed',
+              amount: newAmount,
+              due_date: despesaData.data,
+              note: `FINANCE_ID:${id}|${newDescricao}`,
+            });
+          
+          console.log('[BW][FIN_GRANULAR] Moved entry to new monthKey');
+        } else {
+          // Same month, only update if value changed
+          if (despesaData.valor !== undefined && despesaData.valor !== originalDespesa.valor) {
+            console.log('[BW][FIN_GRANULAR] Same month, updating amount from', originalDespesa.valor, 'to', despesaData.valor);
+            
+            await supabase
+              .from('financial_entries')
+              .update({ amount: despesaData.valor })
+              .eq('user_id', user.id)
+              .eq('kind', 'expense')
+              .ilike('note', `FINANCE_ID:${id}|%`);
+          }
+        }
+      } else if (despesaData.valor !== undefined && despesaData.valor !== originalDespesa.valor) {
+        // Only value changed, same date
+        console.log('[BW][FIN_GRANULAR] Updating only amount');
+        
+        await supabase
+          .from('financial_entries')
+          .update({ amount: despesaData.valor })
+          .eq('user_id', user.id)
+          .eq('kind', 'expense')
+          .ilike('note', `FINANCE_ID:${id}|%`);
+      }
+      
+      // Also update description if changed
+      if (despesaData.descricao && despesaData.descricao !== originalDespesa.descricao) {
+        console.log('[BW][FIN_GRANULAR] Updating description in note');
+        
+        await supabase
+          .from('financial_entries')
+          .update({ note: `FINANCE_ID:${id}|${despesaData.descricao}` })
+          .eq('user_id', user.id)
+          .eq('kind', 'expense')
+          .ilike('note', `FINANCE_ID:${id}|%`);
+      }
     }
     
-    // SYNC: Invalidate and reload ALL
+    // SYNC: Reload data
     await fetchDespesas();
     await fetchFinancialEntries();
     
@@ -843,88 +867,112 @@ export const useSupabaseData = () => {
 
     if (error) throw error;
     
-    // GRANULAR UPDATE: if date changed, apply delta to OLD and NEW monthKey
-    if (receitaData.data && originalReceita.data !== receitaData.data) {
-      const oldMonth = new Date(originalReceita.data).getMonth();
-      const oldYear = new Date(originalReceita.data).getFullYear();
-      const newMonth = new Date(receitaData.data).getMonth();
-      const newYear = new Date(receitaData.data).getFullYear();
+    setReceitas(prev => prev.map(r => r.id === id ? data : r));
+    
+    // Check if it's recurring or fixed
+    const tipoValue = (data as any).tipo;
+    const isRecurringOrFixed = data.recorrente || tipoValue === 'fixa';
+    
+    if (isRecurringOrFixed) {
+      // For recurring/fixed: DELETE ALL related entries (canonical ID + legacy format) then rematerialize
+      console.log('[BW][FIN_GRANULAR] Recurring/fixed receita - deleting all entries before rematerialization');
       
-      if (oldMonth !== newMonth || oldYear !== newYear) {
-        console.log('[BW][FIN_GRANULAR] Date changed - moving from month', `${oldYear}-${oldMonth+1}`, 'to', `${newYear}-${newMonth+1}`);
-        
-        // Delete entries in OLD monthKey using canonical ID
-        const { error: deleteError } = await supabase
-          .from('financial_entries')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('kind', 'revenue')
-          .ilike('note', `FINANCE_ID:${id}|%`);
-        
-        if (deleteError) {
-          console.error('[BW][FIN_GRANULAR] Error deleting old month entries:', deleteError);
-        } else {
-          console.log('[BW][FIN_GRANULAR] Removed entry from old monthKey');
-        }
-        
-        // Create new entry in NEW monthKey
-        const newAmount = receitaData.valor !== undefined ? receitaData.valor : originalReceita.valor;
-        const newDescricao = receitaData.descricao || originalReceita.descricao;
-        
-        const { error: insertError } = await supabase
-          .from('financial_entries')
-          .insert({
-            user_id: user.id,
-            kind: 'revenue',
-            status: 'confirmed',
-            amount: newAmount,
-            due_date: receitaData.data,
-            note: `FINANCE_ID:${id}|${newDescricao}`,
-          });
-        
-        if (insertError) {
-          console.error('[BW][FIN_GRANULAR] Error creating new month entry:', insertError);
-        } else {
-          console.log('[BW][FIN_GRANULAR] Created entry in new monthKey');
-        }
-      } else {
-        // Same month - just update amount if changed
-        if (receitaData.valor !== undefined && receitaData.valor !== originalReceita.valor) {
-          console.log('[BW][FIN_GRANULAR] Same month, updating amount from', originalReceita.valor, 'to', receitaData.valor);
-          
-          await supabase
-            .from('financial_entries')
-            .update({ amount: receitaData.valor })
-            .eq('user_id', user.id)
-            .eq('kind', 'revenue')
-            .ilike('note', `FINANCE_ID:${id}|%`);
-        }
-      }
-    } else if (receitaData.valor !== undefined && receitaData.valor !== originalReceita.valor) {
-      // Only value changed, same date
-      console.log('[BW][FIN_GRANULAR] Updating only amount');
+      const descricao = receitaData.descricao || originalReceita.descricao;
       
+      // Delete entries with canonical ID
       await supabase
         .from('financial_entries')
-        .update({ amount: receitaData.valor })
+        .delete()
         .eq('user_id', user.id)
         .eq('kind', 'revenue')
         .ilike('note', `FINANCE_ID:${id}|%`);
-    }
-    
-    setReceitas(prev => prev.map(r => r.id === id ? data : r));
-    
-    // If recurring OR tipo=fixa, rematerialize future entries
-    const tipoValue = (data as any).tipo;
-    if (data.recorrente || tipoValue === 'fixa') {
-      console.log('[BW][FIN_GRANULAR] Rematerializing recurring/fixed receita', { 
-        recorrente: data.recorrente, 
-        tipo: tipoValue
-      });
+      
+      // Delete entries with legacy format (Recorrente: or Fixa:)
+      await supabase
+        .from('financial_entries')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('kind', 'revenue')
+        .or(`note.ilike.Recorrente: ${descricao}%,note.ilike.Fixa: ${descricao}%`);
+      
+      console.log('[BW][FIN_GRANULAR] Deleted all related entries, calling materializeFinancialRecurring');
       await materializeFinancialRecurring();
+    } else {
+      // For single/non-recurring: UPDATE the specific entry (no rematerialization needed)
+      console.log('[BW][FIN_GRANULAR] Single receita - updating entry directly');
+      
+      // Check if date changed
+      if (receitaData.data && originalReceita.data !== receitaData.data) {
+        const oldMonth = new Date(originalReceita.data).getMonth();
+        const oldYear = new Date(originalReceita.data).getFullYear();
+        const newMonth = new Date(receitaData.data).getMonth();
+        const newYear = new Date(receitaData.data).getFullYear();
+        
+        if (oldMonth !== newMonth || oldYear !== newYear) {
+          // Month changed: DELETE old entry, CREATE new entry
+          console.log('[BW][FIN_GRANULAR] Date changed - moving from month', `${oldYear}-${oldMonth+1}`, 'to', `${newYear}-${newMonth+1}`);
+          
+          await supabase
+            .from('financial_entries')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('kind', 'revenue')
+            .ilike('note', `FINANCE_ID:${id}|%`);
+          
+          const newAmount = receitaData.valor !== undefined ? receitaData.valor : originalReceita.valor;
+          const newDescricao = receitaData.descricao || originalReceita.descricao;
+          
+          await supabase
+            .from('financial_entries')
+            .insert({
+              user_id: user.id,
+              kind: 'revenue',
+              status: 'confirmed',
+              amount: newAmount,
+              due_date: receitaData.data,
+              note: `FINANCE_ID:${id}|${newDescricao}`,
+            });
+          
+          console.log('[BW][FIN_GRANULAR] Moved entry to new monthKey');
+        } else {
+          // Same month, only update if value changed
+          if (receitaData.valor !== undefined && receitaData.valor !== originalReceita.valor) {
+            console.log('[BW][FIN_GRANULAR] Same month, updating amount from', originalReceita.valor, 'to', receitaData.valor);
+            
+            await supabase
+              .from('financial_entries')
+              .update({ amount: receitaData.valor })
+              .eq('user_id', user.id)
+              .eq('kind', 'revenue')
+              .ilike('note', `FINANCE_ID:${id}|%`);
+          }
+        }
+      } else if (receitaData.valor !== undefined && receitaData.valor !== originalReceita.valor) {
+        // Only value changed, same date
+        console.log('[BW][FIN_GRANULAR] Updating only amount');
+        
+        await supabase
+          .from('financial_entries')
+          .update({ amount: receitaData.valor })
+          .eq('user_id', user.id)
+          .eq('kind', 'revenue')
+          .ilike('note', `FINANCE_ID:${id}|%`);
+      }
+      
+      // Also update description if changed
+      if (receitaData.descricao && receitaData.descricao !== originalReceita.descricao) {
+        console.log('[BW][FIN_GRANULAR] Updating description in note');
+        
+        await supabase
+          .from('financial_entries')
+          .update({ note: `FINANCE_ID:${id}|${receitaData.descricao}` })
+          .eq('user_id', user.id)
+          .eq('kind', 'revenue')
+          .ilike('note', `FINANCE_ID:${id}|%`);
+      }
     }
     
-    // SYNC: Invalidate and reload ALL
+    // SYNC: Reload data
     await fetchReceitas();
     await fetchFinancialEntries();
     
