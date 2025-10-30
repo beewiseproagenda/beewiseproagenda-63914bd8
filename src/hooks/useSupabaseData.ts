@@ -1087,6 +1087,8 @@ export const useSupabaseData = () => {
   const calcularDadosFinanceiros = () => {
     const APP_TZ = 'America/Sao_Paulo';
     const today = new Date();
+    // CRITICAL: Set today to start of day (00:00:00) for accurate date comparisons
+    today.setHours(0, 0, 0, 0);
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
     
