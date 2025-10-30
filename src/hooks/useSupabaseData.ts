@@ -762,11 +762,7 @@ export const useSupabaseData = () => {
     // Update local state immediately
     setDespesas(prev => prev.filter(d => d.id !== id));
     
-    // CRITICAL: Run cleanup to remove any orphaned entries
-    console.log('[BW][FIN_GRANULAR] Running cleanup to remove orphans...');
-    await cleanupOrphanEntries();
-    
-    // CRITICAL: Reload financial data to update cards and charts
+    // Reload financial data to update cards and charts (no cleanup - granular deletion handles it)
     console.log('[BW][FIN_GRANULAR] Reloading financial data...');
     await Promise.all([
       fetchDespesas(),
@@ -1022,11 +1018,7 @@ export const useSupabaseData = () => {
     // Update local state immediately
     setReceitas(prev => prev.filter(r => r.id !== id));
     
-    // CRITICAL: Run cleanup to remove any orphaned entries
-    console.log('[BW][FIN_GRANULAR] Running cleanup to remove orphans...');
-    await cleanupOrphanEntries();
-    
-    // CRITICAL: Reload financial data to update cards and charts
+    // Reload financial data to update cards and charts (no cleanup - granular deletion handles it)
     console.log('[BW][FIN_GRANULAR] Reloading financial data...');
     await Promise.all([
       fetchReceitas(),
