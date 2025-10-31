@@ -630,13 +630,13 @@ export const useSupabaseData = () => {
         .eq('kind', 'expense')
         .ilike('note', `FINANCE_ID:${id}|%`);
       
-      // Delete entries with legacy format (Recorrente: or Fixa:)
+      // Delete entries with ANY legacy format (Recorrente:, Fixa:, Recorrente (tipo):)
       await supabase
         .from('financial_entries')
         .delete()
         .eq('user_id', user.id)
         .eq('kind', 'expense')
-        .or(`note.ilike.Recorrente: ${descricao}%,note.ilike.Fixa: ${descricao}%`);
+        .or(`note.ilike.Recorrente%${descricao}%,note.ilike.Fixa%${descricao}%`);
       
       console.log('[BW][FIN_GRANULAR] Deleted all related entries, calling materializeFinancialRecurring');
       await materializeFinancialRecurring();
@@ -883,13 +883,13 @@ export const useSupabaseData = () => {
         .eq('kind', 'revenue')
         .ilike('note', `FINANCE_ID:${id}|%`);
       
-      // Delete entries with legacy format (Recorrente: or Fixa:)
+      // Delete entries with ANY legacy format (Recorrente:, Fixa:, Recorrente (tipo):)
       await supabase
         .from('financial_entries')
         .delete()
         .eq('user_id', user.id)
         .eq('kind', 'revenue')
-        .or(`note.ilike.Recorrente: ${descricao}%,note.ilike.Fixa: ${descricao}%`);
+        .or(`note.ilike.Recorrente%${descricao}%,note.ilike.Fixa%${descricao}%`);
       
       console.log('[BW][FIN_GRANULAR] Deleted all related entries, calling materializeFinancialRecurring');
       await materializeFinancialRecurring();

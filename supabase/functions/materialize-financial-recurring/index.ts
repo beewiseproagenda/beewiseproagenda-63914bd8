@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
     console.log('[BW][RECEITA_FIXA] Found', receitasRecorrentes?.length || 0, 'recurring or fixed receitas');
 
     for (const receita of (receitasRecorrentes || [])) {
-      // Handle tipo=fixa (monthly fixed revenue)
-      if (receita.tipo === 'fixa') {
+      // Handle tipo=fixa (monthly fixed revenue) - DEPRECATED, use recorrente flag instead
+      if (receita.tipo === 'fixa' && !receita.recorrente) {
         const receitaStartDate = new Date(receita.data);
         const startDay = receitaStartDate.getDate();
         const currentDate = new Date(Math.max(receitaStartDate.getTime(), startDate.getTime()));
@@ -130,43 +130,72 @@ Deno.serve(async (req) => {
         continue; // Skip recurrence logic for tipo=fixa
       }
 
-      // Handle recorrente=true with monthly aggregation
-      const rec = receita.recorrencia as { tipo: string; dia: number };
-      if (!rec) continue;
+      // Handle recorrente=true with new structure
+      if (!receita.recorrente || !receita.recorrencia) continue;
+      
+      const rec = receita.recorrencia;
+      const receitaStartDate = rec.startDate ? new Date(rec.startDate) : new Date(receita.data);
+      const receitaEndDate = rec.endDate ? new Date(rec.endDate) : endDate;
+      
+      console.log('[BW][FIN_REC] Processing receita:', receita.id, rec.tipo, 'from', receitaStartDate.toISOString().split('T')[0], 'to', receitaEndDate.toISOString().split('T')[0]);
 
-      const receitaStartDate = new Date(receita.data);
+      // Iterate through each month in the window
       let currentMonthDate = new Date(Math.max(receitaStartDate.getTime(), startDate.getTime()));
       currentMonthDate.setDate(1); // Start at first day of month
-
-      console.log('[BW][FIN_REC] Processing receita:', receita.id, rec.tipo, 'from', currentMonthDate.toISOString().split('T')[0]);
-
-      // Create ONE entry per month with aggregated value
-      while (currentMonthDate <= endDate) {
+      
+      while (currentMonthDate <= Math.min(receitaEndDate, endDate)) {
         const year = currentMonthDate.getFullYear();
         const month = currentMonthDate.getMonth();
+        const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
         
-        // Calculate monthly aggregated amount based on recurrence type
-        let monthlyAmount = receita.valor;
+        let monthlyAmount = 0;
+        let targetDay = 1;
         
-        if (rec.tipo === 'semanal') {
-          // Weekly: 4 occurrences per month
-          monthlyAmount = receita.valor * 4;
+        if (rec.tipo === 'mensal') {
+          // Monthly: 1x valor base (check interval)
+          const dayOfMonth = rec.dayOfMonth || 1;
+          const intervalMonths = rec.intervalMonths || 1;
+          
+          // Calculate months difference from start
+          const monthsDiff = (year - receitaStartDate.getFullYear()) * 12 + (month - receitaStartDate.getMonth());
+          
+          if (monthsDiff >= 0 && monthsDiff % intervalMonths === 0) {
+            monthlyAmount = receita.valor;
+            targetDay = Math.min(dayOfMonth, new Date(year, month + 1, 0).getDate());
+          }
+        } else if (rec.tipo === 'semanal') {
+          // Weekly: (valor × dias_semana_marcados) × (4 / intervalo_semanas)
+          const weekdays = rec.weekdays || [];
+          const intervalWeeks = rec.intervalWeeks || 1;
+          
+          if (weekdays.length > 0) {
+            const valorSemanal = receita.valor * weekdays.length;
+            const fatorSemanas = 4 / intervalWeeks;
+            monthlyAmount = valorSemanal * fatorSemanas;
+            targetDay = 1; // Use first day of month for weekly aggregates
+          }
         } else if (rec.tipo === 'diaria') {
-          // Daily: number of days in the month
-          const daysInMonth = new Date(year, month + 1, 0).getDate();
-          monthlyAmount = receita.valor * daysInMonth;
+          // Daily: valor × dias ativos no mês
+          const firstDay = new Date(year, month, 1);
+          const lastDay = new Date(year, month + 1, 0);
+          
+          // Calculate active days in this month
+          let activeDays = 0;
+          if (receitaStartDate <= lastDay && receitaEndDate >= firstDay) {
+            const effectiveStart = receitaStartDate > firstDay ? receitaStartDate : firstDay;
+            const effectiveEnd = receitaEndDate < lastDay ? receitaEndDate : lastDay;
+            activeDays = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          }
+          
+          monthlyAmount = receita.valor * activeDays;
+          targetDay = 1; // Use first day of month for daily aggregates
         }
-        // mensal: already correct (1x valor)
         
-        // Use the recurrence day or first day of month for aggregates
-        const targetDay = rec.tipo === 'mensal' 
-          ? Math.min(rec.dia, new Date(year, month + 1, 0).getDate())
-          : 1; // CRITICAL: Use first day of month for weekly/daily to always appear in current month
-        const occurrenceDate = new Date(year, month, targetDay);
-        const dueDateStr = occurrenceDate.toISOString().split('T')[0];
-        
-        // Skip if before start date
-        if (occurrenceDate >= receitaStartDate) {
+        // Create or update entry if amount > 0
+        if (monthlyAmount > 0) {
+          const occurrenceDate = new Date(year, month, targetDay);
+          const dueDateStr = occurrenceDate.toISOString().split('T')[0];
+          
           // Check if entry already exists
           const { data: existing } = await supabase
             .from('financial_entries')
@@ -174,7 +203,7 @@ Deno.serve(async (req) => {
             .eq('user_id', user.id)
             .eq('kind', 'revenue')
             .eq('due_date', dueDateStr)
-            .eq('note', `Recorrente: ${receita.descricao}`)
+            .ilike('note', `%${receita.descricao}%`)
             .maybeSingle();
 
           if (!existing) {
@@ -187,16 +216,16 @@ Deno.serve(async (req) => {
                 status: 'expected',
                 amount: monthlyAmount,
                 due_date: dueDateStr,
-                note: `Recorrente: ${receita.descricao}`,
+                note: `Recorrente (${rec.tipo}): ${receita.descricao}`,
               });
 
             if (insertError) {
               console.error('[BW][FIN_REC] Error creating revenue entry:', insertError);
             } else {
               created++;
-              console.log(`[BW][FIN_REC] Created ${rec.tipo} revenue entry for ${dueDateStr}: ${monthlyAmount} (${receita.valor} x ${rec.tipo === 'semanal' ? 4 : rec.tipo === 'diaria' ? new Date(year, month + 1, 0).getDate() : 1})`);
+              console.log(`[BW][FIN_REC] Created ${rec.tipo} revenue entry for ${monthKey}: ${monthlyAmount.toFixed(2)}`);
             }
-          } else if (existing.amount !== monthlyAmount) {
+          } else if (Math.abs(existing.amount - monthlyAmount) > 0.01) {
             // Update if amount changed
             const { error: updateError } = await supabase
               .from('financial_entries')
@@ -205,7 +234,7 @@ Deno.serve(async (req) => {
 
             if (!updateError) {
               updated++;
-              console.log(`[BW][FIN_REC] Updated ${rec.tipo} revenue entry for ${dueDateStr}: ${monthlyAmount}`);
+              console.log(`[BW][FIN_REC] Updated ${rec.tipo} revenue entry for ${monthKey}: ${monthlyAmount.toFixed(2)}`);
             }
           }
         }
@@ -235,8 +264,8 @@ Deno.serve(async (req) => {
     console.log('[BW][RECEITA_FIXA] Found', despesasRecorrentes?.length || 0, 'recurring or fixed despesas');
 
     for (const despesa of (despesasRecorrentes || [])) {
-      // Handle tipo=fixa (monthly fixed expense)
-      if (despesa.tipo === 'fixa') {
+      // Handle tipo=fixa (monthly fixed expense) - DEPRECATED, use recorrente flag instead
+      if (despesa.tipo === 'fixa' && !despesa.recorrente) {
         const despesaStartDate = new Date(despesa.data);
         const startDay = despesaStartDate.getDate();
         const currentDate = new Date(Math.max(despesaStartDate.getTime(), startDate.getTime()));
@@ -292,43 +321,72 @@ Deno.serve(async (req) => {
         continue; // Skip recurrence logic for tipo=fixa
       }
 
-      // Handle recorrente=true with monthly aggregation
-      const rec = despesa.recorrencia as { tipo: string; dia: number };
-      if (!rec) continue;
+      // Handle recorrente=true with new structure
+      if (!despesa.recorrente || !despesa.recorrencia) continue;
+      
+      const rec = despesa.recorrencia;
+      const despesaStartDate = rec.startDate ? new Date(rec.startDate) : new Date(despesa.data);
+      const despesaEndDate = rec.endDate ? new Date(rec.endDate) : endDate;
+      
+      console.log('[BW][FIN_REC] Processing despesa:', despesa.id, rec.tipo, 'from', despesaStartDate.toISOString().split('T')[0], 'to', despesaEndDate.toISOString().split('T')[0]);
 
-      const despesaStartDate = new Date(despesa.data);
+      // Iterate through each month in the window
       let currentMonthDate = new Date(Math.max(despesaStartDate.getTime(), startDate.getTime()));
       currentMonthDate.setDate(1); // Start at first day of month
-
-      console.log('[BW][FIN_REC] Processing despesa:', despesa.id, rec.tipo, 'from', currentMonthDate.toISOString().split('T')[0]);
-
-      // Create ONE entry per month with aggregated value
-      while (currentMonthDate <= endDate) {
+      
+      while (currentMonthDate <= Math.min(despesaEndDate, endDate)) {
         const year = currentMonthDate.getFullYear();
         const month = currentMonthDate.getMonth();
+        const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
         
-        // Calculate monthly aggregated amount based on recurrence type
-        let monthlyAmount = despesa.valor;
+        let monthlyAmount = 0;
+        let targetDay = 1;
         
-        if (rec.tipo === 'semanal') {
-          // Weekly: 4 occurrences per month
-          monthlyAmount = despesa.valor * 4;
+        if (rec.tipo === 'mensal') {
+          // Monthly: 1x valor base (check interval)
+          const dayOfMonth = rec.dayOfMonth || 1;
+          const intervalMonths = rec.intervalMonths || 1;
+          
+          // Calculate months difference from start
+          const monthsDiff = (year - despesaStartDate.getFullYear()) * 12 + (month - despesaStartDate.getMonth());
+          
+          if (monthsDiff >= 0 && monthsDiff % intervalMonths === 0) {
+            monthlyAmount = despesa.valor;
+            targetDay = Math.min(dayOfMonth, new Date(year, month + 1, 0).getDate());
+          }
+        } else if (rec.tipo === 'semanal') {
+          // Weekly: (valor × dias_semana_marcados) × (4 / intervalo_semanas)
+          const weekdays = rec.weekdays || [];
+          const intervalWeeks = rec.intervalWeeks || 1;
+          
+          if (weekdays.length > 0) {
+            const valorSemanal = despesa.valor * weekdays.length;
+            const fatorSemanas = 4 / intervalWeeks;
+            monthlyAmount = valorSemanal * fatorSemanas;
+            targetDay = 1; // Use first day of month for weekly aggregates
+          }
         } else if (rec.tipo === 'diaria') {
-          // Daily: number of days in the month
-          const daysInMonth = new Date(year, month + 1, 0).getDate();
-          monthlyAmount = despesa.valor * daysInMonth;
+          // Daily: valor × dias ativos no mês
+          const firstDay = new Date(year, month, 1);
+          const lastDay = new Date(year, month + 1, 0);
+          
+          // Calculate active days in this month
+          let activeDays = 0;
+          if (despesaStartDate <= lastDay && despesaEndDate >= firstDay) {
+            const effectiveStart = despesaStartDate > firstDay ? despesaStartDate : firstDay;
+            const effectiveEnd = despesaEndDate < lastDay ? despesaEndDate : lastDay;
+            activeDays = Math.ceil((effectiveEnd.getTime() - effectiveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          }
+          
+          monthlyAmount = despesa.valor * activeDays;
+          targetDay = 1; // Use first day of month for daily aggregates
         }
-        // mensal: already correct (1x valor)
         
-        // Use the recurrence day or first day of month for aggregates
-        const targetDay = rec.tipo === 'mensal' 
-          ? Math.min(rec.dia, new Date(year, month + 1, 0).getDate())
-          : 1; // CRITICAL: Use first day of month for weekly/daily to always appear in current month
-        const occurrenceDate = new Date(year, month, targetDay);
-        const dueDateStr = occurrenceDate.toISOString().split('T')[0];
-        
-        // Skip if before start date
-        if (occurrenceDate >= despesaStartDate) {
+        // Create or update entry if amount > 0
+        if (monthlyAmount > 0) {
+          const occurrenceDate = new Date(year, month, targetDay);
+          const dueDateStr = occurrenceDate.toISOString().split('T')[0];
+          
           // Check if entry already exists
           const { data: existing } = await supabase
             .from('financial_entries')
@@ -336,7 +394,7 @@ Deno.serve(async (req) => {
             .eq('user_id', user.id)
             .eq('kind', 'expense')
             .eq('due_date', dueDateStr)
-            .eq('note', `Recorrente: ${despesa.descricao}`)
+            .ilike('note', `%${despesa.descricao}%`)
             .maybeSingle();
 
           if (!existing) {
@@ -349,16 +407,16 @@ Deno.serve(async (req) => {
                 status: 'expected',
                 amount: monthlyAmount,
                 due_date: dueDateStr,
-                note: `Recorrente: ${despesa.descricao}`,
+                note: `Recorrente (${rec.tipo}): ${despesa.descricao}`,
               });
 
             if (insertError) {
               console.error('[BW][FIN_REC] Error creating expense entry:', insertError);
             } else {
               created++;
-              console.log(`[BW][FIN_REC] Created ${rec.tipo} expense entry for ${dueDateStr}: ${monthlyAmount} (${despesa.valor} x ${rec.tipo === 'semanal' ? 4 : rec.tipo === 'diaria' ? new Date(year, month + 1, 0).getDate() : 1})`);
+              console.log(`[BW][FIN_REC] Created ${rec.tipo} expense entry for ${monthKey}: ${monthlyAmount.toFixed(2)}`);
             }
-          } else if (existing.amount !== monthlyAmount) {
+          } else if (Math.abs(existing.amount - monthlyAmount) > 0.01) {
             // Update if amount changed
             const { error: updateError } = await supabase
               .from('financial_entries')
@@ -367,7 +425,7 @@ Deno.serve(async (req) => {
 
             if (!updateError) {
               updated++;
-              console.log(`[BW][FIN_REC] Updated ${rec.tipo} expense entry for ${dueDateStr}: ${monthlyAmount}`);
+              console.log(`[BW][FIN_REC] Updated ${rec.tipo} expense entry for ${monthKey}: ${monthlyAmount.toFixed(2)}`);
             }
           }
         }
