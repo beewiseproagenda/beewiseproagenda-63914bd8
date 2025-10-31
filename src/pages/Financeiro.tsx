@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, TrendingUp, DollarSign } from "lucide-react";
-import { RecurrenceFields } from "@/components/RecurrenceFields";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,15 +31,7 @@ const receitaSchema = z.object({
   recorrente: z.boolean().optional(),
   recorrencia: z.object({
     tipo: z.enum(['diaria', 'semanal', 'mensal']),
-    // Campos comuns
-    startDate: z.date().optional(),
-    endDate: z.date().optional(),
-    // Campos para recorrência semanal
-    weekdays: z.array(z.number()).optional(),
-    intervalWeeks: z.number().min(1).optional(),
-    // Campos para recorrência mensal
-    dayOfMonth: z.number().min(1).max(31).optional(),
-    intervalMonths: z.number().min(1).optional(),
+    dia: z.number().min(1).max(31),
   }).optional(),
 });
 
@@ -53,15 +44,7 @@ const despesaSchema = z.object({
   recorrente: z.boolean().optional(),
   recorrencia: z.object({
     tipo: z.enum(['diaria', 'semanal', 'mensal']),
-    // Campos comuns
-    startDate: z.date().optional(),
-    endDate: z.date().optional(),
-    // Campos para recorrência semanal
-    weekdays: z.array(z.number()).optional(),
-    intervalWeeks: z.number().min(1).optional(),
-    // Campos para recorrência mensal
-    dayOfMonth: z.number().min(1).max(31).optional(),
-    intervalMonths: z.number().min(1).optional(),
+    dia: z.number().min(1).max(31),
   }).optional(),
 });
 
@@ -160,30 +143,6 @@ export default function Financeiro() {
       
       console.log('[BW][FIN_DATES] Saving receita with local date:', { original: data.data, localDateStr });
       
-      // Process recorrencia to include date strings if applicable
-      let recorrenciaData = null;
-      if (data.recorrente && data.recorrencia) {
-        recorrenciaData = {
-          tipo: data.recorrencia.tipo,
-          // Convert dates to strings
-          startDate: data.recorrencia.startDate 
-            ? `${data.recorrencia.startDate.getFullYear()}-${String(data.recorrencia.startDate.getMonth() + 1).padStart(2, '0')}-${String(data.recorrencia.startDate.getDate()).padStart(2, '0')}`
-            : localDateStr,
-          endDate: data.recorrencia.endDate 
-            ? `${data.recorrencia.endDate.getFullYear()}-${String(data.recorrencia.endDate.getMonth() + 1).padStart(2, '0')}-${String(data.recorrencia.endDate.getDate()).padStart(2, '0')}`
-            : null,
-          // Type-specific fields
-          ...(data.recorrencia.tipo === 'semanal' && {
-            weekdays: data.recorrencia.weekdays || [],
-            intervalWeeks: data.recorrencia.intervalWeeks || 1,
-          }),
-          ...(data.recorrencia.tipo === 'mensal' && {
-            dayOfMonth: data.recorrencia.dayOfMonth || 1,
-            intervalMonths: data.recorrencia.intervalMonths || 1,
-          }),
-        };
-      }
-      
       const receitaData = {
         data: localDateStr,
         valor: data.valor,
@@ -193,7 +152,7 @@ export default function Financeiro() {
         tipo: data.recorrente ? 'fixa' : 'variavel', // Recorrente = fixa, Único = variavel
         observacoes: data.observacoes || "",
         recorrente: data.recorrente || false,
-        recorrencia: recorrenciaData,
+        recorrencia: data.recorrente ? data.recorrencia : null,
       };
 
       if (editingReceita) {
@@ -220,30 +179,6 @@ export default function Financeiro() {
       
       console.log('[BW][FIN_DATES] Saving despesa with local date:', { original: data.data, localDateStr });
       
-      // Process recorrencia to include date strings if applicable
-      let recorrenciaData = null;
-      if (data.recorrente && data.recorrencia) {
-        recorrenciaData = {
-          tipo: data.recorrencia.tipo,
-          // Convert dates to strings
-          startDate: data.recorrencia.startDate 
-            ? `${data.recorrencia.startDate.getFullYear()}-${String(data.recorrencia.startDate.getMonth() + 1).padStart(2, '0')}-${String(data.recorrencia.startDate.getDate()).padStart(2, '0')}`
-            : localDateStr,
-          endDate: data.recorrencia.endDate 
-            ? `${data.recorrencia.endDate.getFullYear()}-${String(data.recorrencia.endDate.getMonth() + 1).padStart(2, '0')}-${String(data.recorrencia.endDate.getDate()).padStart(2, '0')}`
-            : null,
-          // Type-specific fields
-          ...(data.recorrencia.tipo === 'semanal' && {
-            weekdays: data.recorrencia.weekdays || [],
-            intervalWeeks: data.recorrencia.intervalWeeks || 1,
-          }),
-          ...(data.recorrencia.tipo === 'mensal' && {
-            dayOfMonth: data.recorrencia.dayOfMonth || 1,
-            intervalMonths: data.recorrencia.intervalMonths || 1,
-          }),
-        };
-      }
-      
       const despesaData = {
         data: localDateStr,
         valor: data.valor,
@@ -252,7 +187,7 @@ export default function Financeiro() {
         tipo: data.recorrente ? 'fixa' : 'variavel', // Recorrente = fixa, Único = variavel
         observacoes: data.observacoes || "",
         recorrente: data.recorrente || false,
-        recorrencia: recorrenciaData,
+        recorrencia: data.recorrente ? data.recorrencia : null,
       };
 
       if (editingDespesa) {
@@ -271,17 +206,6 @@ export default function Financeiro() {
 
   const editReceita = (receita: any) => {
     setEditingReceita(receita.id);
-    
-    // Process recorrencia to convert date strings back to Date objects
-    let recorrenciaData = receita.recorrencia;
-    if (recorrenciaData) {
-      recorrenciaData = {
-        ...recorrenciaData,
-        startDate: recorrenciaData.startDate ? new Date(recorrenciaData.startDate) : undefined,
-        endDate: recorrenciaData.endDate ? new Date(recorrenciaData.endDate) : undefined,
-      };
-    }
-    
     receitaForm.reset({
       data: new Date(receita.data),
       valor: receita.valor,
@@ -290,24 +214,13 @@ export default function Financeiro() {
       formaPagamento: receita.forma_pagamento,
       observacoes: receita.observacoes || "",
       recorrente: receita.recorrente || false,
-      recorrencia: recorrenciaData || undefined,
+      recorrencia: receita.recorrencia || undefined,
     });
     setOpenReceitaDialog(true);
   };
 
   const editDespesa = (despesa: any) => {
     setEditingDespesa(despesa.id);
-    
-    // Process recorrencia to convert date strings back to Date objects
-    let recorrenciaData = despesa.recorrencia;
-    if (recorrenciaData) {
-      recorrenciaData = {
-        ...recorrenciaData,
-        startDate: recorrenciaData.startDate ? new Date(recorrenciaData.startDate) : undefined,
-        endDate: recorrenciaData.endDate ? new Date(recorrenciaData.endDate) : undefined,
-      };
-    }
-    
     despesaForm.reset({
       data: new Date(despesa.data),
       valor: despesa.valor,
@@ -315,7 +228,7 @@ export default function Financeiro() {
       categoria: despesa.categoria,
       observacoes: despesa.observacoes || "",
       recorrente: despesa.recorrente || false,
-      recorrencia: recorrenciaData || undefined,
+      recorrencia: despesa.recorrencia || undefined,
     });
     setOpenDespesaDialog(true);
   };
@@ -573,9 +486,24 @@ export default function Financeiro() {
                             )}
                           />
 
-                          <RecurrenceFields 
-                            form={receitaForm} 
-                            recurrenceType={receitaForm.watch("recorrencia.tipo")}
+                          <FormField
+                            control={receitaForm.control}
+                            name="recorrencia.dia"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Dia da Recorrência</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max="31"
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
                           />
                         </>
                       )}
@@ -839,9 +767,24 @@ export default function Financeiro() {
                             )}
                           />
 
-                          <RecurrenceFields 
-                            form={despesaForm} 
-                            recurrenceType={despesaForm.watch("recorrencia.tipo")}
+                          <FormField
+                            control={despesaForm.control}
+                            name="recorrencia.dia"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Dia da Recorrência</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    max="31"
+                                    {...field}
+                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
                           />
                         </>
                       )}
